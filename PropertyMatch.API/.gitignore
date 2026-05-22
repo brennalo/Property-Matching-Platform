@@ -1,0 +1,28 @@
+# Environment
+.env
+.env.local
+.env.production
+appsettings.Development.json
+appsettings.Production.json
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# Docker
+*.log
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/settings.json
