@@ -28,13 +28,24 @@ public record ListingResponse(
     string? SourceUrl, string? SourcePlatform);
 
 // ── Match ─────────────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Per-mode commute result returned alongside the matched listing.
+/// </summary>
+public record ModeCommuteResult(
+    TransportMode Mode,
+    int DurationMinutes,
+    double DistanceKm,
+    string? EncodedPolyline);   // null when Routes API unavailable
+
 public record MatchRequest(
     int? Rooms, int? Toilets,
     ResidencyType? ResidencyType,
     decimal? PriceMin, decimal? PriceMax,
     string WorkplaceAddress,
     double WorkplaceLat, double WorkplaceLng,
-    TransportMode TransportMode,
+    /// <summary>One or more transport modes. Best (shortest) duration used for scoring.</summary>
+    List<TransportMode> TransportModes,
     int MaxCommuteMinutes,
     Guid? LifestyleTemplateId);
 
@@ -44,8 +55,11 @@ public record MatchedListingResponse(
     double CommuteScore,
     double LifestyleScore,
     double TotalScore,
+    /// <summary>Shortest commute across all selected modes (null if API unavailable).</summary>
     int? CommuteMinutes,
-    Dictionary<string, int> LifestyleCounts);
+    Dictionary<string, int> LifestyleCounts,
+    /// <summary>Per-mode results for frontend route display.</summary>
+    List<ModeCommuteResult> CommuteRoutes);
 
 // ── Lifestyle Templates ───────────────────────────────────────────────────────
 public record CreateTemplateRequest(string Name, List<string> PlaceTypes);

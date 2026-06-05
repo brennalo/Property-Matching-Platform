@@ -4,34 +4,37 @@ using PropertyMatch.API.Models;
 
 namespace PropertyMatch.API.Services;
 
+/// <summary>Result from a single-mode route request.</summary>
+public record RouteResult(int DurationMinutes, double DistanceKm, string? EncodedPolyline);
+
 public class GoogleRoutesService(HttpClient http, IConfiguration config)
 {
     private readonly string _apiKey = config["Google:ApiKey"]
         ?? throw new InvalidOperationException("Google:ApiKey not configured");
 
+    private static string ToGoogleMode(TransportMode mode) => mode switch
+    {
+        TransportMode.Driving => "DRIVE",
+        TransportMode.Walking => "WALK",
+        TransportMode.Transit => "TRANSIT",
+        TransportMode.Bicycling => "BICYCLE",
+        _ => "DRIVE"
+    };
+
     /// <summary>
-    /// Returns travel duration in minutes between origin and destination.
-    /// Uses Google Routes API (computeRoutes endpoint).
+    /// Fetches duration, distance and encoded polyline for a single transport mode.
+    /// Returns null when the Routes API is unavailable or returns an error.
     /// </summary>
-    public async Task<int?> GetCommuteDurationAsync(
+    public async Task<RouteResult?> GetRouteAsync(
         double originLat, double originLng,
         double destLat, double destLng,
         TransportMode mode)
     {
-        var travelMode = mode switch
-        {
-            TransportMode.Driving => "DRIVE",
-            TransportMode.Walking => "WALK",
-            TransportMode.Transit => "TRANSIT",
-            TransportMode.Bicycling => "BICYCLE",
-            _ => "DRIVE"
-        };
-
         var body = new
         {
             origin = new { location = new { latLng = new { latitude = originLat, longitude = originLng } } },
             destination = new { location = new { latLng = new { latitude = destLat, longitude = destLng } } },
-            travelMode,
+            travelMode = ToGoogleMode(mode),
             computeAlternativeRoutes = false,
             routeModifiers = new { avoidTolls = false },
             languageCode = "en-US",
@@ -42,7 +45,10 @@ public class GoogleRoutesService(HttpClient http, IConfiguration config)
             HttpMethod.Post,
             $"https://routes.googleapis.com/directions/v2:computeRoutes?key={_apiKey}");
 
-        request.Headers.Add("X-Goog-FieldMask", "routes.duration");
+        // Request duration, distance AND the overview polyline
+        request.Headers.Add("X-Goog-FieldMask",
+            "routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline");
+
         request.Content = new StringContent(
             JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
 
@@ -54,17 +60,52 @@ public class GoogleRoutesService(HttpClient http, IConfiguration config)
             var json = await response.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(json);
 
-            var routes = doc.RootElement.GetProperty("routes");
-            if (routes.GetArrayLength() == 0) return null;
+            if (!doc.RootElement.TryGetProperty("routes", out var routesEl)) return null;
+            if (routesEl.GetArrayLength() == 0) return null;
 
-            // Duration comes back as "123s"
-            var durationStr = routes[0].GetProperty("duration").GetString() ?? "0s";
+            var route = routesEl[0];
+
+            // Duration: "123s"
+            var durationStr = route.GetProperty("duration").GetString() ?? "0s";
             var seconds = int.Parse(durationStr.TrimEnd('s'));
-            return (int)Math.Ceiling(seconds / 60.0);
+            var minutes = (int)Math.Ceiling(seconds / 60.0);
+
+            // Distance: metres as integer
+            var distanceMetres = route.TryGetProperty("distanceMeters", out var dmEl)
+                ? dmEl.GetInt32() : 0;
+            var distanceKm = Math.Round(distanceMetres / 1000.0, 2);
+
+            // Encoded polyline (may be absent for some modes/regions)
+            string? polyline = null;
+            if (route.TryGetProperty("polyline", out var polyEl) &&
+                polyEl.TryGetProperty("encodedPolyline", out var encEl))
+            {
+                polyline = encEl.GetString();
+            }
+
+            return new RouteResult(minutes, distanceKm, polyline);
         }
         catch
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// Queries all requested modes in parallel and returns results keyed by mode.
+    /// </summary>
+    public async Task<Dictionary<TransportMode, RouteResult>> GetRoutesAsync(
+        double originLat, double originLng,
+        double destLat, double destLng,
+        IEnumerable<TransportMode> modes)
+    {
+        var tasks = modes.Distinct().Select(async m =>
+            (Mode: m, Result: await GetRouteAsync(originLat, originLng, destLat, destLng, m)));
+
+        var results = await Task.WhenAll(tasks);
+
+        return results
+            .Where(r => r.Result != null)
+            .ToDictionary(r => r.Mode, r => r.Result!);
     }
 }
