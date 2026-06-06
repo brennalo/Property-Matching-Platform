@@ -31,12 +31,30 @@ export interface Listing {
     sourcePlatform: string | null
 }
 
-/** Per-mode commute result from the backend (mirrors ModeCommuteResult C# record) */
+/** One step inside a transit route — mirrors TransitStep C# record */
+export interface TransitStep {
+    type: 'TRANSIT' | 'WALK'
+    durationMinutes: number
+    distanceKm: number
+    polylineEncoded: string | null
+    // Transit-only (null for WALK steps)
+    lineName: string | null
+    lineColor: string | null        // hex e.g. '#008000'
+    lineTextColor: string | null
+    vehicleType: string | null      // BUS | SUBWAY | RAIL …
+    vehicleIcon: string | null      // emoji
+    departureStop: string | null
+    arrivalStop: string | null
+    numStops: number | null
+    headSign: string | null
+}
+
 export interface ModeCommuteResult {
     mode: TransportMode
     durationMinutes: number
     distanceKm: number
     encodedPolyline: string | null
+    transitSteps: TransitStep[] | null  // only populated for Transit mode
 }
 
 export interface MatchedListing {
@@ -45,10 +63,8 @@ export interface MatchedListing {
     commuteScore: number
     lifestyleScore: number
     totalScore: number
-    /** Shortest commute across all requested modes */
     commuteMinutes: number | null
     lifestyleCounts: Record<string, number>
-    /** Per-mode route data — used to render polylines in the detail page */
     commuteRoutes: ModeCommuteResult[]
 }
 
@@ -66,6 +82,12 @@ export interface ViewingSchedule {
     tenantId: string
     tenantName: string
     scheduledAt: string
+    status: ScheduleStatus
+}
+
+/** A single booked time slot — from /api/schedules/listing/{id}/slots */
+export interface BookedSlot {
+    scheduledAt: string    // ISO datetime UTC
     status: ScheduleStatus
 }
 
@@ -103,7 +125,6 @@ export interface AgentDetail {
     listingCount: number
 }
 
-// Available Google Places types for lifestyle templates
 export const PLACE_TYPE_OPTIONS: { value: string; label: string; emoji: string }[] = [
     { value: 'cafe', label: 'Café', emoji: '☕' },
     { value: 'gym', label: 'Gym', emoji: '🏋️' },
@@ -117,8 +138,6 @@ export const PLACE_TYPE_OPTIONS: { value: string; label: string; emoji: string }
     { value: 'shopping_mall', label: 'Shopping Mall', emoji: '🛍️' },
     { value: 'night_club', label: 'Nightclub', emoji: '🎵' },
     { value: 'bar', label: 'Bar', emoji: '🍺' },
-    { value: 'yoga_studio', label: 'Yoga Studio', emoji: '🧘' },
-    { value: 'spa', label: 'Spa', emoji: '💆' },
     { value: 'convenience_store', label: 'Convenience Store', emoji: '🏪' },
     { value: 'movie_theater', label: 'Cinema', emoji: '🎬' },
     { value: 'laundry', label: 'Laundry', emoji: '👕' },
