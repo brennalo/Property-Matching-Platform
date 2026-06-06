@@ -71,7 +71,6 @@ builder.Services.AddScoped<GoogleRoutesService>();
 builder.Services.AddScoped<GooglePlacesService>();
 builder.Services.AddScoped<StripeService>();
 builder.Services.AddScoped<S3Service>();
-builder.Services.AddScoped<PropertyScraperService>();
 builder.Services.AddHttpClient();
 
 

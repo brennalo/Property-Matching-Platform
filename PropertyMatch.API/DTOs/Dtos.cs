@@ -1,4 +1,5 @@
 using PropertyMatch.API.Models;
+using PropertyMatch.API.Services;
 
 namespace PropertyMatch.API.DTOs;
 
@@ -29,14 +30,12 @@ public record ListingResponse(
 
 // ── Match ─────────────────────────────────────────────────────────────────────
 
-/// <summary>
-/// Per-mode commute result returned alongside the matched listing.
-/// </summary>
 public record ModeCommuteResult(
     TransportMode Mode,
     int DurationMinutes,
     double DistanceKm,
-    string? EncodedPolyline);   // null when Routes API unavailable
+    string? EncodedPolyline,
+    List<TransitStep>? TransitSteps);   // non-null only for Transit mode
 
 public record MatchRequest(
     int? Rooms, int? Toilets,
@@ -44,7 +43,6 @@ public record MatchRequest(
     decimal? PriceMin, decimal? PriceMax,
     string WorkplaceAddress,
     double WorkplaceLat, double WorkplaceLng,
-    /// <summary>One or more transport modes. Best (shortest) duration used for scoring.</summary>
     List<TransportMode> TransportModes,
     int MaxCommuteMinutes,
     Guid? LifestyleTemplateId);
@@ -55,10 +53,8 @@ public record MatchedListingResponse(
     double CommuteScore,
     double LifestyleScore,
     double TotalScore,
-    /// <summary>Shortest commute across all selected modes (null if API unavailable).</summary>
     int? CommuteMinutes,
     Dictionary<string, int> LifestyleCounts,
-    /// <summary>Per-mode results for frontend route display.</summary>
     List<ModeCommuteResult> CommuteRoutes);
 
 // ── Lifestyle Templates ───────────────────────────────────────────────────────
@@ -67,10 +63,17 @@ public record TemplateResponse(Guid Id, string Name, List<string> PlaceTypes, Da
 
 // ── Schedules ─────────────────────────────────────────────────────────────────
 public record CreateScheduleRequest(Guid ListingId, DateTime ScheduledAt);
+
 public record ScheduleResponse(
     Guid ListingId, string ListingName, string ListingAddress,
     Guid TenantId, string TenantName,
     DateTime ScheduledAt, ScheduleStatus Status);
+
+/// <summary>
+/// Used by the calendar picker — returns booked time slots (not whole days)
+/// so tenants can still book on dates that have other bookings.
+/// </summary>
+public record BookedSlotResponse(DateTime ScheduledAt, ScheduleStatus Status);
 
 // ── Payments ──────────────────────────────────────────────────────────────────
 public record CreateCheckoutRequest(Guid ListingId);

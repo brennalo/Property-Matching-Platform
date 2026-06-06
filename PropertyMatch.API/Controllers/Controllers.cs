@@ -194,7 +194,7 @@ public class PaymentsController(StripeService stripe, IConfiguration config) : C
         var (url, sessionId) = await stripe.CreateListingCheckoutAsync(
             agent.Id, req.ListingId,
             successUrl: $"{baseUrl}/agent/listings?payment=success",
-            cancelUrl:  $"{baseUrl}/agent/listings?payment=cancelled");
+            cancelUrl: $"{baseUrl}/agent/listings?payment=cancelled");
 
         return Ok(new CheckoutResponse(url, sessionId));
     }
@@ -228,12 +228,12 @@ public class AdminController(AppDbContext db) : ControllerBase
     [HttpGet("analytics")]
     public async Task<IActionResult> GetAnalytics()
     {
-        var totalAgents    = await db.Agents.CountAsync();
-        var totalUsers     = await db.Users.CountAsync(u => u.Role == UserRole.Tenant);
-        var totalListings  = await db.Listings.CountAsync();
+        var totalAgents = await db.Agents.CountAsync();
+        var totalUsers = await db.Users.CountAsync(u => u.Role == UserRole.Tenant);
+        var totalListings = await db.Listings.CountAsync();
         var totalSchedules = await db.ViewingSchedules.CountAsync();
-        var totalPayments  = await db.Payments.CountAsync(p => p.Status == "succeeded");
-        var blockedAgents  = await db.Agents.CountAsync(a => a.Status == AgentStatus.Blocked);
+        var totalPayments = await db.Payments.CountAsync(p => p.Status == "succeeded");
+        var blockedAgents = await db.Agents.CountAsync(a => a.Status == AgentStatus.Blocked);
 
         return Ok(new AnalyticsResponse(
             totalAgents, totalUsers, totalListings,
@@ -290,8 +290,54 @@ public class AdminController(AppDbContext db) : ControllerBase
 
         return Ok(listings.Select(l => new
         {
-            l.Id, l.Name, l.Status, l.Price, l.CreatedAt,
+            l.Id,
+            l.Name,
+            l.Status,
+            l.Price,
+            l.CreatedAt,
             Agent = l.Agent?.User?.FullName
         }));
+    }
+}
+
+// ── Config (public — serves Google Maps key to frontend) ──────────────────────
+[ApiController]
+[Route("api/config")]
+public class ConfigController(IConfiguration config) : ControllerBase
+{
+    /// <summary>
+    /// Returns the Google Maps API key so the frontend never needs a .env file.
+    /// Read from appsettings[Development].json → Google:ApiKey.
+    /// </summary>
+    [HttpGet("maps-key")]
+    public IActionResult GetMapsKey()
+    {
+        var key = config["Google:ApiKey"] ?? "";
+        return Ok(new { key });
+    }
+}
+
+// ── Public schedule slots (for calendar picker) ───────────────────────────────
+// Separate controller so it can be [AllowAnonymous] while the rest of
+// SchedulesController stays [Authorize].
+[ApiController]
+[Route("api/schedules")]
+public class ScheduleSlotsController(AppDbContext db) : ControllerBase
+{
+    /// <summary>
+    /// Returns all non-cancelled booked time slots for a listing.
+    /// Tenants use this to know which slots are already taken before booking.
+    /// Public endpoint — no auth required.
+    /// </summary>
+    [HttpGet("listing/{listingId}/slots")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetBookedSlots(Guid listingId)
+    {
+        var slots = await db.ViewingSchedules
+            .Where(v => v.ListingId == listingId && v.Status != ScheduleStatus.Cancelled)
+            .Select(v => new BookedSlotResponse(v.ScheduledAt, v.Status))
+            .ToListAsync();
+
+        return Ok(slots);
     }
 }
