@@ -1,102 +1,200 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { authApi } from '../api'
-import { Building2 } from 'lucide-react'
 import type { UserRole } from '../types'
+import { Building2, Mail, CheckCircle2 } from 'lucide-react'
 
 export default function RegisterPage() {
-  const navigate = useNavigate()
-  const [form, setForm] = useState({ email: '', password: '', fullName: '', role: 'Tenant' as UserRole })
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
-  const [loading, setLoading] = useState(false)
+    const navigate = useNavigate()
+    const [form, setForm] = useState({
+        email: '', password: '', confirmPassword: '',
+        fullName: '', role: 'Tenant' as UserRole,
+        licenseNumber: '',
+    })
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState('')
+    const [success, setSuccess] = useState(false)
 
-  const update = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+    const update = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(''); setSuccess('')
-    setLoading(true)
-    try {
-      const { data } = await authApi.register(form)
-      setSuccess((data as any).message)
-      setTimeout(() => navigate('/login'), 2000)
-    } catch (err: any) {
-      setError(err.response?.data?.message ?? 'Registration failed')
-    } finally {
-      setLoading(false)
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        setError('')
+
+        if (form.password !== form.confirmPassword) {
+            setError('Passwords do not match')
+            return
+        }
+        if (form.password.length < 8) {
+            setError('Password must be at least 8 characters')
+            return
+        }
+
+        setLoading(true)
+        try {
+            await authApi.register(
+                form.email, form.password, form.fullName, form.role,
+                form.role === 'Agent' ? form.licenseNumber || undefined : undefined
+            )
+            setSuccess(true)
+        } catch (err: any) {
+            setError(err.response?.data?.message ?? 'Registration failed')
+        } finally {
+            setLoading(false)
+        }
     }
-  }
 
-  return (
-    <div style={{
-      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'var(--bg)', padding: '20px'
-    }}>
-      <div style={{ width: '100%', maxWidth: '440px' }}>
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <Building2 size={36} color="var(--accent)" style={{ marginBottom: 8 }} />
-          <h1 style={{ fontSize: '2rem' }}>Create Account</h1>
-        </div>
+    // ── Success screen ────────────────────────────────────────────────────────
+    if (success) {
+        return (
+            <div style={{
+                minHeight: '100vh', display: 'flex', alignItems: 'center',
+                justifyContent: 'center', background: 'var(--bg)', padding: 24,
+            }}>
+                <div style={{
+                    maxWidth: 440, width: '100%',
+                    background: 'var(--bg-card)', borderRadius: 16,
+                    border: '1px solid var(--border)', padding: '40px 36px',
+                    textAlign: 'center',
+                }}>
+                    <CheckCircle2 size={52} style={{ color: '#3db8a0', marginBottom: 16 }} />
+                    <h1 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: 8 }}>Check your email</h1>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: 8 }}>
+                        We sent a verification link to
+                    </p>
+                    <p style={{ color: 'var(--accent)', fontWeight: 600, marginBottom: 20 }}>{form.email}</p>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: 28 }}>
+                        Click the link in the email to activate your account.
+                        {form.role === 'Agent' && (
+                            <> After verifying, your account will be reviewed by an admin before you can post listings.</>
+                        )}
+                    </p>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        <button className="btn btn-outline" style={{ flex: 1, justifyContent: 'center' }}
+                            onClick={() => setSuccess(false)}>
+                            Wrong email?
+                        </button>
+                        <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }}
+                            onClick={() => navigate('/login')}>
+                            Go to Login
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )
+    }
 
-        <div className="card">
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div className="form-group">
-              <label className="form-label">Full Name</label>
-              <input className="input" value={form.fullName}
-                onChange={e => update('fullName', e.target.value)} required />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Email</label>
-              <input className="input" type="email" value={form.email}
-                onChange={e => update('email', e.target.value)} required />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Password</label>
-              <input className="input" type="password" value={form.password}
-                onChange={e => update('password', e.target.value)} required minLength={8} />
-            </div>
+    // ── Register form ─────────────────────────────────────────────────────────
+    return (
+        <div style={{
+            minHeight: '100vh', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', background: 'var(--bg)', padding: 24,
+        }}>
+            <div style={{
+                maxWidth: 460, width: '100%',
+                background: 'var(--bg-card)', borderRadius: 16,
+                border: '1px solid var(--border)', padding: '40px 36px',
+            }}>
+                {/* Logo */}
+                <div style={{ textAlign: 'center', marginBottom: 28 }}>
+                    <div style={{ fontFamily: 'DM Serif Display, serif', fontSize: '1.5rem', color: 'var(--accent)' }}>
+                        <Building2 size={22} style={{ verticalAlign: 'middle', marginRight: 8 }} />
+                        PropertyMatch
+                    </div>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginTop: 6 }}>
+                        Create your account
+                    </p>
+                </div>
 
-            {/* Role selector as styled toggle */}
-            <div className="form-group">
-              <label className="form-label">I am a</label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                {(['Tenant', 'Agent'] as UserRole[]).map(r => (
-                  <button key={r} type="button"
-                    onClick={() => update('role', r)}
-                    style={{
-                      padding: '10px', borderRadius: 'var(--radius)',
-                      border: `2px solid ${form.role === r ? 'var(--accent)' : 'var(--border)'}`,
-                      background: form.role === r ? 'rgba(232,160,69,0.1)' : 'var(--bg-input)',
-                      color: form.role === r ? 'var(--accent)' : 'var(--text-muted)',
-                      cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500,
-                      transition: 'all 0.15s'
-                    }}>
-                    {r === 'Tenant' ? '🏠 Tenant' : '🏢 Agent'}
-                  </button>
-                ))}
-              </div>
-              {form.role === 'Agent' && (
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 4 }}>
-                  Agent accounts require admin verification before posting listings.
+                {/* Role toggle */}
+                <div style={{
+                    display: 'flex', gap: 0, marginBottom: 24,
+                    border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden',
+                }}>
+                    {(['Tenant', 'Agent'] as UserRole[]).map(r => (
+                        <button key={r} type="button"
+                            onClick={() => update('role', r)}
+                            style={{
+                                flex: 1, padding: '10px 0', border: 'none', cursor: 'pointer',
+                                fontFamily: 'inherit', fontSize: '0.875rem', fontWeight: 600,
+                                background: form.role === r ? 'var(--accent)' : 'transparent',
+                                color: form.role === r ? '#0f0f0e' : 'var(--text-muted)',
+                                transition: 'all 0.15s',
+                            }}>
+                            {r === 'Tenant' ? '🏠 Tenant' : '🏢 Agent'}
+                        </button>
+                    ))}
+                </div>
+
+                <form onSubmit={handleSubmit}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+                        <div className="form-group">
+                            <label className="form-label">Full Name</label>
+                            <input className="input" type="text" required value={form.fullName}
+                                onChange={e => update('fullName', e.target.value)}
+                                placeholder="Your full name" />
+                        </div>
+
+                        <div className="form-group">
+                            <label className="form-label">Email</label>
+                            <input className="input" type="email" required value={form.email}
+                                onChange={e => update('email', e.target.value)}
+                                placeholder="you@example.com" />
+                        </div>
+
+                        <div className="form-group">
+                            <label className="form-label">Password</label>
+                            <input className="input" type="password" required value={form.password}
+                                onChange={e => update('password', e.target.value)}
+                                placeholder="At least 8 characters" />
+                        </div>
+
+                        <div className="form-group">
+                            <label className="form-label">Confirm Password</label>
+                            <input className="input" type="password" required value={form.confirmPassword}
+                                onChange={e => update('confirmPassword', e.target.value)}
+                                placeholder="Repeat your password" />
+                        </div>
+
+                        {/* License number — agents only */}
+                        {form.role === 'Agent' && (
+                            <div className="form-group">
+                                <label className="form-label">
+                                    Real Estate License No.
+                                    <span style={{ fontWeight: 400, color: 'var(--text-dim)', marginLeft: 6, fontSize: '0.78rem' }}>(optional)</span>
+                                </label>
+                                <input className="input" type="text" value={form.licenseNumber}
+                                    onChange={e => update('licenseNumber', e.target.value)}
+                                    placeholder="e.g. E12345" />
+                            </div>
+                        )}
+
+                        {error && (
+                            <div style={{
+                                padding: '10px 14px', background: 'var(--red-dim)',
+                                border: '1px solid var(--red)', borderRadius: 'var(--radius)',
+                                color: 'var(--red)', fontSize: '0.85rem',
+                            }}>
+                                {error}
+                            </div>
+                        )}
+
+                        <button type="submit" className="btn btn-primary"
+                            style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}
+                            disabled={loading}>
+                            {loading
+                                ? <><span className="spinner" /> Creating account…</>
+                                : <><Mail size={15} /> Create Account</>}
+                        </button>
+                    </div>
+                </form>
+
+                <p style={{ textAlign: 'center', marginTop: 20, fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                    Already have an account?{' '}
+                    <Link to="/login" style={{ color: 'var(--accent)', fontWeight: 600 }}>Sign in</Link>
                 </p>
-              )}
             </div>
-
-            {error && <p style={{ color: 'var(--red)', fontSize: '0.85rem' }}>{error}</p>}
-            {success && <p style={{ color: 'var(--teal)', fontSize: '0.85rem' }}>{success}</p>}
-
-            <button className="btn btn-primary btn-lg w-full" type="submit" disabled={loading}>
-              {loading ? <span className="spinner" /> : 'Create Account'}
-            </button>
-          </form>
-
-          <div className="divider" />
-          <p style={{ textAlign: 'center', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-            Have an account? <Link to="/login">Sign in</Link>
-          </p>
         </div>
-      </div>
-    </div>
-  )
+    )
 }

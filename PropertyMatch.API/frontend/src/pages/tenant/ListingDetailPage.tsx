@@ -104,7 +104,28 @@ function ImageGallery({ urls, name }: { urls: string[]; name: string }) {
 // ── Transit itinerary ─────────────────────────────────────────────────────────
 // Styled like the Google Maps transit view in the screenshot
 
-function TransitItinerary({ steps }: { steps: TransitStep[] }) {
+// Merge consecutive WALK steps into one (Google Routes sometimes splits them)
+function mergeWalkSteps(steps: TransitStep[]): TransitStep[] {
+    const merged: TransitStep[] = []
+    for (const step of steps) {
+        const prev = merged[merged.length - 1]
+        if (step.type === 'WALK' && prev?.type === 'WALK') {
+            // Accumulate duration and distance
+            merged[merged.length - 1] = {
+                ...prev,
+                durationMinutes: prev.durationMinutes + step.durationMinutes,
+                distanceKm: Math.round((prev.distanceKm + step.distanceKm) * 1000) / 1000,
+                polylineEncoded: null, // combined polyline not worth merging
+            }
+        } else {
+            merged.push(step)
+        }
+    }
+    return merged
+}
+
+function TransitItinerary({ steps: rawSteps }: { steps: TransitStep[] }) {
+    const steps = mergeWalkSteps(rawSteps)
     return (
         <div style={{ display: 'flex', flexDirection: 'column' }}>
             {steps.map((step, i) => {
@@ -197,6 +218,208 @@ function TransitItinerary({ steps }: { steps: TransitStep[] }) {
                     </div>
                 )
             })}
+        </div>
+    )
+}
+
+// ── Lifestyle places map ─────────────────────────────────────────────────────
+// Uses the Maps JS PlacesService to search nearby and plot markers for each
+// lifestyle category — no backend changes needed.
+
+const CATEGORY_COLORS: Record<string, string> = {
+    cafe: '#8B4513', gym: '#1565C0', restaurant: '#E65100',
+    supermarket: '#2E7D32', pharmacy: '#6A1B9A', hospital: '#C62828',
+    park: '#388E3C', school: '#F57F17', library: '#4527A0',
+    shopping_mall: '#AD1457', night_club: '#283593', bar: '#4E342E',
+    convenience_store: '#00695C', movie_theater: '#6D4C41',
+    laundry: '#0277BD', atm: '#558B2F',
+}
+
+const CATEGORY_LABELS: Record<string, string> = {
+    cafe: 'Café', gym: 'Gym', restaurant: 'Restaurant',
+    supermarket: 'Supermarket', pharmacy: 'Pharmacy', hospital: 'Hospital',
+    park: 'Park', school: 'School', library: 'Library',
+    shopping_mall: 'Mall', night_club: 'Nightclub', bar: 'Bar',
+    convenience_store: 'Convenience', movie_theater: 'Cinema',
+    laundry: 'Laundry', atm: 'ATM',
+}
+
+interface PlaceResult { lat: number; lng: number; name: string; type: string }
+
+function LifestyleMapCard({ listingLat, listingLng, lifestyleCounts, mapsReady }: {
+    listingLat: number; listingLng: number
+    lifestyleCounts: Record<string, number>
+    mapsReady: boolean
+}) {
+    const mapDivRef = useRef<HTMLDivElement>(null)
+    const mapRef = useRef<any>(null)
+    const markersRef = useRef<any[]>([])
+    const [places, setPlaces] = useState<PlaceResult[]>([])
+    const [loading, setLoading] = useState(false)
+    const [activeTypes, setActiveTypes] = useState<Set<string>>(new Set(Object.keys(lifestyleCounts)))
+    const [searched, setSearched] = useState(false)
+
+    // Init map once ready
+    useEffect(() => {
+        if (!mapsReady || !mapDivRef.current || mapRef.current) return
+        mapRef.current = new window.google.maps.Map(mapDivRef.current, {
+            center: { lat: listingLat, lng: listingLng },
+            zoom: 15,
+            mapTypeControl: false, streetViewControl: false, fullscreenControl: false,
+        })
+        // Property marker
+        new window.google.maps.Marker({
+            position: { lat: listingLat, lng: listingLng },
+            map: mapRef.current,
+            icon: {
+                path: window.google.maps.SymbolPath.CIRCLE,
+                scale: 10, fillColor: '#e8a045', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2,
+            },
+            label: { text: '🏠', fontSize: '16px' },
+            title: 'This property',
+            zIndex: 100,
+        })
+        // 800m radius circle
+        new window.google.maps.Circle({
+            map: mapRef.current,
+            center: { lat: listingLat, lng: listingLng },
+            radius: 800,
+            strokeColor: '#e8a045', strokeOpacity: 0.4, strokeWeight: 1,
+            fillColor: '#e8a045', fillOpacity: 0.04,
+        })
+    }, [mapsReady])
+
+    // Search for all categories using Places API (New) — searchNearby
+    const searchPlaces = useCallback(async () => {
+        if (!mapsReady || !mapRef.current || searched) return
+        setLoading(true)
+        setSearched(true)
+
+        const allPlaces: PlaceResult[] = []
+        const categories = Object.keys(lifestyleCounts)
+        const center = new window.google.maps.LatLng(listingLat, listingLng)
+
+        await Promise.all(categories.map(async (type) => {
+            try {
+                // Places API (New) — requires 'places' library loaded via &libraries=places
+                const { places } = await window.google.maps.places.Place.searchNearby({
+                    fields: ['displayName', 'location'],
+                    locationRestriction: {
+                        center,
+                        radius: 800,
+                    },
+                    includedTypes: [type],
+                    maxResultCount: 10,
+                })
+                if (places) {
+                    places.forEach((p: any) => {
+                        const loc = p.location
+                        if (!loc) return
+                        allPlaces.push({
+                            lat: loc.lat(),
+                            lng: loc.lng(),
+                            name: p.displayName ?? type,
+                            type,
+                        })
+                    })
+                }
+            } catch {
+                // Type not supported by Places API New — skip silently
+            }
+        }))
+
+        setPlaces(allPlaces)
+        setLoading(false)
+    }, [mapsReady, searched, lifestyleCounts, listingLat, listingLng])
+
+    // Draw/redraw markers when places or active filter changes
+    useEffect(() => {
+        if (!mapRef.current || places.length === 0) return
+
+        // Clear old markers
+        markersRef.current.forEach(m => m.setMap(null))
+        markersRef.current = []
+
+        places.filter(p => activeTypes.has(p.type)).forEach(p => {
+            const color = CATEGORY_COLORS[p.type] ?? '#555'
+            const marker = new window.google.maps.Marker({
+                position: { lat: p.lat, lng: p.lng },
+                map: mapRef.current,
+                title: p.name,
+                icon: {
+                    path: window.google.maps.SymbolPath.CIRCLE,
+                    scale: 7, fillColor: color, fillOpacity: 0.9,
+                    strokeColor: '#fff', strokeWeight: 1.5,
+                },
+                zIndex: 50,
+            })
+            // Info window on click
+            const iw = new window.google.maps.InfoWindow({
+                content: `<div style="font-family:sans-serif;font-size:13px;padding:2px 4px"><strong>${p.name}</strong><br/><span style="color:#666">${CATEGORY_LABELS[p.type] ?? p.type}</span></div>`,
+            })
+            marker.addListener('click', () => iw.open(mapRef.current, marker))
+            markersRef.current.push(marker)
+        })
+    }, [places, activeTypes])
+
+    const toggleType = (type: string) => {
+        setActiveTypes(prev => {
+            const next = new Set(prev)
+            if (next.has(type)) next.delete(type)
+            else next.add(type)
+            return next
+        })
+    }
+
+    const categories = Object.entries(lifestyleCounts)
+
+    return (
+        <div className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <h3 style={{ fontSize: '0.95rem', fontWeight: 600 }}>Nearby Places (within 800m)</h3>
+                {!searched && mapsReady && (
+                    <button className="btn btn-outline btn-sm" onClick={searchPlaces} disabled={loading}>
+                        {loading ? <><span className="spinner" style={{ width: 12, height: 12 }} /> Searching…</> : '🗺️ Show on map'}
+                    </button>
+                )}
+            </div>
+
+            {/* Category count chips */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: searched ? 12 : 0 }}>
+                {categories.map(([type, count]) => {
+                    const color = CATEGORY_COLORS[type] ?? '#888'
+                    const label = CATEGORY_LABELS[type] ?? type
+                    const isActive = activeTypes.has(type)
+                    return (
+                        <button key={type} type="button"
+                            onClick={() => searched && toggleType(type)}
+                            style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 5,
+                                padding: '4px 10px', borderRadius: 99,
+                                fontSize: '0.75rem', cursor: searched ? 'pointer' : 'default',
+                                border: `1.5px solid ${isActive ? color : 'var(--border)'}`,
+                                background: isActive ? `${color}18` : 'transparent',
+                                color: isActive ? color : 'var(--text-dim)',
+                                transition: 'all 0.15s',
+                            }}>
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: isActive ? color : 'var(--border)', display: 'inline-block', flexShrink: 0 }} />
+                            {label} <span style={{ fontWeight: 700 }}>{count}</span>
+                        </button>
+                    )
+                })}
+            </div>
+
+            {/* Map — shown after search triggered */}
+            {searched && (
+                <div ref={mapDivRef}
+                    style={{ width: '100%', height: 320, borderRadius: 10, border: '1px solid var(--border)', marginTop: 4 }} />
+            )}
+
+            {searched && !loading && (
+                <p style={{ fontSize: '0.74rem', color: 'var(--text-dim)', marginTop: 8 }}>
+                    Click any marker for its name. Toggle categories above to show/hide.
+                </p>
+            )}
         </div>
     )
 }
@@ -688,16 +911,14 @@ export default function ListingDetailPage() {
                         </div>
                     </div>
 
-                    {/* Lifestyle counts */}
+                    {/* Lifestyle counts + nearby places map */}
                     {Object.keys(result.lifestyleCounts).length > 0 && (
-                        <div className="card">
-                            <h3 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: 12 }}>Nearby Places (800m)</h3>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                                {Object.entries(result.lifestyleCounts).map(([t, c]) => (
-                                    <span key={t} className="badge badge-grey">{t}: {c}</span>
-                                ))}
-                            </div>
-                        </div>
+                        <LifestyleMapCard
+                            listingLat={listing.lat}
+                            listingLng={listing.lng}
+                            lifestyleCounts={result.lifestyleCounts}
+                            mapsReady={mapsReady}
+                        />
                     )}
 
                     {/* Route map */}

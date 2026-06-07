@@ -150,7 +150,7 @@ public class SchedulesController(AppDbContext db) : ControllerBase
         var schedules = await db.ViewingSchedules
             .Include(v => v.Listing)
             .Include(v => v.Tenant)
-            .Where(v => v.Listing.AgentId == agent.Id)
+            .Where(v => v.Listing.AgentId == agent.UserId)
             .OrderBy(v => v.ScheduledAt)
             .ToListAsync();
 
@@ -192,7 +192,7 @@ public class PaymentsController(StripeService stripe, IConfiguration config) : C
 
         var baseUrl = $"{Request.Scheme}://{Request.Host}";
         var (url, sessionId) = await stripe.CreateListingCheckoutAsync(
-            agent.Id, req.ListingId,
+            agent.UserId, req.ListingId,
             successUrl: $"{baseUrl}/agent/listings?payment=success",
             cancelUrl: $"{baseUrl}/agent/listings?payment=cancelled");
 
@@ -233,7 +233,7 @@ public class AdminController(AppDbContext db) : ControllerBase
         var totalListings = await db.Listings.CountAsync();
         var totalSchedules = await db.ViewingSchedules.CountAsync();
         var totalPayments = await db.Payments.CountAsync(p => p.Status == "succeeded");
-        var blockedAgents = await db.Agents.CountAsync(a => a.Status == AgentStatus.Blocked);
+        var blockedAgents = await db.Users.CountAsync(u => u.Role == UserRole.Agent && u.Status == UserStatus.Blocked);
 
         return Ok(new AnalyticsResponse(
             totalAgents, totalUsers, totalListings,
@@ -241,38 +241,54 @@ public class AdminController(AppDbContext db) : ControllerBase
     }
 
     [HttpGet("agents")]
-    public async Task<IActionResult> GetAgents([FromQuery] AgentStatus? status)
+    public async Task<IActionResult> GetAgents([FromQuery] UserStatus? status)
     {
         var query = db.Agents
             .Include(a => a.User)
             .Include(a => a.Listings)
             .AsQueryable();
 
-        if (status.HasValue) query = query.Where(a => a.Status == status.Value);
+        if (status.HasValue)
+            query = query.Where(a => a.User.Status == status.Value);
 
-        var agents = await query.OrderByDescending(a => a.User.CreatedAt).ToListAsync();
+        var agents = await query
+            .OrderByDescending(a => a.User.CreatedAt)
+            .ToListAsync();
 
         return Ok(agents.Select(a => new AgentDetailResponse(
-            a.Id, a.UserId, a.User.FullName, a.User.Email,
-            a.Status, a.User.CreatedAt, a.VerifiedAt,
-            a.Listings.Count)));
+            a.UserId, a.User.FullName, a.User.Email,
+            a.User.Status,
+            a.User.CreatedAt, a.User.VerifiedAt,
+            a.Listings.Count, a.LicenseNumber, a.TokenBalance)));
     }
 
     [HttpPut("agents/{id}/status")]
     public async Task<IActionResult> UpdateAgentStatus(Guid id, [FromBody] UpdateAgentStatusRequest req)
     {
-        var agent = await db.Agents.FindAsync(id);
+        // id = UserId (Agent PK)
+        var agent = await db.Agents
+            .Include(a => a.User)
+            .FirstOrDefaultAsync(a => a.UserId == id);
         if (agent == null) return NotFound();
 
-        agent.Status = req.Status;
-        if (req.Status == AgentStatus.Verified && agent.VerifiedAt == null)
-            agent.VerifiedAt = DateTime.UtcNow;
+        // Approval/blocking lives entirely on User.Status
+        agent.User.Status = req.Status;
 
-        // Block all listings if agent is blocked
-        if (req.Status == AgentStatus.Blocked)
+        if (req.Status == UserStatus.Verified && agent.User.VerifiedAt == null)
+            agent.User.VerifiedAt = DateTime.UtcNow;
+
+        // Block all listings when agent is blocked
+        if (req.Status == UserStatus.Blocked)
         {
             var listings = db.Listings.Where(l => l.AgentId == id);
             await listings.ForEachAsync(l => l.Status = ListingStatus.Inactive);
+        }
+
+        // Reactivate listings when reinstated
+        if (req.Status == UserStatus.Verified)
+        {
+            var listings = db.Listings.Where(l => l.AgentId == id && l.Status == ListingStatus.Inactive);
+            await listings.ForEachAsync(l => l.Status = ListingStatus.Active);
         }
 
         await db.SaveChangesAsync();
@@ -305,39 +321,11 @@ public class AdminController(AppDbContext db) : ControllerBase
 [Route("api/config")]
 public class ConfigController(IConfiguration config) : ControllerBase
 {
-    /// <summary>
-    /// Returns the Google Maps API key so the frontend never needs a .env file.
-    /// Read from appsettings[Development].json → Google:ApiKey.
-    /// </summary>
     [HttpGet("maps-key")]
+    [AllowAnonymous]
     public IActionResult GetMapsKey()
     {
         var key = config["Google:ApiKey"] ?? "";
         return Ok(new { key });
-    }
-}
-
-// ── Public schedule slots (for calendar picker) ───────────────────────────────
-// Separate controller so it can be [AllowAnonymous] while the rest of
-// SchedulesController stays [Authorize].
-[ApiController]
-[Route("api/schedules")]
-public class ScheduleSlotsController(AppDbContext db) : ControllerBase
-{
-    /// <summary>
-    /// Returns all non-cancelled booked time slots for a listing.
-    /// Tenants use this to know which slots are already taken before booking.
-    /// Public endpoint — no auth required.
-    /// </summary>
-    [HttpGet("listing/{listingId}/slots")]
-    [AllowAnonymous]
-    public async Task<IActionResult> GetBookedSlots(Guid listingId)
-    {
-        var slots = await db.ViewingSchedules
-            .Where(v => v.ListingId == listingId && v.Status != ScheduleStatus.Cancelled)
-            .Select(v => new BookedSlotResponse(v.ScheduledAt, v.Status))
-            .ToListAsync();
-
-        return Ok(slots);
     }
 }

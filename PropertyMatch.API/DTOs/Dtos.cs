@@ -4,11 +4,28 @@ using PropertyMatch.API.Services;
 namespace PropertyMatch.API.DTOs;
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
-public record RegisterRequest(string Email, string Password, string FullName, UserRole Role);
+
+public record RegisterRequest(
+    string Email,
+    string Password,
+    string FullName,
+    UserRole Role,
+    string? LicenseNumber = null);   // agents only
+
 public record LoginRequest(string Email, string Password);
-public record AuthResponse(Guid UserId, string Email, string FullName, UserRole Role);
+
+public record AuthResponse(
+    Guid UserId,
+    string Email,
+    string FullName,
+    UserRole Role,
+    UserStatus Status,       // Pending | Verified | Blocked
+    DateTime? VerifiedAt);
+
+public record ResendVerificationRequest(string Email);
 
 // ── Listings ──────────────────────────────────────────────────────────────────
+
 public record CreateListingRequest(
     string Name, int Rooms, int Toilets,
     double Lat, double Lng, string Address,
@@ -35,7 +52,7 @@ public record ModeCommuteResult(
     int DurationMinutes,
     double DistanceKm,
     string? EncodedPolyline,
-    List<TransitStep>? TransitSteps);   // non-null only for Transit mode
+    List<TransitStep>? TransitSteps);
 
 public record MatchRequest(
     int? Rooms, int? Toilets,
@@ -58,10 +75,12 @@ public record MatchedListingResponse(
     List<ModeCommuteResult> CommuteRoutes);
 
 // ── Lifestyle Templates ───────────────────────────────────────────────────────
+
 public record CreateTemplateRequest(string Name, List<string> PlaceTypes);
 public record TemplateResponse(Guid Id, string Name, List<string> PlaceTypes, DateTime CreatedAt);
 
 // ── Schedules ─────────────────────────────────────────────────────────────────
+
 public record CreateScheduleRequest(Guid ListingId, DateTime ScheduledAt);
 
 public record ScheduleResponse(
@@ -69,24 +88,23 @@ public record ScheduleResponse(
     Guid TenantId, string TenantName,
     DateTime ScheduledAt, ScheduleStatus Status);
 
-/// <summary>
-/// Used by the calendar picker — returns booked time slots (not whole days)
-/// so tenants can still book on dates that have other bookings.
-/// </summary>
 public record BookedSlotResponse(DateTime ScheduledAt, ScheduleStatus Status);
 
 // ── Payments ──────────────────────────────────────────────────────────────────
+
 public record CreateCheckoutRequest(Guid ListingId);
 public record CheckoutResponse(string CheckoutUrl, string SessionId);
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
+
 public record AnalyticsResponse(
     int TotalAgents, int TotalUsers, int TotalListings,
     int TotalSchedules, int TotalPayments, int BlockedAgents);
 
 public record AgentDetailResponse(
-    Guid AgentId, Guid UserId, string FullName, string Email,
-    AgentStatus Status, DateTime CreatedAt, DateTime? VerifiedAt,
-    int ListingCount);
+    Guid UserId, string FullName, string Email,
+    UserStatus Status,
+    DateTime CreatedAt, DateTime? VerifiedAt,
+    int ListingCount, string? LicenseNumber, int TokenBalance);
 
-public record UpdateAgentStatusRequest(AgentStatus Status);
+public record UpdateAgentStatusRequest(UserStatus Status);

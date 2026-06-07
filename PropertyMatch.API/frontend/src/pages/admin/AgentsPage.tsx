@@ -77,8 +77,8 @@ export default function AdminAgentsPage() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {filtered.map(a => (
-            <AgentRow key={a.agentId} agent={a}
-              onAction={(status) => updateMut.mutate({ id: a.agentId, status })}
+            <AgentRow key={a.userId} agent={a}
+              onAction={(status) => updateMut.mutate({ id: a.userId, status })}
               loading={updateMut.isPending} />
           ))}
         </div>
