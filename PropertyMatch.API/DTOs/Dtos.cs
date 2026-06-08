@@ -1,4 +1,5 @@
 using PropertyMatch.API.Models;
+using PropertyMatch.API.Services;
 
 namespace PropertyMatch.API.DTOs;
 
@@ -28,13 +29,21 @@ public record ListingResponse(
     string? SourceUrl, string? SourcePlatform);
 
 // ── Match ─────────────────────────────────────────────────────────────────────
+
+public record ModeCommuteResult(
+    TransportMode Mode,
+    int DurationMinutes,
+    double DistanceKm,
+    string? EncodedPolyline,
+    List<TransitStep>? TransitSteps);   // non-null only for Transit mode
+
 public record MatchRequest(
     int? Rooms, int? Toilets,
     ResidencyType? ResidencyType,
     decimal? PriceMin, decimal? PriceMax,
     string WorkplaceAddress,
     double WorkplaceLat, double WorkplaceLng,
-    TransportMode TransportMode,
+    List<TransportMode> TransportModes,
     int MaxCommuteMinutes,
     Guid? LifestyleTemplateId);
 
@@ -45,7 +54,8 @@ public record MatchedListingResponse(
     double LifestyleScore,
     double TotalScore,
     int? CommuteMinutes,
-    Dictionary<string, int> LifestyleCounts);
+    Dictionary<string, int> LifestyleCounts,
+    List<ModeCommuteResult> CommuteRoutes);
 
 // ── Lifestyle Templates ───────────────────────────────────────────────────────
 public record CreateTemplateRequest(string Name, List<string> PlaceTypes);
@@ -53,10 +63,17 @@ public record TemplateResponse(Guid Id, string Name, List<string> PlaceTypes, Da
 
 // ── Schedules ─────────────────────────────────────────────────────────────────
 public record CreateScheduleRequest(Guid ListingId, DateTime ScheduledAt);
+
 public record ScheduleResponse(
     Guid ListingId, string ListingName, string ListingAddress,
     Guid TenantId, string TenantName,
     DateTime ScheduledAt, ScheduleStatus Status);
+
+/// <summary>
+/// Used by the calendar picker — returns booked time slots (not whole days)
+/// so tenants can still book on dates that have other bookings.
+/// </summary>
+public record BookedSlotResponse(DateTime ScheduledAt, ScheduleStatus Status);
 
 // ── Payments ──────────────────────────────────────────────────────────────────
 public record CreateCheckoutRequest(Guid ListingId);

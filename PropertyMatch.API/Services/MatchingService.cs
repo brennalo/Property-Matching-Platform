@@ -10,21 +10,18 @@ public class MatchingService(
     GoogleRoutesService routes,
     GooglePlacesService places)
 {
-    // Score weights (must sum to 1.0)
-    private const double WeightNumeric  = 0.40;
-    private const double WeightCommute  = 0.30;
+    private const double WeightNumeric = 0.40;
+    private const double WeightCommute = 0.30;
     private const double WeightLifestyle = 0.30;
 
     public async Task<List<MatchedListingResponse>> MatchAsync(MatchRequest req, Guid? tenantId)
     {
-        // 1. Fetch all active listings with images and agent
         var listings = await db.Listings
             .Include(l => l.Images)
             .Include(l => l.Agent).ThenInclude(a => a.User)
             .Where(l => l.Status == ListingStatus.Active)
             .ToListAsync();
 
-        // 2. Fetch lifestyle template if provided
         List<string> placeTypes = [];
         if (req.LifestyleTemplateId.HasValue)
         {
@@ -33,18 +30,19 @@ public class MatchingService(
             placeTypes = template?.PlaceTypes ?? [];
         }
 
-        // 3. Score each listing
-        var scoredTasks = listings.Select(l => ScoreListingAsync(l, req, placeTypes));
+        var modes = (req.TransportModes?.Count > 0
+            ? req.TransportModes.Distinct().ToList()
+            : [TransportMode.Driving]);
+
+        var scoredTasks = listings.Select(l => ScoreListingAsync(l, req, modes, placeTypes));
         var scored = await Task.WhenAll(scoredTasks);
 
-        // 4. Filter out zero-score (hard-fail on numeric) and sort descending
-        return scored
-            .OrderByDescending(r => r.TotalScore)
-            .ToList();
+        return [.. scored.OrderByDescending(r => r.TotalScore)];
     }
 
     private async Task<MatchedListingResponse> ScoreListingAsync(
-        Listing listing, MatchRequest req, List<string> placeTypes)
+        Listing listing, MatchRequest req,
+        List<TransportMode> modes, List<string> placeTypes)
     {
         // ── Numeric score (40%) ───────────────────────────────────────────────
         double numericScore = 0;
@@ -54,7 +52,7 @@ public class MatchingService(
             var diff = Math.Abs(listing.Rooms - req.Rooms.Value);
             numericScore += diff == 0 ? 25 : diff == 1 ? 15 : 0;
         }
-        else numericScore += 25; // no preference = full points
+        else numericScore += 25;
 
         if (req.Toilets.HasValue)
         {
@@ -71,30 +69,38 @@ public class MatchingService(
         {
             var min = req.PriceMin ?? 0;
             var max = req.PriceMax ?? decimal.MaxValue;
-            if (listing.Price >= min && listing.Price <= max)
-                numericScore += 40;
-            else if (listing.Price <= max * 1.10m)  // within 10% over
-                numericScore += 20;
+            if (listing.Price >= min && listing.Price <= max) numericScore += 40;
+            else if (listing.Price <= max * 1.10m) numericScore += 20;
         }
         else numericScore += 40;
 
-        // Normalise to 0-100
         numericScore = Math.Min(numericScore, 100);
 
-        // ── Commute score (30%) ───────────────────────────────────────────────
-        double commuteScore = 50; // default if API unavailable
-        int? commuteMinutes = null;
+        // ── Commute score (30%) — all modes in parallel ───────────────────────
+        double commuteScore = 50;
+        int? bestMinutes = null;
 
-        var minutes = await routes.GetCommuteDurationAsync(
+        var routeMap = await routes.GetRoutesAsync(
             listing.Lat, listing.Lng,
             req.WorkplaceLat, req.WorkplaceLng,
-            req.TransportMode);
+            modes);
 
-        if (minutes.HasValue)
+        var commuteRoutes = routeMap
+            .Select(kv => new ModeCommuteResult(
+                kv.Key,
+                kv.Value.DurationMinutes,
+                kv.Value.DistanceKm,
+                kv.Value.EncodedPolyline,
+                kv.Value.TransitSteps))
+            .ToList();
+
+        if (routeMap.Count > 0)
         {
-            commuteMinutes = minutes.Value;
+            var best = routeMap.MinBy(kv => kv.Value.DurationMinutes);
+            bestMinutes = best.Value.DurationMinutes;
+
             var ratio = req.MaxCommuteMinutes > 0
-                ? (double)minutes.Value / req.MaxCommuteMinutes
+                ? (double)bestMinutes.Value / req.MaxCommuteMinutes
                 : 1.0;
             commuteScore = Math.Max(0, 100 * (1 - Math.Min(ratio, 1.0)));
         }
@@ -108,7 +114,6 @@ public class MatchingService(
             lifestyleCounts = await places.GetLifestyleCountsAsync(
                 listing.Lat, listing.Lng, placeTypes);
 
-            // Each category: min(count/3, 1) * 100, then average
             var categoryScores = placeTypes.Select(pt =>
             {
                 var count = lifestyleCounts.GetValueOrDefault(pt, 0);
@@ -116,23 +121,21 @@ public class MatchingService(
             });
             lifestyleScore = categoryScores.Average();
         }
-        else lifestyleScore = 50; // neutral if no template
+        else lifestyleScore = 50;
 
-        // ── Weighted total ────────────────────────────────────────────────────
         var total = (numericScore * WeightNumeric)
                   + (commuteScore * WeightCommute)
                   + (lifestyleScore * WeightLifestyle);
 
-        var listingDto = MapToResponse(listing);
-
         return new MatchedListingResponse(
-            listingDto,
+            MapToResponse(listing),
             Math.Round(numericScore, 1),
             Math.Round(commuteScore, 1),
             Math.Round(lifestyleScore, 1),
             Math.Round(total, 1),
-            commuteMinutes,
-            lifestyleCounts);
+            bestMinutes,
+            lifestyleCounts,
+            commuteRoutes);
     }
 
     private static ListingResponse MapToResponse(Listing l) => new(
