@@ -119,7 +119,7 @@ INSERT INTO "Users" ("Id", "Email", "PasswordHash", "FullName", "Role", "Status"
 VALUES (
     '00000000-0000-0000-0000-000000000001',
     'admin@propertymatch.com',
-    '$2a$11$qS3idkeLG1RFa.erebCDn.7IzT25xJZRckmec713Im3aDI//mqzSC',
+    '$2a$11$7mXHTxUhI7mp7DwFFxUQWeuj15gFeelxx3TA8vw8hr6E3Nir/jR4G',
     'System Admin',
     'Admin',
     'Verified',
@@ -132,7 +132,7 @@ INSERT INTO "Users" ("Id", "Email", "PasswordHash", "FullName", "Role", "Status"
 VALUES (
     '00000000-0000-0000-0000-000000000002',
     'agent@propertymatch.com',
-    '$2a$11$EqFI3Erc4RlaHB3Y1kM8L.lp1bd9D1Q/7wphK8eUwvVfahN.93hxG',
+    '$2a$11$LQJ8NgROr/tElesIOPluIeSiemdv3h3I/LeFVfY8YuX7uGdR5fybi',
     'Demo Agent',
     'Agent',
     'Verified',
