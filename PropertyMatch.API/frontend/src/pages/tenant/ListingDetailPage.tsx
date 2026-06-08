@@ -289,47 +289,50 @@ function LifestyleMapCard({ listingLat, listingLng, lifestyleCounts, mapsReady }
         })
     }, [mapsReady])
 
-    // Search for all categories using Places API (New) — searchNearby
-    const searchPlaces = useCallback(async () => {
+    // Search nearby using PlacesService (legacy but still works with Places API enabled)
+    // Places API (New) searchNearby requires billing and specific setup — use legacy for reliability
+    const searchPlaces = useCallback(() => {
         if (!mapsReady || !mapRef.current || searched) return
         setLoading(true)
         setSearched(true)
 
         const allPlaces: PlaceResult[] = []
         const categories = Object.keys(lifestyleCounts)
-        const center = new window.google.maps.LatLng(listingLat, listingLng)
+        const service = new window.google.maps.places.PlacesService(mapRef.current)
+        let pending = categories.length
 
-        await Promise.all(categories.map(async (type) => {
-            try {
-                // Places API (New) — requires 'places' library loaded via &libraries=places
-                const { places } = await window.google.maps.places.Place.searchNearby({
-                    fields: ['displayName', 'location'],
-                    locationRestriction: {
-                        center,
-                        radius: 800,
-                    },
-                    includedTypes: [type],
-                    maxResultCount: 10,
-                })
-                if (places) {
-                    places.forEach((p: any) => {
-                        const loc = p.location
-                        if (!loc) return
+        const done = () => {
+            pending -= 1
+            if (pending === 0) {
+                setPlaces([...allPlaces])
+                setLoading(false)
+            }
+        }
+
+        categories.forEach(type => {
+            service.nearbySearch({
+                location: { lat: listingLat, lng: listingLng },
+                radius: 800,
+                type,
+            }, (results: any[], status: string) => {
+                if (results && status === window.google.maps.places.PlacesServiceStatus.OK) {
+                    results.slice(0, 10).forEach((r: any) => {
                         allPlaces.push({
-                            lat: loc.lat(),
-                            lng: loc.lng(),
-                            name: p.displayName ?? type,
+                            lat: r.geometry.location.lat(),
+                            lng: r.geometry.location.lng(),
+                            name: r.name ?? type,
                             type,
                         })
                     })
                 }
-            } catch {
-                // Type not supported by Places API New — skip silently
-            }
-        }))
+                done()
+            })
+        })
 
-        setPlaces(allPlaces)
-        setLoading(false)
+        if (categories.length === 0) {
+            setPlaces([])
+            setLoading(false)
+        }
     }, [mapsReady, searched, lifestyleCounts, listingLat, listingLng])
 
     // Draw/redraw markers when places or active filter changes
@@ -629,8 +632,9 @@ function CalendarPicker({
     const cells: (number | null)[] = [...Array(firstDay).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)]
 
     // Build a set of booked datetime strings — ISO date+time
+    const safeSlots = Array.isArray(bookedSlots) ? bookedSlots : []
     const bookedSet = new Set(
-        bookedSlots.map(s => {
+        safeSlots.map(s => {
             const d = new Date(s.scheduledAt)
             // Normalise to local HH:00 so we can compare
             return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}:00`
@@ -761,7 +765,7 @@ function ScheduleModal({ listingId, listingName, onClose }: {
         queryFn: (): Promise<BookedSlot[]> => scheduleSlotsApi.getBookedSlots(listingId).then(r => r.data as BookedSlot[]),
         staleTime: 30_000,
     })
-    const bookedSlots: BookedSlot[] = bookedSlotsRaw ?? []
+    const bookedSlots: BookedSlot[] = Array.isArray(bookedSlotsRaw) ? bookedSlotsRaw : []
 
     const handleBook = async () => {
         if (!date || !time) return

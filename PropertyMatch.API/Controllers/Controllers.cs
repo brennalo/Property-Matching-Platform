@@ -329,3 +329,25 @@ public class ConfigController(IConfiguration config) : ControllerBase
         return Ok(new { key });
     }
 }
+
+// ── Public schedule slots ─────────────────────────────────────────────────────
+[ApiController]
+[Route("api/schedules")]
+public class ScheduleSlotsController(AppDbContext db) : ControllerBase
+{
+    /// <summary>
+    /// Returns all non-cancelled booked time slots for a listing.
+    /// Public — no auth required, so the calendar can show unavailable slots.
+    /// </summary>
+    [HttpGet("listing/{listingId}/slots")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetBookedSlots(Guid listingId)
+    {
+        var slots = await db.ViewingSchedules
+            .Where(v => v.ListingId == listingId && v.Status != ScheduleStatus.Cancelled)
+            .Select(v => new BookedSlotResponse(v.ScheduledAt, v.Status))
+            .ToListAsync();
+
+        return Ok(slots);
+    }
+}
