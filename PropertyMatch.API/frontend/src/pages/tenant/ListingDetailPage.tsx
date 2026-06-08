@@ -295,6 +295,8 @@ function LifestyleMapCard({ listingLat, listingLng, lifestyleCounts, mapsReady }
         if (!mapsReady || !mapRef.current || searched) return
         setLoading(true)
         setSearched(true)
+        // Trigger resize after div becomes visible (display:none → block)
+        setTimeout(() => window.google.maps.event.trigger(mapRef.current, 'resize'), 50)
 
         const allPlaces: PlaceResult[] = []
         const categories = Object.keys(lifestyleCounts)
@@ -412,13 +414,20 @@ function LifestyleMapCard({ listingLat, listingLng, lifestyleCounts, mapsReady }
                 })}
             </div>
 
-            {/* Map — shown after search triggered */}
-            {searched && (
-                <div ref={mapDivRef}
-                    style={{ width: '100%', height: 320, borderRadius: 10, border: '1px solid var(--border)', marginTop: 4 }} />
-            )}
+            {/* Map div always mounted so mapRef initialises — hidden until searched */}
+            <div ref={mapDivRef}
+                style={{
+                    width: '100%', height: 320, borderRadius: 10,
+                    border: '1px solid var(--border)', marginTop: 4,
+                    display: searched ? 'block' : 'none',
+                }} />
 
-            {searched && !loading && (
+            {searched && !loading && places.length === 0 && (
+                <p style={{ fontSize: '0.74rem', color: 'var(--text-dim)', marginTop: 8 }}>
+                    No places found nearby for these categories.
+                </p>
+            )}
+            {searched && !loading && places.length > 0 && (
                 <p style={{ fontSize: '0.74rem', color: 'var(--text-dim)', marginTop: 8 }}>
                     Click any marker for its name. Toggle categories above to show/hide.
                 </p>
