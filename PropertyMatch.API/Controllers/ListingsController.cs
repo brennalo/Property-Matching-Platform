@@ -41,7 +41,7 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
         var listings = await db.Listings
             .Include(l => l.Images)
             .Include(l => l.Agent).ThenInclude(a => a.User)
-            .Where(l => l.AgentId == agent.Id)
+            .Where(l => l.AgentId == agent.UserId)
             .OrderByDescending(l => l.CreatedAt)
             .ToListAsync();
 
@@ -68,15 +68,17 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
     public async Task<IActionResult> Create([FromBody] CreateListingRequest req)
     {
         var userId = User.GetUserId();
-        var agent = await db.Agents.FirstOrDefaultAsync(a => a.UserId == userId);
+        var agent = await db.Agents
+            .Include(a => a.User)
+            .FirstOrDefaultAsync(a => a.UserId == userId);
 
         if (agent == null) return NotFound(new { message = "Agent profile not found" });
-        if (agent.Status != AgentStatus.Verified)
+        if (agent.User.Status != UserStatus.Verified)
             return Forbid();
 
         var listing = new Listing
         {
-            AgentId = agent.Id,
+            AgentId = agent.UserId,
             Name = req.Name,
             Rooms = req.Rooms,
             Toilets = req.Toilets,
@@ -102,18 +104,18 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
     {
         var userId = User.GetUserId();
         var agent = await db.Agents.FirstOrDefaultAsync(a => a.UserId == userId);
-        var listing = await db.Listings.FirstOrDefaultAsync(l => l.Id == id && l.AgentId == agent!.Id);
+        var listing = await db.Listings.FirstOrDefaultAsync(l => l.Id == id && l.AgentId == agent!.UserId);
 
         if (listing == null) return NotFound();
 
-        if (req.Name != null)         listing.Name = req.Name;
-        if (req.Rooms.HasValue)       listing.Rooms = req.Rooms.Value;
-        if (req.Toilets.HasValue)     listing.Toilets = req.Toilets.Value;
-        if (req.Lat.HasValue)         listing.Lat = req.Lat.Value;
-        if (req.Lng.HasValue)         listing.Lng = req.Lng.Value;
-        if (req.Address != null)      listing.Address = req.Address;
+        if (req.Name != null) listing.Name = req.Name;
+        if (req.Rooms.HasValue) listing.Rooms = req.Rooms.Value;
+        if (req.Toilets.HasValue) listing.Toilets = req.Toilets.Value;
+        if (req.Lat.HasValue) listing.Lat = req.Lat.Value;
+        if (req.Lng.HasValue) listing.Lng = req.Lng.Value;
+        if (req.Address != null) listing.Address = req.Address;
         if (req.ResidencyType.HasValue) listing.ResidencyType = req.ResidencyType.Value;
-        if (req.Price.HasValue)       listing.Price = req.Price.Value;
+        if (req.Price.HasValue) listing.Price = req.Price.Value;
 
         await db.SaveChangesAsync();
         return Ok(new { message = "Listing updated" });
@@ -126,7 +128,7 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
     {
         var userId = User.GetUserId();
         var agent = await db.Agents.FirstOrDefaultAsync(a => a.UserId == userId);
-        var listing = await db.Listings.FirstOrDefaultAsync(l => l.Id == id && l.AgentId == agent!.Id);
+        var listing = await db.Listings.FirstOrDefaultAsync(l => l.Id == id && l.AgentId == agent!.UserId);
 
         if (listing == null) return NotFound();
         if (files.Count == 0) return BadRequest(new { message = "No files provided" });
@@ -144,7 +146,7 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
         var agent = await db.Agents.FirstOrDefaultAsync(a => a.UserId == userId);
         var listing = await db.Listings
             .Include(l => l.Images)
-            .FirstOrDefaultAsync(l => l.Id == id && l.AgentId == agent!.Id);
+            .FirstOrDefaultAsync(l => l.Id == id && l.AgentId == agent!.UserId);
 
         if (listing == null) return NotFound();
 

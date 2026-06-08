@@ -1,7 +1,7 @@
 import axios from 'axios'
 import type {
     AuthUser, Listing, MatchedListing, LifestyleTemplate,
-    ViewingSchedule, MatchRequest, Analytics, AgentDetail, AgentStatus
+    ViewingSchedule, MatchRequest, Analytics, AgentDetail, UserStatus
 } from '../types'
 
 const api = axios.create({
@@ -11,8 +11,8 @@ const api = axios.create({
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 export const authApi = {
-    register: (data: { email: string; password: string; fullName: string; role: string }) =>
-        api.post('/auth/register', data),
+    register: (email: string, password: string, fullName: string, role: string, licenseNumber?: string) =>
+        api.post('/auth/register', { email, password, fullName, role, licenseNumber }),
 
     login: (email: string, password: string) =>
         api.post<AuthUser>('/auth/login', { email, password }),
@@ -97,10 +97,10 @@ export const paymentsApi = {
 export const adminApi = {
     getAnalytics: () => api.get<Analytics>('/admin/analytics'),
 
-    getAgents: (status?: AgentStatus) =>
+    getAgents: (status?: UserStatus) =>
         api.get<AgentDetail[]>('/admin/agents', { params: status ? { status } : {} }),
 
-    updateAgentStatus: (agentId: string, status: AgentStatus) =>
+    updateAgentStatus: (agentId: string, status: UserStatus) =>
         api.put(`/admin/agents/${agentId}/status`, { status }),
 
     getAllListings: () => api.get('/admin/listings'),
@@ -108,9 +108,15 @@ export const adminApi = {
 
 export default api
 
-// ── Config (Google Maps key from backend) ─────────────────────────────────────
+// ── Config ────────────────────────────────────────────────────────────────────
 export const configApi = {
     getMapsKey: () => api.get<{ key: string }>('/config/maps-key'),
+}
+
+// ── Email verification ────────────────────────────────────────────────────────
+export const authVerifyApi = {
+    resend: (email: string) =>
+        api.post('/auth/resend-verification', { email }),
 }
 
 // ── Public schedule slots ─────────────────────────────────────────────────────
