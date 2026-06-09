@@ -11,7 +11,7 @@ export interface AuthUser {
     email: string
     fullName: string
     role: UserRole
-    status: UserStatus   // Pending | Verified | Blocked
+    status: UserStatus
     verifiedAt: string | null
 }
 
@@ -36,10 +36,16 @@ export interface ModeCommuteResult {
     encodedPolyline: string | null; transitSteps: TransitStep[] | null
 }
 
+export interface PlaceLocation {
+    name: string
+    lat: number
+    lng: number
+}
+
 export interface MatchedListing {
     listing: Listing; numericScore: number; commuteScore: number
     lifestyleScore: number; totalScore: number; commuteMinutes: number | null
-    lifestyleCounts: Record<string, number>; commuteRoutes: ModeCommuteResult[]
+    lifestylePlaces: Record<string, PlaceLocation[]>; commuteRoutes: ModeCommuteResult[]
 }
 
 export interface LifestyleTemplate {
@@ -72,21 +78,13 @@ export interface AgentDetail {
     listingCount: number; licenseNumber: string | null; tokenBalance: number
 }
 
-export const PLACE_TYPE_OPTIONS: { value: string; label: string; emoji: string }[] = [
-    { value: 'cafe', label: 'Café', emoji: '☕' },
-    { value: 'gym', label: 'Gym', emoji: '🏋️' },
-    { value: 'restaurant', label: 'Restaurant', emoji: '🍽️' },
-    { value: 'supermarket', label: 'Supermarket', emoji: '🛒' },
-    { value: 'pharmacy', label: 'Pharmacy', emoji: '💊' },
-    { value: 'hospital', label: 'Hospital', emoji: '🏥' },
-    { value: 'park', label: 'Park', emoji: '🌳' },
-    { value: 'school', label: 'School', emoji: '🏫' },
-    { value: 'library', label: 'Library', emoji: '📚' },
-    { value: 'shopping_mall', label: 'Shopping Mall', emoji: '🛍️' },
-    { value: 'night_club', label: 'Nightclub', emoji: '🎵' },
-    { value: 'bar', label: 'Bar', emoji: '🍺' },
-    { value: 'convenience_store', label: 'Convenience Store', emoji: '🏪' },
-    { value: 'movie_theater', label: 'Cinema', emoji: '🎬' },
-    { value: 'laundry', label: 'Laundry', emoji: '👕' },
-    { value: 'atm', label: 'ATM', emoji: '🏧' },
-]
+// Place type data lives in placeTypes.ts — re-exported here for convenience
+export type { PlaceTypeOption } from '../types/placeTypes'
+export {
+    POPULAR_PLACE_TYPES,
+    ALL_PLACE_TYPES,
+    PLACE_TYPE_OPTIONS,
+    getPlaceTypeColor,
+    getPlaceTypeLabel,
+    searchPlaceTypes,
+} from '../types/placeTypes'

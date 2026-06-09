@@ -1,8 +1,9 @@
-﻿import { useState, useEffect, useRef, useCallback } from 'react'
+﻿import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { schedulesApi, scheduleSlotsApi } from '../../api'
-import type { MatchedListing, ModeCommuteResult, TransitStep, BookedSlot } from '../../types'
+import type { MatchedListing, ModeCommuteResult, TransitStep, BookedSlot, PlaceLocation } from '../../types'
+import { getPlaceTypeColor, getPlaceTypeLabel } from '../../types'
 import {
     ArrowLeft, Bed, Bath, MapPin, Clock, ExternalLink,
     CalendarPlus, ChevronLeft, ChevronRight, CheckCircle2, Navigation
@@ -223,43 +224,30 @@ function TransitItinerary({ steps: rawSteps }: { steps: TransitStep[] }) {
 }
 
 // ── Lifestyle places map ─────────────────────────────────────────────────────
-// Uses the Maps JS PlacesService to search nearby and plot markers for each
-// lifestyle category — no backend changes needed.
+// Coordinates come directly from the backend response — no second Places API call.
+// Colours and labels for all types (including custom ones) via getPlaceTypeColor/Label.
 
-const CATEGORY_COLORS: Record<string, string> = {
-    cafe: '#8B4513', gym: '#1565C0', restaurant: '#E65100',
-    supermarket: '#2E7D32', pharmacy: '#6A1B9A', hospital: '#C62828',
-    park: '#388E3C', school: '#F57F17', library: '#4527A0',
-    shopping_mall: '#AD1457', night_club: '#283593', bar: '#4E342E',
-    convenience_store: '#00695C', movie_theater: '#6D4C41',
-    laundry: '#0277BD', atm: '#558B2F',
-}
-
-const CATEGORY_LABELS: Record<string, string> = {
-    cafe: 'Café', gym: 'Gym', restaurant: 'Restaurant',
-    supermarket: 'Supermarket', pharmacy: 'Pharmacy', hospital: 'Hospital',
-    park: 'Park', school: 'School', library: 'Library',
-    shopping_mall: 'Mall', night_club: 'Nightclub', bar: 'Bar',
-    convenience_store: 'Convenience', movie_theater: 'Cinema',
-    laundry: 'Laundry', atm: 'ATM',
-}
-
-interface PlaceResult { lat: number; lng: number; name: string; type: string }
-
-function LifestyleMapCard({ listingLat, listingLng, lifestyleCounts, mapsReady }: {
+function LifestyleMapCard({ listingLat, listingLng, lifestylePlaces, mapsReady }: {
     listingLat: number; listingLng: number
-    lifestyleCounts: Record<string, number>
+    lifestylePlaces: Record<string, PlaceLocation[]>
     mapsReady: boolean
 }) {
     const mapDivRef = useRef<HTMLDivElement>(null)
     const mapRef = useRef<any>(null)
     const markersRef = useRef<any[]>([])
-    const [places, setPlaces] = useState<PlaceResult[]>([])
-    const [loading, setLoading] = useState(false)
-    const [activeTypes, setActiveTypes] = useState<Set<string>>(new Set(Object.keys(lifestyleCounts)))
-    const [searched, setSearched] = useState(false)
+    const [activeTypes, setActiveTypes] = useState<Set<string>>(new Set(Object.keys(lifestylePlaces)))
 
-    // Init map once ready
+    // Derive counts from place lists
+    const lifestyleCounts = Object.fromEntries(
+        Object.entries(lifestylePlaces).map(([type, places]) => [type, places.length])
+    )
+
+    // Flatten all places with their type for marker rendering
+    const allPlaces = Object.entries(lifestylePlaces).flatMap(([type, places]) =>
+        places.map(p => ({ ...p, type }))
+    )
+
+    // Init map once ready and immediately plot all markers
     useEffect(() => {
         if (!mapsReady || !mapDivRef.current || mapRef.current) return
         mapRef.current = new window.google.maps.Map(mapDivRef.current, {
@@ -289,64 +277,16 @@ function LifestyleMapCard({ listingLat, listingLng, lifestyleCounts, mapsReady }
         })
     }, [mapsReady])
 
-    // Search nearby using PlacesService (legacy but still works with Places API enabled)
-    // Places API (New) searchNearby requires billing and specific setup — use legacy for reliability
-    const searchPlaces = useCallback(() => {
-        if (!mapsReady || !mapRef.current || searched) return
-        setLoading(true)
-        setSearched(true)
-        // Trigger resize after div becomes visible (display:none → block)
-        setTimeout(() => window.google.maps.event.trigger(mapRef.current, 'resize'), 50)
-
-        const allPlaces: PlaceResult[] = []
-        const categories = Object.keys(lifestyleCounts)
-        const service = new window.google.maps.places.PlacesService(mapRef.current)
-        let pending = categories.length
-
-        const done = () => {
-            pending -= 1
-            if (pending === 0) {
-                setPlaces([...allPlaces])
-                setLoading(false)
-            }
-        }
-
-        categories.forEach(type => {
-            service.nearbySearch({
-                location: { lat: listingLat, lng: listingLng },
-                radius: 800,
-                type,
-            }, (results: any[], status: string) => {
-                if (results && status === window.google.maps.places.PlacesServiceStatus.OK) {
-                    results.slice(0, 10).forEach((r: any) => {
-                        allPlaces.push({
-                            lat: r.geometry.location.lat(),
-                            lng: r.geometry.location.lng(),
-                            name: r.name ?? type,
-                            type,
-                        })
-                    })
-                }
-                done()
-            })
-        })
-
-        if (categories.length === 0) {
-            setPlaces([])
-            setLoading(false)
-        }
-    }, [mapsReady, searched, lifestyleCounts, listingLat, listingLng])
-
-    // Draw/redraw markers when places or active filter changes
+    // Draw/redraw place markers when map is ready or active filter changes
     useEffect(() => {
-        if (!mapRef.current || places.length === 0) return
+        if (!mapRef.current) return
 
         // Clear old markers
         markersRef.current.forEach(m => m.setMap(null))
         markersRef.current = []
 
-        places.filter(p => activeTypes.has(p.type)).forEach(p => {
-            const color = CATEGORY_COLORS[p.type] ?? '#555'
+        allPlaces.filter(p => activeTypes.has(p.type)).forEach(p => {
+            const color = getPlaceTypeColor(p.type)
             const marker = new window.google.maps.Marker({
                 position: { lat: p.lat, lng: p.lng },
                 map: mapRef.current,
@@ -360,12 +300,12 @@ function LifestyleMapCard({ listingLat, listingLng, lifestyleCounts, mapsReady }
             })
             // Info window on click
             const iw = new window.google.maps.InfoWindow({
-                content: `<div style="font-family:sans-serif;font-size:13px;padding:2px 4px"><strong>${p.name}</strong><br/><span style="color:#666">${CATEGORY_LABELS[p.type] ?? p.type}</span></div>`,
+                content: `<div style="font-family:sans-serif;font-size:13px;padding:2px 4px"><strong>${p.name}</strong><br/><span style="color:#666">${getPlaceTypeLabel(p.type)}</span></div>`,
             })
             marker.addListener('click', () => iw.open(mapRef.current, marker))
             markersRef.current.push(marker)
         })
-    }, [places, activeTypes])
+    }, [mapsReady, activeTypes, allPlaces.length])
 
     const toggleType = (type: string) => {
         setActiveTypes(prev => {
@@ -380,28 +320,21 @@ function LifestyleMapCard({ listingLat, listingLng, lifestyleCounts, mapsReady }
 
     return (
         <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <h3 style={{ fontSize: '0.95rem', fontWeight: 600 }}>Nearby Places (within 800m)</h3>
-                {!searched && mapsReady && (
-                    <button className="btn btn-outline btn-sm" onClick={searchPlaces} disabled={loading}>
-                        {loading ? <><span className="spinner" style={{ width: 12, height: 12 }} /> Searching…</> : '🗺️ Show on map'}
-                    </button>
-                )}
-            </div>
+            <h3 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: 12 }}>Nearby Places (within 800m)</h3>
 
             {/* Category count chips */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: searched ? 12 : 0 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
                 {categories.map(([type, count]) => {
-                    const color = CATEGORY_COLORS[type] ?? '#888'
-                    const label = CATEGORY_LABELS[type] ?? type
+                    const color = getPlaceTypeColor(type)
+                    const label = getPlaceTypeLabel(type)
                     const isActive = activeTypes.has(type)
                     return (
                         <button key={type} type="button"
-                            onClick={() => searched && toggleType(type)}
+                            onClick={() => toggleType(type)}
                             style={{
                                 display: 'inline-flex', alignItems: 'center', gap: 5,
                                 padding: '4px 10px', borderRadius: 99,
-                                fontSize: '0.75rem', cursor: searched ? 'pointer' : 'default',
+                                fontSize: '0.75rem', cursor: 'pointer',
                                 border: `1.5px solid ${isActive ? color : 'var(--border)'}`,
                                 background: isActive ? `${color}18` : 'transparent',
                                 color: isActive ? color : 'var(--text-dim)',
@@ -414,24 +347,19 @@ function LifestyleMapCard({ listingLat, listingLng, lifestyleCounts, mapsReady }
                 })}
             </div>
 
-            {/* Map div always mounted so mapRef initialises — hidden until searched */}
-            <div ref={mapDivRef}
-                style={{
-                    width: '100%', height: 320, borderRadius: 10,
-                    border: '1px solid var(--border)', marginTop: 4,
-                    display: searched ? 'block' : 'none',
-                }} />
+            {/* Map — always visible once Google Maps is ready */}
+            {mapsReady ? (
+                <div ref={mapDivRef}
+                    style={{ width: '100%', height: 320, borderRadius: 10, border: '1px solid var(--border)' }} />
+            ) : (
+                <div style={{ height: 320, background: 'var(--bg-input)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                    <span className="spinner" style={{ marginRight: 8 }} /> Loading map…
+                </div>
+            )}
 
-            {searched && !loading && places.length === 0 && (
-                <p style={{ fontSize: '0.74rem', color: 'var(--text-dim)', marginTop: 8 }}>
-                    No places found nearby for these categories.
-                </p>
-            )}
-            {searched && !loading && places.length > 0 && (
-                <p style={{ fontSize: '0.74rem', color: 'var(--text-dim)', marginTop: 8 }}>
-                    Click any marker for its name. Toggle categories above to show/hide.
-                </p>
-            )}
+            <p style={{ fontSize: '0.74rem', color: 'var(--text-dim)', marginTop: 8 }}>
+                Click any marker for its name. Toggle categories above to show/hide.
+            </p>
         </div>
     )
 }
@@ -924,12 +852,12 @@ export default function ListingDetailPage() {
                         </div>
                     </div>
 
-                    {/* Lifestyle counts + nearby places map */}
-                    {Object.keys(result.lifestyleCounts).length > 0 && (
+                    {/* Lifestyle places + nearby map */}
+                    {Object.keys(result.lifestylePlaces).length > 0 && (
                         <LifestyleMapCard
                             listingLat={listing.lat}
                             listingLng={listing.lng}
-                            lifestyleCounts={result.lifestyleCounts}
+                            lifestylePlaces={result.lifestylePlaces}
                             mapsReady={mapsReady}
                         />
                     )}

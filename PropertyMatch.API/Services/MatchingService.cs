@@ -107,16 +107,16 @@ public class MatchingService(
 
         // ── Lifestyle score (30%) ─────────────────────────────────────────────
         double lifestyleScore = 0;
-        Dictionary<string, int> lifestyleCounts = [];
+        Dictionary<string, List<PlaceLocation>> lifestylePlaces = [];
 
         if (placeTypes.Count > 0)
         {
-            lifestyleCounts = await places.GetLifestyleCountsAsync(
+            lifestylePlaces = await places.GetLifestylePlacesAsync(
                 listing.Lat, listing.Lng, placeTypes);
 
             var categoryScores = placeTypes.Select(pt =>
             {
-                var count = lifestyleCounts.GetValueOrDefault(pt, 0);
+                var count = lifestylePlaces.TryGetValue(pt, out var list) ? list.Count : 0;
                 return Math.Min(count / 3.0, 1.0) * 100;
             });
             lifestyleScore = categoryScores.Average();
@@ -127,6 +127,11 @@ public class MatchingService(
                   + (commuteScore * WeightCommute)
                   + (lifestyleScore * WeightLifestyle);
 
+        // Map PlaceLocation (service model) → PlaceLocationDto (response DTO)
+        var lifestylePlacesDto = lifestylePlaces.ToDictionary(
+            kv => kv.Key,
+            kv => kv.Value.Select(p => new PlaceLocationDto(p.Name, p.Lat, p.Lng)).ToList());
+
         return new MatchedListingResponse(
             MapToResponse(listing),
             Math.Round(numericScore, 1),
@@ -134,7 +139,7 @@ public class MatchingService(
             Math.Round(lifestyleScore, 1),
             Math.Round(total, 1),
             bestMinutes,
-            lifestyleCounts,
+            lifestylePlacesDto,
             commuteRoutes);
     }
 
