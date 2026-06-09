@@ -47,6 +47,8 @@ public record ListingResponse(
 
 // ── Match ─────────────────────────────────────────────────────────────────────
 
+public record PlaceLocationDto(string Name, double Lat, double Lng);
+
 public record ModeCommuteResult(
     TransportMode Mode,
     int DurationMinutes,
@@ -71,7 +73,7 @@ public record MatchedListingResponse(
     double LifestyleScore,
     double TotalScore,
     int? CommuteMinutes,
-    Dictionary<string, int> LifestyleCounts,
+    Dictionary<string, List<PlaceLocationDto>> LifestylePlaces,
     List<ModeCommuteResult> CommuteRoutes);
 
 // ── Lifestyle Templates ───────────────────────────────────────────────────────
