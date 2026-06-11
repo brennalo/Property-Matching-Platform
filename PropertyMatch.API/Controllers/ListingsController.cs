@@ -74,6 +74,12 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
         if (agent.Status != AgentStatus.Verified)
             return Forbid();
 
+        // ── Token check ──────────────────────────────────────────
+        if (agent.TokenBalance < 1)
+            return BadRequest(new { message = "Insufficient tokens. Please top up before listing." });
+
+        agent.TokenBalance -= 1;
+
         var listing = new Listing
         {
             AgentId = agent.Id,

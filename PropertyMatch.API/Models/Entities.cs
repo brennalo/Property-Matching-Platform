@@ -32,7 +32,7 @@ public class Agent
     public string? StripeCustomerId { get; set; }
     public AgentStatus Status { get; set; } = AgentStatus.Pending;
     public DateTime? VerifiedAt { get; set; }
-
+    public int TokenBalance { get; set; }
     public User User { get; set; } = null!;
     public ICollection<Listing> Listings { get; set; } = [];
     public ICollection<Payment> Payments { get; set; } = [];
@@ -100,6 +100,7 @@ public class Payment
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid AgentId { get; set; }
     public Guid? ListingId { get; set; }
+    public int TokensPurchased { get; set; } = 0;
     [Required] public string StripePaymentIntentId { get; set; } = "";
     public string? StripeSessionId { get; set; }
     [Column(TypeName = "decimal(10,2)")] public decimal Amount { get; set; }
@@ -108,3 +109,10 @@ public class Payment
 
     public Agent Agent { get; set; } = null!;
 }
+
+//public class StripeSettings
+//{
+//    public string SecretKey { get; set; } = string.Empty;
+//    public string PublishableKey { get; set; } = string.Empty;
+//    public string WebhookSecret { get; set; } = string.Empty;
+//}

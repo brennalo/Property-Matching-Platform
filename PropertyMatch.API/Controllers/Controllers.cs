@@ -175,49 +175,49 @@ public class SchedulesController(AppDbContext db) : ControllerBase
         v.ScheduledAt, v.Status);
 }
 
-// ── Payments ──────────────────────────────────────────────────────────────────
-[ApiController]
-[Route("api/payments")]
-public class PaymentsController(StripeService stripe, IConfiguration config) : ControllerBase
-{
-    [HttpPost("checkout")]
-    [Authorize(Roles = "Agent")]
-    public async Task<IActionResult> CreateCheckout([FromBody] CreateCheckoutRequest req)
-    {
-        var userId = User.GetUserId();
+//// ── Payments ──────────────────────────────────────────────────────────────────
+//[ApiController]
+//[Route("api/payments")]
+//public class PaymentsController(StripeService stripe, IConfiguration config) : ControllerBase
+//{
+//    [HttpPost("checkout")]
+//    [Authorize(Roles = "Agent")]
+//    public async Task<IActionResult> CreateCheckout([FromBody] CreateCheckoutRequest req)
+//    {
+//        var userId = User.GetUserId();
 
-        var db = HttpContext.RequestServices.GetRequiredService<AppDbContext>();
-        var agent = await db.Agents.FirstOrDefaultAsync(a => a.UserId == userId);
-        if (agent == null) return NotFound();
+//        var db = HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+//        var agent = await db.Agents.FirstOrDefaultAsync(a => a.UserId == userId);
+//        if (agent == null) return NotFound();
 
-        var baseUrl = $"{Request.Scheme}://{Request.Host}";
-        var (url, sessionId) = await stripe.CreateListingCheckoutAsync(
-            agent.Id, req.ListingId,
-            successUrl: $"{baseUrl}/agent/listings?payment=success",
-            cancelUrl:  $"{baseUrl}/agent/listings?payment=cancelled");
+//        var baseUrl = $"{Request.Scheme}://{Request.Host}";
+//        var (url, sessionId) = await stripe.CreateListingCheckoutAsync(
+//            agent.Id, req.ListingId,
+//            successUrl: $"{baseUrl}/agent/listings?payment=success",
+//            cancelUrl:  $"{baseUrl}/agent/listings?payment=cancelled");
 
-        return Ok(new CheckoutResponse(url, sessionId));
-    }
+//        return Ok(new CheckoutResponse(url, sessionId));
+//    }
 
-    // Stripe webhook — no auth, uses Stripe-Signature header
-    [HttpPost("webhook")]
-    [AllowAnonymous]
-    public async Task<IActionResult> Webhook()
-    {
-        var json = await new StreamReader(Request.Body).ReadToEndAsync();
-        var signature = Request.Headers["Stripe-Signature"].FirstOrDefault() ?? "";
+//    // Stripe webhook — no auth, uses Stripe-Signature header
+//    [HttpPost("webhook")]
+//    [AllowAnonymous]
+//    public async Task<IActionResult> Webhook()
+//    {
+//        var json = await new StreamReader(Request.Body).ReadToEndAsync();
+//        var signature = Request.Headers["Stripe-Signature"].FirstOrDefault() ?? "";
 
-        try
-        {
-            await stripe.HandleWebhookAsync(json, signature, config);
-            return Ok();
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-    }
-}
+//        try
+//        {
+//            await stripe.HandleWebhookAsync(json, signature, config);
+//            return Ok();
+//        }
+//        catch (InvalidOperationException ex)
+//        {
+//            return BadRequest(new { message = ex.Message });
+//        }
+//    }
+//}
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
 [ApiController]

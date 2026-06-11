@@ -8,6 +8,7 @@ using PropertyMatch.API.Data;
 using PropertyMatch.API.Middleware;
 using PropertyMatch.API.Services;
 using PropertyMatch.API.Models;
+using Stripe;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -87,8 +88,8 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
     });
 
-// ── Stripe global key ─────────────────────────────────────────────────────────
-Stripe.StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
+// Add Stripe
+StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
 
 var app = builder.Build();
 
@@ -186,6 +187,7 @@ using (var scope = app.Services.CreateScope())
 
 
 app.UseStaticFiles();
+app.UseRouting();
 app.UseCors("Frontend");
 app.UseAuthentication();
 app.UseAuthorization();
