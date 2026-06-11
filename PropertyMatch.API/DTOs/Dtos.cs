@@ -1,13 +1,31 @@
 using PropertyMatch.API.Models;
+using PropertyMatch.API.Services;
 
 namespace PropertyMatch.API.DTOs;
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
-public record RegisterRequest(string Email, string Password, string FullName, UserRole Role);
+
+public record RegisterRequest(
+    string Email,
+    string Password,
+    string FullName,
+    UserRole Role,
+    string? LicenseNumber = null);   // agents only
+
 public record LoginRequest(string Email, string Password);
-public record AuthResponse(Guid UserId, string Email, string FullName, UserRole Role);
+
+public record AuthResponse(
+    Guid UserId,
+    string Email,
+    string FullName,
+    UserRole Role,
+    UserStatus Status,       // Pending | Verified | Blocked
+    DateTime? VerifiedAt);
+
+public record ResendVerificationRequest(string Email);
 
 // ── Listings ──────────────────────────────────────────────────────────────────
+
 public record CreateListingRequest(
     string Name, int Rooms, int Toilets,
     double Lat, double Lng, string Address,
@@ -28,13 +46,23 @@ public record ListingResponse(
     string? SourceUrl, string? SourcePlatform);
 
 // ── Match ─────────────────────────────────────────────────────────────────────
+
+public record PlaceLocationDto(string Name, double Lat, double Lng);
+
+public record ModeCommuteResult(
+    TransportMode Mode,
+    int DurationMinutes,
+    double DistanceKm,
+    string? EncodedPolyline,
+    List<TransitStep>? TransitSteps);
+
 public record MatchRequest(
     int? Rooms, int? Toilets,
     ResidencyType? ResidencyType,
     decimal? PriceMin, decimal? PriceMax,
     string WorkplaceAddress,
     double WorkplaceLat, double WorkplaceLng,
-    TransportMode TransportMode,
+    List<TransportMode> TransportModes,
     int MaxCommuteMinutes,
     Guid? LifestyleTemplateId);
 
@@ -45,31 +73,40 @@ public record MatchedListingResponse(
     double LifestyleScore,
     double TotalScore,
     int? CommuteMinutes,
-    Dictionary<string, int> LifestyleCounts);
+    Dictionary<string, List<PlaceLocationDto>> LifestylePlaces,
+    List<ModeCommuteResult> CommuteRoutes);
 
 // ── Lifestyle Templates ───────────────────────────────────────────────────────
+
 public record CreateTemplateRequest(string Name, List<string> PlaceTypes);
 public record TemplateResponse(Guid Id, string Name, List<string> PlaceTypes, DateTime CreatedAt);
 
 // ── Schedules ─────────────────────────────────────────────────────────────────
+
 public record CreateScheduleRequest(Guid ListingId, DateTime ScheduledAt);
+
 public record ScheduleResponse(
     Guid ListingId, string ListingName, string ListingAddress,
     Guid TenantId, string TenantName,
     DateTime ScheduledAt, ScheduleStatus Status);
 
+public record BookedSlotResponse(DateTime ScheduledAt, ScheduleStatus Status);
+
 // ── Payments ──────────────────────────────────────────────────────────────────
+
 public record CreateCheckoutRequest(Guid ListingId);
 public record CheckoutResponse(string CheckoutUrl, string SessionId);
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
+
 public record AnalyticsResponse(
     int TotalAgents, int TotalUsers, int TotalListings,
     int TotalSchedules, int TotalPayments, int BlockedAgents);
 
 public record AgentDetailResponse(
-    Guid AgentId, Guid UserId, string FullName, string Email,
-    AgentStatus Status, DateTime CreatedAt, DateTime? VerifiedAt,
-    int ListingCount);
+    Guid UserId, string FullName, string Email,
+    UserStatus Status,
+    DateTime CreatedAt, DateTime? VerifiedAt,
+    int ListingCount, string? LicenseNumber, int TokenBalance);
 
-public record UpdateAgentStatusRequest(AgentStatus Status);
+public record UpdateAgentStatusRequest(UserStatus Status);

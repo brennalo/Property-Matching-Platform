@@ -51,7 +51,7 @@ export default function AdminAgentsPage() {
       <p className="page-sub">Verify agent accounts and manage their access</p>
 
       {/* Filters */}
-      <div className="flex gap-3 mb-5" style={{ flexWrap: 'wrap' }}>
+          <div className="flex gap-3 mb-5" style={{ flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', flex: '1 1 200px' }}>
           <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
           <input className="input" style={{ paddingLeft: 34 }} placeholder="Search by name or email…"
@@ -77,8 +77,8 @@ export default function AdminAgentsPage() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {filtered.map(a => (
-            <AgentRow key={a.agentId} agent={a}
-              onAction={(status) => updateMut.mutate({ id: a.agentId, status })}
+            <AgentRow key={a.userId} agent={a}
+              onAction={(status) => updateMut.mutate({ id: a.userId, status })}
               loading={updateMut.isPending} />
           ))}
         </div>

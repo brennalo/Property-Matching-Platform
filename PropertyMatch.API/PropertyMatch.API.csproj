@@ -26,6 +26,7 @@
     <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.0" />
   </ItemGroup>
 <Target Name="BuildFrontend" BeforeTargets="Build">
+  <Exec Command ="rmdir /s /q wwwroot\assets" WorkingDirectory="$(ProjectDir)"/>
   <Exec Command="npm install" WorkingDirectory="frontend" />
   <Exec Command="npm run build" WorkingDirectory="frontend" />
   <ItemGroup>

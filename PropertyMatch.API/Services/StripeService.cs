@@ -158,7 +158,7 @@ public class StripeService(AppDbContext db, IConfiguration config)
 
         var agent = await db.Agents
             .Include(a => a.User)
-            .FirstOrDefaultAsync(a => a.Id == agentId)
+            .FirstOrDefaultAsync(a => a.UserId == agentId)
             ?? throw new InvalidOperationException("Agent not found");
 
         // Ensure Stripe customer exists
