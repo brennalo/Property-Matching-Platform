@@ -92,11 +92,6 @@ public record ScheduleResponse(
 
 public record BookedSlotResponse(DateTime ScheduledAt, ScheduleStatus Status);
 
-// ── Payments ──────────────────────────────────────────────────────────────────
-
-public record CreateCheckoutRequest(Guid ListingId);
-public record CheckoutResponse(string CheckoutUrl, string SessionId);
-
 // ── Admin ─────────────────────────────────────────────────────────────────────
 
 public record AnalyticsResponse(

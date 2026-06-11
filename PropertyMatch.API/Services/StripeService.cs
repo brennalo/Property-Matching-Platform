@@ -257,7 +257,7 @@ public class StripeService(AppDbContext db, IConfiguration config)
             if (!int.TryParse(tokenAmountStr, out var tokenAmount)) return;
 
             // Credit tokens to agent wallet
-            var agent = await db.Agents.FindAsync(agentId);
+            var agent = await db.Agents.FirstOrDefaultAsync(a => a.UserId == agentId);
             if (agent != null)
             {
                 agent.TokenBalance += tokenAmount;

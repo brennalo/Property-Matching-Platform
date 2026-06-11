@@ -38,9 +38,10 @@ public class PaymentsController(StripeService stripeService, IConfiguration conf
 
             return Ok(new { sessionId = result.SessionId, url = result.CheckoutUrl });
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new { error = ex.Message });
+            Console.WriteLine($"❌ Full error: {ex}");
+            return StatusCode(500, new { error = ex.Message });
         }
     }
 

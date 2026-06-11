@@ -60,7 +60,6 @@ public class Agent
     public string? StripeCustomerId { get; set; }
     public int TokenBalance { get; set; } = 0;
     public string? LicenseNumber { get; set; }
-    public DateTime? VerifiedAt { get; set; }
 
     // Navigation
     public User User { get; set; } = null!;
