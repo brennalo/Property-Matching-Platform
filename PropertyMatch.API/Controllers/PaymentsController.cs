@@ -6,6 +6,10 @@ using PropertyMatch.API.DTOs;
 using PropertyMatch.API.Middleware;
 using PropertyMatch.API.Models;
 using PropertyMatch.API.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
+using PropertyMatch.API.Data;
+using PropertyMatch.API.Middleware;
 
 namespace PropertyMatch.API.Controllers;
 
@@ -26,8 +30,8 @@ public class PaymentsController(StripeService stripeService, IConfiguration conf
     {
         try
         {
-            var successUrl = $"{Request.Scheme}://{Request.Host}/payment-success.html?session_id={{CHECKOUT_SESSION_ID}}";
-            var cancelUrl = $"{Request.Scheme}://{Request.Host}/payment-cancel.html";
+            var successUrl = $"{Request.Scheme}://{Request.Host}/payment-success?session_id={{CHECKOUT_SESSION_ID}}";
+            var cancelUrl = $"{Request.Scheme}://{Request.Host}/payment-cancel";
 
             var result = await stripeService.CreateTokenCheckoutAsync(
                 request.AgentId,
@@ -61,6 +65,17 @@ public class PaymentsController(StripeService stripeService, IConfiguration conf
             Console.WriteLine($"❌ Webhook error: {ex.Message}");
             return BadRequest(new { error = ex.Message });
         }
+    }
+
+    [HttpGet("token-balance")]
+    [Authorize(Roles = "Agent")]
+    public async Task<IActionResult> GetTokenBalance()
+    {
+        var userId = User.GetUserId();
+        var db = HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+        var agent = await db.Agents.FirstOrDefaultAsync(a => a.UserId == userId);
+        if (agent == null) return NotFound();
+        return Ok(new { tokenBalance = agent.TokenBalance });
     }
 }
 

@@ -1,8 +1,9 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { listingsApi, paymentsApi } from '../../api'
 import type { Listing, ResidencyType } from '../../types'
-import { Plus, Pencil, Trash2, CreditCard, ImagePlus, CheckCircle2, Clock, Ban } from 'lucide-react'
+import { Plus, Pencil, Trash2, CreditCard, ImagePlus, CheckCircle2, Clock, Ban, Coins } from 'lucide-react'
 
 const RESIDENCY_TYPES: ResidencyType[] = ['Landed', 'Condo', 'Apartment', 'Townhouse', 'Studio']
 
@@ -212,6 +213,7 @@ function ImageUploadModal({ listing, onClose }: { listing: Listing; onClose: () 
 
 export default function AgentListingsPage() {
   const qc = useQueryClient()
+  const navigate = useNavigate()
   const [showForm, setShowForm] = useState(false)
   const [editTarget, setEditTarget] = useState<Listing | null>(null)
   const [imageTarget, setImageTarget] = useState<Listing | null>(null)
@@ -226,6 +228,11 @@ export default function AgentListingsPage() {
   const { data: listings = [], isLoading } = useQuery({
     queryKey: ['my-listings'],
     queryFn: () => listingsApi.getMine().then(r => r.data),
+  })
+
+  const { data: balanceData } = useQuery({
+    queryKey: ['token-balance'],
+    queryFn: () => paymentsApi.getTokenBalance().then(r => r.data),
   })
 
   const createMut = useMutation({
@@ -293,15 +300,20 @@ export default function AgentListingsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="page-title">My Listings</h1>
-          <p className="page-sub">Manage your property listings</p>
+        <div className="flex items-center justify-between mb-6">
+            <div>
+                <h1 className="page-title">My Listings</h1>
+                <p className="page-sub">Manage your property listings</p>
+            </div>
+            <div className="flex gap-2">
+                <button className="btn btn-outline btn-sm" onClick={() => navigate('/agent/topup')}>
+                    <Coins size={14} /> {balanceData?.tokenBalance ?? 0} tokens
+                </button>
+                <button className="btn btn-primary" onClick={() => { setShowForm(true); setEditTarget(null) }}>
+                    <Plus size={15} /> New Listing
+                </button>
+            </div>
         </div>
-        <button className="btn btn-primary" onClick={() => { setShowForm(true); setEditTarget(null) }}>
-          <Plus size={15} /> New Listing
-        </button>
-      </div>
 
       {paymentStatus === 'success' && (
         <div style={{ padding: '12px 16px', background: 'var(--teal-dim)', border: '1px solid var(--teal)', borderRadius: 'var(--radius)', color: 'var(--teal)', marginBottom: 16, fontSize: '0.875rem' }}>

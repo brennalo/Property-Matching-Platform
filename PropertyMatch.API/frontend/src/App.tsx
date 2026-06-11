@@ -20,8 +20,11 @@ import AgentListingsPage from './pages/agent/ListingsPage'
 import AgentCalendarPage from './pages/agent/CalendarPage'
 import AdminDashboardPage from './pages/admin/DashboardPage'
 import AdminAgentsPage from './pages/admin/AgentsPage'
+import TokenTopUpPage from './pages/agent/TokenTopUpPage'
+import PaymentSuccessPage from './pages/agent/PaymentSuccessPage'
+import PaymentCancelPage from './pages/agent/PaymentCancelPage'
 
-import { Search, Heart, Calendar, List, BarChart3, Users, LogOut, Building2 } from 'lucide-react'
+import { Search, Heart, Calendar, List, BarChart3, Users, LogOut, Building2, Coins } from 'lucide-react'
 
 const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: 1, staleTime: 30_000 } }
@@ -122,6 +125,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
     const agentLinks = [
         { to: '/agent/listings', icon: <List size={16} />, label: 'My Listings' },
         { to: '/agent/calendar', icon: <Calendar size={16} />, label: 'Viewing Calendar' },
+        { to: '/agent/topup', icon: <Coins size={16} />, label: 'Top Up Tokens' },
     ]
     const adminLinks = [
         { to: '/admin/dashboard', icon: <BarChart3 size={16} />, label: 'Analytics' },
@@ -239,6 +243,13 @@ export default function App() {
                                 <AppShell><AgentCalendarPage /></AppShell>
                             </ProtectedRoute>
                         } />
+                        <Route path="/agent/topup" element={
+                            <ProtectedRoute roles={['Agent']} requireVerified>
+                                <AppShell><TokenTopUpPage /></AppShell>
+                            </ProtectedRoute>
+                        } />
+                        <Route path="/payment-success" element={<PaymentSuccessPage />} />
+                        <Route path="/payment-cancel" element={<PaymentCancelPage />} />
 
                         {/* Admin */}
                         <Route path="/admin/dashboard" element={
