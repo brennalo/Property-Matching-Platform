@@ -10,7 +10,7 @@ public enum ScheduleStatus { Pending, Confirmed, Cancelled }
 public enum ResidencyType { Landed, Condo, Apartment, Townhouse, Studio }
 public enum TransportMode { Driving, Walking, Transit, Bicycling }
 
-// ── User ──────────────────────────────────────────────────────────────────────
+// ── User ────────────────────────────────────────────────────────────────
 
 public class User
 {
@@ -37,7 +37,7 @@ public class User
     public ICollection<ViewingSchedule> ViewingSchedules { get; set; } = [];
 }
 
-// ── Email Verification ────────────────────────────────────────────────────────
+// ── Email Verification ───────────────────────────────────────────────────────
 
 public class EmailVerification
 {
@@ -50,7 +50,7 @@ public class EmailVerification
     public User User { get; set; } = null!;
 }
 
-// ── Agent ─────────────────────────────────────────────────────────────────────
+// ── Agent ────────────────────────────────────────────────────────────────
 // UserId is BOTH the primary key AND the foreign key to Users.
 
 public class Agent
@@ -66,9 +66,10 @@ public class Agent
     public User User { get; set; } = null!;
     public ICollection<Listing> Listings { get; set; } = [];
     public ICollection<Payment> Payments { get; set; } = [];
+    public ICollection<AgentAvailability> Availabilities { get; set; } = [];
 }
 
-// ── Listing ───────────────────────────────────────────────────────────────────
+// ── Listing ───────────────────────────────────────────────────────────────
 
 public class Listing
 {
@@ -99,7 +100,7 @@ public class Listing
     public ICollection<ViewingSchedule> ViewingSchedules { get; set; } = [];
 }
 
-// ── Listing Image ─────────────────────────────────────────────────────────────
+// ── Listing Image ─────────────────────────────────────────────────────────
 
 public class ListingImage
 {
@@ -107,11 +108,31 @@ public class ListingImage
     public Guid ListingId { get; set; }
     [Required] public string S3Url { get; set; } = "";
     public int DisplayOrder { get; set; }
+    [MaxLength(300)] public string? Caption { get; set; }   // NEW: per-image caption, ≤30 words
 
     public Listing Listing { get; set; } = null!;
 }
 
-// ── Lifestyle Template ────────────────────────────────────────────────────────
+// ── Agent Availability ────────────────────────────────────────────────────────
+
+public class AgentAvailability
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid AgentId { get; set; }   // FK → Agents.UserId
+
+    // 0=Monday, 1=Tuesday, ..., 6=Sunday (recurring weekly)
+    public int DayOfWeek { get; set; }   // 0-6
+
+    [Required] public string StartTime { get; set; } = "09:00";   // HH:mm format
+    [Required] public string EndTime { get; set; } = "17:00";     // HH:mm format
+
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
+
+    public Agent Agent { get; set; } = null!;
+}
+
+// ── Lifestyle Template ───────────────────────────────────────────────────────
 
 public class LifestyleTemplate
 {
@@ -127,7 +148,7 @@ public class LifestyleTemplate
     public User Tenant { get; set; } = null!;
 }
 
-// ── Viewing Schedule ──────────────────────────────────────────────────────────
+// ── Viewing Schedule ────────────────────────────────────────────────────────
 
 public class ViewingSchedule
 {
@@ -140,7 +161,7 @@ public class ViewingSchedule
     public User Tenant { get; set; } = null!;
 }
 
-// ── Payment ───────────────────────────────────────────────────────────────────
+// ── Payment ───────────────────────────────────────────────────────────
 
 public class Payment
 {

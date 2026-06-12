@@ -9,6 +9,8 @@
   <ItemGroup>
 	  <!--PackageReference Include="AWSSDK.Extensions.NETCore.Setup" Version="3.7.300.25" -->
 	  <!--PackageReference Include="AWSSDK.S3" Version="3.7.305" -->
+<PackageReference Include="AWSSDK.Extensions.NETCore.Setup" Version="4.0.4.6" />
+<PackageReference Include="AWSSDK.S3" Version="4.0.24.3" />
 <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.8">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -26,7 +28,7 @@
     <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.0" />
   </ItemGroup>
 <Target Name="BuildFrontend" BeforeTargets="Build">
-  <Exec Command ="rmdir /s /q wwwroot\assets" WorkingDirectory="$(ProjectDir)"/>
+  <Exec Command="rmdir /s /q wwwroot\assets" WorkingDirectory="$(ProjectDir)" />
   <Exec Command="npm install" WorkingDirectory="frontend" />
   <Exec Command="npm run build" WorkingDirectory="frontend" />
   <ItemGroup>

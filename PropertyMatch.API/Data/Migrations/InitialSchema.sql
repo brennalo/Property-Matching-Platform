@@ -74,7 +74,8 @@ CREATE TABLE IF NOT EXISTS "ListingImages" (
     "Id"           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "ListingId"    UUID NOT NULL REFERENCES "Listings"("Id") ON DELETE CASCADE,
     "S3Url"        TEXT NOT NULL,
-    "DisplayOrder" INT  NOT NULL DEFAULT 0
+    "DisplayOrder" INT  NOT NULL DEFAULT 0,
+    "Caption"      TEXT
 );
 
 -- ── Lifestyle Templates ───────────────────────────────────────────────────────
@@ -94,6 +95,18 @@ CREATE TABLE IF NOT EXISTS "ViewingSchedules" (
     "Status"      VARCHAR(20) NOT NULL DEFAULT 'Pending',
     PRIMARY KEY ("ListingId", "ScheduledAt")
 );
+
+-- ── Agent Availability ────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS "AgentAvailabilities" (
+    "Id"           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    "AgentId"      UUID NOT NULL REFERENCES "Agents"("UserId") ON DELETE CASCADE,
+    "DayOfWeek"    INT NOT NULL,
+    "StartTime"    VARCHAR(5) NOT NULL,
+    "EndTime"      VARCHAR(5) NOT NULL,
+    "CreatedAt"    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_availabilities_agent_id ON "AgentAvailabilities"("AgentId");
 
 -- ── Payments ──────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS "Payments" (

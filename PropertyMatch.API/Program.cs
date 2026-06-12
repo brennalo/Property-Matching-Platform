@@ -1,5 +1,6 @@
 using System.Text;
-//using Amazon.S3;
+using Amazon.Extensions.NETCore.Setup;
+using Amazon.S3;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -9,11 +10,11 @@ using PropertyMatch.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ── Database ──────────────────────────────────────────────────────────────────
+// ── Database ───────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// ── JWT Auth ──────────────────────────────────────────────────────────────────
+// ── JWT Auth ───────────────────────────────────────────────────────────────
 var jwtSecret = builder.Configuration["Jwt:Secret"]
     ?? throw new InvalidOperationException("Jwt:Secret must be configured");
 
@@ -44,7 +45,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
-// ── CORS ──────────────────────────────────────────────────────────────────────
+// ── CORS ────────────────────────────────────────────────────────────────
 builder.Services.AddCors(opt =>
     opt.AddPolicy("Frontend", policy =>
         policy
@@ -55,18 +56,22 @@ builder.Services.AddCors(opt =>
             .AllowAnyMethod()
             .AllowCredentials()));
 
-// ── AWS S3 ────────────────────────────────────────────────────────────────────
-//builder.Services.AddDefaultAWSOptions(builder.Configuration.GetAWSOptions());
-//builder.Services.AddAWSService<IAmazonS3>();
+// ── AWS S3 ───────────────────────────────────────────────────────────────
+var useS3 = builder.Configuration.GetValue<bool>("Storage:UseS3", false);
+if (useS3)
+{
+    builder.Services.AddDefaultAWSOptions(builder.Configuration.GetAWSOptions());
+    builder.Services.AddAWSService<IAmazonS3>();
+}
 
-// ── Application Services ──────────────────────────────────────────────────────
+// ── Application Services ───────────────────────────────────────────────────
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddScoped<MatchingService>();
 builder.Services.AddScoped<GoogleRoutesService>();
 builder.Services.AddScoped<GooglePlacesService>();
 builder.Services.AddScoped<StripeService>();
 builder.Services.AddScoped<S3Service>();
-builder.Services.AddScoped<ResendEmailService>();   // ← new
+builder.Services.AddScoped<ResendEmailService>();
 builder.Services.AddHttpClient();
 
 builder.Services.AddControllers()
@@ -78,12 +83,12 @@ builder.Services.AddControllers()
             new System.Text.Json.Serialization.JsonStringEnumConverter());
     });
 
-// ── Stripe ────────────────────────────────────────────────────────────────────
+// ── Stripe ───────────────────────────────────────────────────────────────
 Stripe.StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
 
 var app = builder.Build();
 
-// ── Auto-migrate ──────────────────────────────────────────────────────────────
+// ── Auto-migrate ────────────────────────────────────────────────────────────
 using (var scope = app.Services.CreateScope())
 {
     var dbCtx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -92,7 +97,7 @@ using (var scope = app.Services.CreateScope())
 
 app.UseCors("Frontend");
 
-// ── Serve React SPA from wwwroot ──────────────────────────────────────────────
+// ── Serve React SPA from wwwroot ───────────────────────────────────────────
 // Vite dist/ is copied here by the .csproj BeforeTargets="Build" step.
 app.UseDefaultFiles();   // serves index.html for /
 app.UseStaticFiles();    // serves JS/CSS/assets
