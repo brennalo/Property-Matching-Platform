@@ -148,9 +148,11 @@ export interface AgentDetail {
 export interface AgentAvailability {
   id: string;
   agentId: string;
-  dayOfWeek: number; // 0-6 (Mon-Sun)
-  startTime: string; // HH:mm
-  endTime: string; // HH:mm
+  startTime: string;
+  endTime: string;
+  validFromDate: string;
+  validToDate: string;
+  reason?: string | null;
   createdAt: string;
 }
 

@@ -265,26 +265,22 @@ public class AdminController(AppDbContext db) : ControllerBase
     [HttpPut("agents/{id}/status")]
     public async Task<IActionResult> UpdateAgentStatus(Guid id, [FromBody] UpdateAgentStatusRequest req)
     {
-        // id = UserId (Agent PK)
         var agent = await db.Agents
             .Include(a => a.User)
             .FirstOrDefaultAsync(a => a.UserId == id);
         if (agent == null) return NotFound();
 
-        // Approval/blocking lives entirely on User.Status
         agent.User.Status = req.Status;
 
         if (req.Status == UserStatus.Verified && agent.User.VerifiedAt == null)
             agent.User.VerifiedAt = DateTime.UtcNow;
 
-        // Block all listings when agent is blocked
         if (req.Status == UserStatus.Blocked)
         {
             var listings = db.Listings.Where(l => l.AgentId == id);
             await listings.ForEachAsync(l => l.Status = ListingStatus.Inactive);
         }
 
-        // Reactivate listings when reinstated
         if (req.Status == UserStatus.Verified)
         {
             var listings = db.Listings.Where(l => l.AgentId == id && l.Status == ListingStatus.Inactive);
@@ -313,6 +309,105 @@ public class AdminController(AppDbContext db) : ControllerBase
             l.CreatedAt,
             Agent = l.Agent?.User?.FullName
         }));
+    }
+
+    // ── Advanced Analytics Endpoints ─────────────────────────────────────────
+
+    [HttpGet("analytics/top-listings")]
+    public async Task<IActionResult> GetTopListings([FromQuery] int top = 10)
+    {
+        var topListings = await db.ViewingSchedules
+            .GroupBy(v => v.ListingId)
+            .Select(g => new
+            {
+                listingId = g.Key,
+                listingName = g.First().Listing.Name,
+                agentName = g.First().Listing.Agent.User.FullName,
+                appointmentCount = g.Count()
+            })
+            .OrderByDescending(x => x.appointmentCount)
+            .Take(top)
+            .ToListAsync();
+
+        return Ok(topListings);
+    }
+
+    [HttpGet("analytics/monthly-revenue")]
+    public async Task<IActionResult> GetMonthlyRevenue()
+    {
+        var revenue = await db.Payments
+            .Where(p => p.Status == "succeeded")
+            .GroupBy(p => new { p.CreatedAt.Year, p.CreatedAt.Month })
+            .Select(g => new
+            {
+                year = g.Key.Year,
+                month = g.Key.Month,
+                total = g.Sum(p => p.Amount)
+            })
+            .OrderBy(x => x.year).ThenBy(x => x.month)
+            .ToListAsync();
+
+        return Ok(revenue);
+    }
+
+    [HttpGet("analytics/agent-performance")]
+    public async Task<IActionResult> GetAgentPerformance([FromQuery] int top = 10)
+    {
+        var agents = await db.Agents
+            .Select(a => new
+            {
+                agentName = a.User.FullName,
+                listingCount = a.Listings.Count(l => l.Status == ListingStatus.Active),
+                appointmentCount = a.Listings.Sum(l => l.ViewingSchedules.Count),
+                revenue = a.Payments.Where(p => p.Status == "succeeded").Sum(p => p.Amount)
+            })
+            .OrderByDescending(a => a.appointmentCount)
+            .Take(top)
+            .ToListAsync();
+
+        return Ok(agents);
+    }
+
+    [HttpGet("analytics/listing-status")]
+    public async Task<IActionResult> GetListingStatusDistribution()
+    {
+        var statusCounts = await db.Listings
+            .GroupBy(l => l.Status)
+            .Select(g => new
+            {
+                status = g.Key.ToString(),
+                count = g.Count()
+            })
+            .ToListAsync();
+
+        return Ok(statusCounts);
+    }
+
+    [HttpGet("analytics/avg-price-by-type")]
+    public async Task<IActionResult> GetAvgPriceByType()
+    {
+        var result = await db.Listings
+            .Where(l => l.Status == ListingStatus.Active)
+            .GroupBy(l => l.ResidencyType)
+            .Select(g => new
+            {
+                type = g.Key.ToString(),
+                avgPrice = g.Average(l => l.Price),
+                count = g.Count()   // ← add this
+            })
+            .OrderByDescending(x => x.avgPrice)
+            .ToListAsync();
+
+        return Ok(result);
+    }
+
+    [HttpGet("analytics/conversion-rate")]
+    public async Task<IActionResult> GetConversionRate()
+    {
+        int totalListings = await db.Listings.CountAsync();
+        int paidListings = await db.Listings.CountAsync(l => l.Status == ListingStatus.Active);
+        double conversionRate = totalListings == 0 ? 0 : (double)paidListings / totalListings * 100;
+        return Ok(new { totalListings, paidListings, conversionRate });
     }
 }
 
@@ -349,5 +444,97 @@ public class ScheduleSlotsController(AppDbContext db) : ControllerBase
             .ToListAsync();
 
         return Ok(slots);
+    }
+}
+
+
+// ── Agent Dashboard ─────────────────────────────────────────────────────────
+[ApiController]
+[Route("api/agent/dashboard")]
+[Authorize(Roles = "Agent")]
+public class AgentDashboardController(AppDbContext db) : ControllerBase
+{
+    [HttpGet]
+    public async Task<IActionResult> GetDashboard()
+    {
+        var userId = User.GetUserId();
+        var agent = await db.Agents
+            .Include(a => a.User)
+            .FirstOrDefaultAsync(a => a.UserId == userId);
+        if (agent == null) return NotFound();
+
+        // Listings
+        var listings = await db.Listings
+            .Where(l => l.AgentId == agent.UserId)
+            .ToListAsync();
+
+        int activeListings = listings.Count(l => l.Status == ListingStatus.Active);
+        int pendingPaymentListings = listings.Count(l => l.Status == ListingStatus.PendingPayment);
+        int draftListings = listings.Count(l => l.Status == ListingStatus.Draft);
+        int inactiveListings = listings.Count(l => l.Status == ListingStatus.Inactive);
+
+        // Viewing schedules - IMPORTANT: include Listing and Tenant
+        var schedules = await db.ViewingSchedules
+            .Include(v => v.Listing)
+            .Include(v => v.Tenant)
+            .Where(v => v.Listing.AgentId == agent.UserId)
+            .ToListAsync();
+
+        int totalAppointments = schedules.Count;
+        int pendingAppointments = schedules.Count(v => v.Status == ScheduleStatus.Pending);
+        int confirmedAppointments = schedules.Count(v => v.Status == ScheduleStatus.Confirmed);
+        int cancelledAppointments = schedules.Count(v => v.Status == ScheduleStatus.Cancelled);
+
+        // Upcoming viewings (next 7 days)
+        var today = DateTime.UtcNow.Date;
+        var upcoming = schedules
+            .Where(v => v.ScheduledAt.Date >= today && v.ScheduledAt.Date <= today.AddDays(7))
+            .OrderBy(v => v.ScheduledAt)
+            .Select(v => new UpcomingViewingDto(
+                v.ListingId,
+                v.Listing?.Name ?? "",
+                v.ScheduledAt,
+                v.Status.ToString(),
+                v.Tenant?.FullName ?? ""
+            ))
+            .Take(10)
+            .ToList();
+
+        // Top performing listings (most appointments)
+        var topListings = schedules
+            .GroupBy(v => v.ListingId)
+            .Select(g => new
+            {
+                ListingId = g.Key,
+                ListingName = g.First().Listing?.Name ?? "",
+                AppointmentCount = g.Count()
+            })
+            .OrderByDescending(x => x.AppointmentCount)
+            .Take(5)
+            .Select(x => new TopListingDto(x.ListingId, x.ListingName, x.AppointmentCount))
+            .ToList();
+
+        // Payment reminder: listings that need payment
+        var pendingPaymentList = listings
+            .Where(l => l.Status == ListingStatus.PendingPayment)
+            .Select(l => new PendingPaymentListingDto(l.Id, l.Name, l.Price, l.CreatedAt))
+            .ToList();
+
+        // Agent profile
+        var profile = new AgentProfileDto(
+            agent.User.FullName,
+            agent.User.Email,
+            agent.User.Status.ToString(),
+            agent.TokenBalance
+        );
+
+        return Ok(new AgentDashboardResponse(
+            profile,
+            new ListingStatsDto(activeListings, pendingPaymentListings, draftListings, inactiveListings),
+            new AppointmentStatsDto(totalAppointments, pendingAppointments, confirmedAppointments, cancelledAppointments),
+            upcoming,
+            topListings,
+            pendingPaymentList
+        ));
     }
 }

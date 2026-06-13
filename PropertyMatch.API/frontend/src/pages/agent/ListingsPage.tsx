@@ -15,6 +15,7 @@ import {
   Download,
 } from "lucide-react";
 import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 const RESIDENCY_TYPES: ResidencyType[] = [
   "Landed",
@@ -440,27 +441,67 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
     }
   };
 
-  const downloadTemplate = () => {
-    const template = [
-      {
-        PropertyName: "Example Property",
-        Bedrooms: 3,
-        Bathrooms: 2,
-        Toilets: 2,
-        Address: "Jalan Ampang, KL",
-        Price: 2500,
-        Type: "Condo",
-        Latitude: 3.1478,
-        Longitude: 101.6953,
-        Description: "Nice property",
-      },
-    ];
-    const ws = XLSX.utils.json_to_sheet(template);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Listings");
-    XLSX.writeFile(wb, "batch_listings_template.xlsx");
-  };
+  const downloadTemplate = async () => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Listings");
 
+    // Define columns
+    worksheet.columns = [
+      { header: "PropertyName", key: "PropertyName", width: 25 },
+      { header: "Bedrooms", key: "Bedrooms", width: 10 },
+      { header: "Bathrooms", key: "Bathrooms", width: 10 },
+      { header: "Toilets", key: "Toilets", width: 10 },
+      { header: "Address", key: "Address", width: 40 },
+      { header: "Price", key: "Price", width: 15 },
+      { header: "Type", key: "Type", width: 15 },
+      { header: "Latitude", key: "Latitude", width: 15 },
+      { header: "Longitude", key: "Longitude", width: 15 },
+    ];
+
+    // Add example row
+    worksheet.addRow({
+      PropertyName: "Example Property",
+      Bedrooms: 3,
+      Bathrooms: 2,
+      Toilets: 2,
+      Address: "Jalan Ampang, KL",
+      Price: 2500,
+      Type: "Condo",
+      Latitude: 3.1478,
+      Longitude: 101.6953,
+    });
+
+    // Apply data validation dropdown for the 'Type' column (column G = 7)
+    const allowedTypes = [
+      "Landed",
+      "Condo",
+      "Apartment",
+      "Townhouse",
+      "Studio",
+    ];
+    for (let row = 2; row <= 100; row++) {
+      const cell = worksheet.getCell(`G${row}`);
+      cell.dataValidation = {
+        type: "list",
+        allowBlank: false,
+        formulae: [`"${allowedTypes.join(",")}"`],
+        showErrorMessage: true,
+        errorTitle: "Invalid Property Type",
+        error: "Please select from the dropdown list.",
+      };
+    }
+
+    // Write file
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "batch_listings_template.xlsx";
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>

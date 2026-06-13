@@ -867,3 +867,32 @@ textarea {
 .gap-2 {
   gap: 8px;
 }
+
+/* ── Availability Calendar ───────────────────────────────────────────────── */
+
+/* Override react-day-picker accent colors */
+.rdp-selected:not(.rdp-range_middle) .rdp-day_button,
+.rdp-range_start .rdp-day_button,
+.rdp-range_end .rdp-day_button {
+  background-color: var(--accent) !important;
+  color: #0f0f0e !important;
+}
+
+.rdp-range_middle .rdp-day_button {
+  background-color: rgba(var(--accent-rgb), 0.2) !important;
+  color: var(--text) !important;
+}
+
+.rdp-button:hover:not([disabled]) {
+  background-color: var(--bg-input) !important;
+}
+
+body .rdp-root {
+  --rdp-accent-color: var(--accent) !important;
+  --rdp-accent-background-color: rgba(var(--accent-rgb), 0.15) !important;
+  --rdp-range_middle-background-color: #f5f5f552 !important; /* light background for middle days */
+  --rdp-range_start-color: #0f0f0e !important;
+  --rdp-range_end-color: #0f0f0e !important;
+  --rdp-today-color: var(--accent) !important;
+  --rdp-day-height: 40px;
+}

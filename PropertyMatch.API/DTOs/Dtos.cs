@@ -116,14 +116,23 @@ public record BookedSlotResponse(DateTime ScheduledAt, ScheduleStatus Status);
 // ── Availability ──────────────────────────────────────────────────────────────
 
 public record AgentAvailabilityRequest(
-    int DayOfWeek,   // 0-6
-    string StartTime,   // "HH:mm"
-    string EndTime);    // "HH:mm"
+    string StartTime,
+    string EndTime,
+    DateTime ValidFromDate,
+    DateTime ValidToDate,
+    string? Reason = null
+);
 
 public record AgentAvailabilityResponse(
-    Guid Id, Guid AgentId, int DayOfWeek,
-    string StartTime, string EndTime,
-    DateTime CreatedAt);
+    Guid Id,
+    Guid AgentId,
+    string StartTime,
+    string EndTime,
+    DateTime ValidFromDate,
+    DateTime ValidToDate,
+    string? Reason,
+    DateTime CreatedAt
+);
 
 public record AgentAvailabilityListResponse(
     List<AgentAvailabilityResponse> Availabilities);
@@ -146,3 +155,18 @@ public record AgentDetailResponse(
     int ListingCount, string? LicenseNumber, int TokenBalance);
 
 public record UpdateAgentStatusRequest(UserStatus Status);
+
+public record AgentProfileDto(string FullName, string Email, string Status, int TokenBalance);
+public record ListingStatsDto(int Active, int PendingPayment, int Draft, int Inactive);
+public record AppointmentStatsDto(int Total, int Pending, int Confirmed, int Cancelled);
+public record UpcomingViewingDto(Guid ListingId, string ListingName, DateTime ScheduledAt, string Status, string TenantName);
+public record TopListingDto(Guid ListingId, string ListingName, int AppointmentCount);
+public record PendingPaymentListingDto(Guid Id, string Name, decimal Price, DateTime CreatedAt);
+public record AgentDashboardResponse(
+    AgentProfileDto Profile,
+    ListingStatsDto Listings,
+    AppointmentStatsDto Appointments,
+    List<UpcomingViewingDto> UpcomingViewings,
+    List<TopListingDto> TopListings,
+    List<PendingPaymentListingDto> PendingPayments
+);

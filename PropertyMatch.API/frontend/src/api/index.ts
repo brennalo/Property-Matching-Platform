@@ -181,6 +181,14 @@ export const paymentsApi = {
 // ── Admin ──────────────────────────────────────────────────────────────────────────
 export const adminApi = {
   getAnalytics: () => api.get<Analytics>("/admin/analytics"),
+  getTopListings: (top = 10) =>
+    api.get(`/admin/analytics/top-listings?top=${top}`),
+  getMonthlyRevenue: () => api.get("/admin/analytics/monthly-revenue"),
+  getAgentPerformance: (top = 10) =>
+    api.get(`/admin/analytics/agent-performance?top=${top}`),
+  getListingStatus: () => api.get("/admin/analytics/listing-status"),
+  getAvgPriceByType: () => api.get("/admin/analytics/avg-price-by-type"),
+  getConversionRate: () => api.get("/admin/analytics/conversion-rate"),
 
   getAgents: (status?: UserStatus) =>
     api.get<AgentDetail[]>("/admin/agents", {

@@ -33,6 +33,7 @@ import AgentAvailabilityPage from "./pages/agent/AvailabilityPage";
 import AgentCalendarPage from "./pages/agent/CalendarPage";
 import AdminDashboardPage from "./pages/admin/DashboardPage";
 import AdminAgentsPage from "./pages/admin/AgentsPage";
+import AgentDashboardPage from "./pages/agent/DashboardPage";
 
 import {
   Search,
@@ -201,6 +202,11 @@ function AppShell({ children }: { children: React.ReactNode }) {
     { to: "/my-schedules", icon: <Calendar size={16} />, label: "My Viewings" },
   ];
   const agentLinks = [
+    {
+      to: "/agent/dashboard",
+      icon: <BarChart3 size={16} />,
+      label: "Dashboard",
+    },
     { to: "/agent/listings", icon: <List size={16} />, label: "My Listings" },
     {
       to: "/agent/availability",
@@ -312,7 +318,7 @@ function RootRedirect() {
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === "Tenant") return <Navigate to="/search" replace />;
-  if (user.role === "Agent") return <Navigate to="/agent/listings" replace />;
+  if (user.role === "Agent") return <Navigate to="/agent/dashboard" replace />;
   return <Navigate to="/admin/dashboard" replace />;
 }
 
@@ -422,6 +428,16 @@ export default function App() {
                 <ProtectedRoute roles={["Agent"]} requireVerified>
                   <AppShell>
                     <AgentCalendarPage />
+                  </AppShell>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/agent/dashboard"
+              element={
+                <ProtectedRoute roles={["Agent"]} requireVerified>
+                  <AppShell>
+                    <AgentDashboardPage />
                   </AppShell>
                 </ProtectedRoute>
               }

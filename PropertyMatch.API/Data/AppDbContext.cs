@@ -56,6 +56,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasOne(i => i.Listing)
             .WithMany(l => l.Images)
             .HasForeignKey(i => i.ListingId);
+        mb.Entity<ListingImage>()
+            .Property(i => i.Caption)
+            .HasMaxLength(30);
 
         // ── AgentAvailability ─────────────────────────────────────────────────
         mb.Entity<AgentAvailability>()

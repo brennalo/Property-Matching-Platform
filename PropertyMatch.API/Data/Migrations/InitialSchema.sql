@@ -100,13 +100,16 @@ CREATE TABLE IF NOT EXISTS "ViewingSchedules" (
 CREATE TABLE IF NOT EXISTS "AgentAvailabilities" (
     "Id"           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "AgentId"      UUID NOT NULL REFERENCES "Agents"("UserId") ON DELETE CASCADE,
-    "DayOfWeek"    INT NOT NULL,
     "StartTime"    VARCHAR(5) NOT NULL,
     "EndTime"      VARCHAR(5) NOT NULL,
+    "ValidFromDate" DATE NOT NULL,
+    "ValidToDate"   DATE NOT NULL,
+    "Reason"       VARCHAR(200),
     "CreatedAt"    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_agent_availabilities_agent_id ON "AgentAvailabilities"("AgentId");
+CREATE INDEX idx_agent_availabilities_agent_id ON "AgentAvailabilities"("AgentId");
+CREATE INDEX idx_agent_availabilities_dates ON "AgentAvailabilities"("AgentId", "ValidFromDate", "ValidToDate");
 
 -- ── Payments ──────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS "Payments" (

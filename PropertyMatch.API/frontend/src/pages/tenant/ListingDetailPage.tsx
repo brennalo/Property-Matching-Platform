@@ -1252,7 +1252,7 @@ const HOUR_OPTIONS = Array.from({ length: 13 }, (_, i) => {
   };
 });
 
-// ── Calendar picker props interface ─────────────────────────────────────────
+// ── Calendar picker – date‑bound availability ────────────────────────────────
 interface CalendarPickerProps {
   selectedDate: string;
   selectedTime: string;
@@ -1268,19 +1268,8 @@ function CalendarPicker({
   onSelectDate,
   onSelectTime,
   bookedSlots,
-  availability, // { dayOfWeek, startTime, endTime }[]
-}: {
-  selectedDate: string;
-  selectedTime: string;
-  onSelectDate: (d: string) => void;
-  onSelectTime: (t: string) => void;
-  bookedSlots: BookedSlot[];
-  availability: Array<{
-    dayOfWeek: number;
-    startTime: string;
-    endTime: string;
-  }>;
-}) {
+  availability,
+}: CalendarPickerProps) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const [viewYear, setViewYear] = useState(today.getFullYear());
@@ -1301,30 +1290,29 @@ function CalendarPicker({
     }),
   );
 
-  // Build a map: dayOfWeek -> available hour ranges (as 0‑23 numbers)
-  const availabilityMap = new Map<
-    number,
-    { startHour: number; endHour: number }[]
-  >();
-  availability.forEach((avail) => {
-    const startHour = parseInt(avail.startTime.split(":")[0], 10);
-    const endHour = parseInt(avail.endTime.split(":")[0], 10);
-    const ranges = availabilityMap.get(avail.dayOfWeek) || [];
-    ranges.push({ startHour, endHour });
-    availabilityMap.set(avail.dayOfWeek, ranges);
-  });
-
-  // Generate hour options based on agent's availability for the selected date
+  // Helper: get hour options for a given date string
   const getHourOptionsForDate = (dateStr: string) => {
     if (!dateStr) return [];
-    const date = new Date(dateStr);
-    const dayOfWeek = date.getDay(); // 0 = Sunday, matches DB
-    const ranges = availabilityMap.get(dayOfWeek);
-    if (!ranges) return [];
+    const targetDate = new Date(dateStr);
+    targetDate.setHours(0, 0, 0, 0);
 
+    // Find all slots that cover this date
+    const matchingSlots = availability.filter((slot) => {
+      const from = new Date(slot.validFromDate);
+      const to = new Date(slot.validToDate);
+      from.setHours(0, 0, 0, 0);
+      to.setHours(0, 0, 0, 0);
+      return targetDate >= from && targetDate <= to;
+    });
+
+    if (matchingSlots.length === 0) return [];
+
+    // Collect all possible hours from the matching slots
     const hours: number[] = [];
-    for (const range of ranges) {
-      for (let h = range.startHour; h < range.endHour; h++) {
+    for (const slot of matchingSlots) {
+      const startHour = parseInt(slot.startTime.split(":")[0], 10);
+      const endHour = parseInt(slot.endTime.split(":")[0], 10);
+      for (let h = startHour; h < endHour; h++) {
         if (!hours.includes(h)) hours.push(h);
       }
     }
@@ -1348,7 +1336,7 @@ function CalendarPicker({
 
   return (
     <div>
-      {/* Month navigation (same as before) */}
+      {/* Month navigation */}
       <div
         style={{
           display: "flex",
@@ -1416,13 +1404,13 @@ function CalendarPicker({
           const isSel = selectedDate === dateStr;
           const isToday = cellDate.getTime() === today.getTime();
 
-          // Check if this day's weekday has any availability
-          const dayOfWeek = cellDate.getDay();
-          const hasAvailability = availabilityMap.has(dayOfWeek);
-          const bookedCount = hourOptions.filter((h) =>
+          // Check availability for this specific date
+          const hourOptionsForCell = getHourOptionsForDate(dateStr);
+          const hasAvailability = hourOptionsForCell.length > 0;
+          const bookedCount = hourOptionsForCell.filter((h) =>
             bookedSet.has(`${dateStr}T${h.value}`),
           ).length;
-          const totalAvailable = hourOptions.length;
+          const totalAvailable = hourOptionsForCell.length;
           const fullyBooked =
             totalAvailable > 0 && bookedCount >= totalAvailable;
 
@@ -1556,7 +1544,7 @@ function CalendarPicker({
         </span>
       </div>
 
-      {/* Time slot picker (only shown after date selected) */}
+      {/* Time slot picker */}
       {selectedDate && (
         <div style={{ marginTop: 16 }}>
           <label

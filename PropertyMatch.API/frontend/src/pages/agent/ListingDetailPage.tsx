@@ -307,7 +307,7 @@ function ImageGrid({
                 >
                   Image #{img.displayOrder + 1} Caption (
                   {(editingCaption[img.id] || img.caption || "").length}/30
-                  words)
+                  characters)
                 </label>
                 <textarea
                   value={
@@ -316,19 +316,15 @@ function ImageGrid({
                       : img.caption || ""
                   }
                   onChange={(e) => {
-                    const value = e.target.value;
-                    const wordCount = value
-                      .split(/\s+/)
-                      .filter((w) => w.length > 0).length;
-                    if (wordCount <= 30) {
-                      setEditingCaption((c) => ({ ...c, [img.id]: value }));
-                      onUpdateCaption(img.id, value);
-                    }
+                    const value = e.target.value.slice(0, 30); // enforce max 30 chars
+                    setEditingCaption((c) => ({ ...c, [img.id]: value }));
+                    onUpdateCaption(img.id, value);
                   }}
-                  placeholder="e.g., Bedroom"
+                  maxLength={30}
+                  placeholder="e.g., Spacious living room"
+                  rows={2}
                   style={{
                     width: "100%",
-                    height: 60,
                     padding: 8,
                     fontSize: "0.85rem",
                     borderRadius: 6,
@@ -336,7 +332,7 @@ function ImageGrid({
                     background: "var(--bg-card)",
                     color: "var(--text)",
                     fontFamily: "inherit",
-                    resize: "none",
+                    resize: "vertical",
                   }}
                 />
               </div>

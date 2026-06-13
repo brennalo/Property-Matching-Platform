@@ -108,7 +108,7 @@ public class ListingImage
     public Guid ListingId { get; set; }
     [Required] public string S3Url { get; set; } = "";
     public int DisplayOrder { get; set; }
-    [MaxLength(300)] public string? Caption { get; set; }   // NEW: per-image caption, ≤30 words
+    [MaxLength(30)] public string? Caption { get; set; }  
 
     public Listing Listing { get; set; } = null!;
 }
@@ -117,19 +117,17 @@ public class ListingImage
 
 public class AgentAvailability
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
-    public Guid AgentId { get; set; }   // FK → Agents.UserId
+    public Guid Id { get; set; }
+    public Guid AgentId { get; set; }
+    public string StartTime { get; set; } = "09:00";
+    public string EndTime { get; set; } = "17:00";
+    public DateTime ValidFromDate { get; set; }
+    public DateTime ValidToDate { get; set; }
+    public string? Reason { get; set; }
+    public DateTime CreatedAt { get; set; }
 
-    // 0=Monday, 1=Tuesday, ..., 6=Sunday (recurring weekly)
-    public int DayOfWeek { get; set; }   // 0-6
 
-    [Required] public string StartTime { get; set; } = "09:00";   // HH:mm format
-    [Required] public string EndTime { get; set; } = "17:00";     // HH:mm format
-
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime? UpdatedAt { get; set; }
-
-    public Agent Agent { get; set; } = null!;
+    public Agent? Agent { get; set; }
 }
 
 // ── Lifestyle Template ───────────────────────────────────────────────────────

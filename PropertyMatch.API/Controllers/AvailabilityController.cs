@@ -24,7 +24,7 @@ public class AvailabilityController(AppDbContext db) : ControllerBase
 
         var availabilities = await db.AgentAvailabilities
             .Where(a => a.AgentId == agent.UserId)
-            .OrderBy(a => a.DayOfWeek)
+            .OrderBy(a => a.ValidFromDate)
             .ThenBy(a => a.StartTime)
             .ToListAsync();
 
@@ -32,14 +32,19 @@ public class AvailabilityController(AppDbContext db) : ControllerBase
             availabilities.Select(MapResponse).ToList()));
     }
 
-    // GET /api/availability/{agentId} — public, get agent's availability for display
+    // GET /api/availability/{agentId} — public, get agent's availability for a specific date (optional)
     [HttpGet("{agentId}")]
     [AllowAnonymous]
-    public async Task<IActionResult> GetByAgentId(Guid agentId)
+    public async Task<IActionResult> GetByAgentId(Guid agentId, [FromQuery] DateTime? forDate = null)
     {
-        var availabilities = await db.AgentAvailabilities
-            .Where(a => a.AgentId == agentId)
-            .OrderBy(a => a.DayOfWeek)
+        var query = db.AgentAvailabilities.Where(a => a.AgentId == agentId);
+        if (forDate.HasValue)
+        {
+            var date = forDate.Value.Date;
+            query = query.Where(a => a.ValidFromDate <= date && a.ValidToDate >= date);
+        }
+        var availabilities = await query
+            .OrderBy(a => a.ValidFromDate)
             .ThenBy(a => a.StartTime)
             .ToListAsync();
 
@@ -47,7 +52,7 @@ public class AvailabilityController(AppDbContext db) : ControllerBase
             availabilities.Select(MapResponse).ToList()));
     }
 
-    // POST /api/availability — add a new availability slot
+    // POST /api/availability — add a single availability slot (date‑bound)
     [HttpPost]
     [Authorize(Roles = "Agent")]
     public async Task<IActionResult> Create([FromBody] AgentAvailabilityRequest req)
@@ -56,20 +61,26 @@ public class AvailabilityController(AppDbContext db) : ControllerBase
         var agent = await db.Agents.FirstOrDefaultAsync(a => a.UserId == userId);
         if (agent == null) return NotFound();
 
-        // Validate time format (HH:mm)
         if (!IsValidTimeFormat(req.StartTime) || !IsValidTimeFormat(req.EndTime))
             return BadRequest(new { message = "Invalid time format. Use HH:mm" });
 
-        // Validate day of week
-        if (req.DayOfWeek < 0 || req.DayOfWeek > 6)
-            return BadRequest(new { message = "DayOfWeek must be 0-6" });
+        if (req.StartTime.CompareTo(req.EndTime) >= 0)
+            return BadRequest(new { message = "Start time must be before end time" });
+
+        if (req.ValidFromDate > req.ValidToDate)
+            return BadRequest(new { message = "ValidFromDate must be <= ValidToDate" });
+
+        var fromDateUtc = DateTime.SpecifyKind(req.ValidFromDate.Date, DateTimeKind.Utc);
+        var toDateUtc = DateTime.SpecifyKind(req.ValidToDate.Date, DateTimeKind.Utc);
 
         var availability = new AgentAvailability
         {
             AgentId = agent.UserId,
-            DayOfWeek = req.DayOfWeek,
             StartTime = req.StartTime,
             EndTime = req.EndTime,
+            ValidFromDate = fromDateUtc,
+            ValidToDate = toDateUtc,
+            Reason = req.Reason,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -92,17 +103,29 @@ public class AvailabilityController(AppDbContext db) : ControllerBase
 
         foreach (var req in requests)
         {
+            // Validate time format
             if (!IsValidTimeFormat(req.StartTime) || !IsValidTimeFormat(req.EndTime))
                 continue;
-            if (req.DayOfWeek < 0 || req.DayOfWeek > 6)
+            
+            // Validate start time < end time
+            if (req.StartTime.CompareTo(req.EndTime) >= 0)
+                return BadRequest(new { message = "Start time must be before end time" });
+            
+            // Validate date range
+            if (req.ValidFromDate > req.ValidToDate)
                 continue;
+
+            var fromDateUtc = DateTime.SpecifyKind(req.ValidFromDate.Date, DateTimeKind.Utc);
+            var toDateUtc = DateTime.SpecifyKind(req.ValidToDate.Date, DateTimeKind.Utc);
 
             var availability = new AgentAvailability
             {
                 AgentId = agent.UserId,
-                DayOfWeek = req.DayOfWeek,
                 StartTime = req.StartTime,
                 EndTime = req.EndTime,
+                ValidFromDate = fromDateUtc,
+                ValidToDate = toDateUtc,
+                Reason = req.Reason,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -132,7 +155,8 @@ public class AvailabilityController(AppDbContext db) : ControllerBase
     }
 
     private static AgentAvailabilityResponse MapResponse(AgentAvailability a) => new(
-        a.Id, a.AgentId, a.DayOfWeek, a.StartTime, a.EndTime, a.CreatedAt);
+        a.Id, a.AgentId, a.StartTime, a.EndTime,
+        a.ValidFromDate, a.ValidToDate, a.Reason, a.CreatedAt);
 
     private static bool IsValidTimeFormat(string time)
     {
