@@ -115,12 +115,12 @@ CREATE INDEX idx_agent_availabilities_dates ON "AgentAvailabilities"("AgentId", 
 CREATE TABLE IF NOT EXISTS "Payments" (
     "Id"                    UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "AgentId"               UUID NOT NULL REFERENCES "Agents"("UserId") ON DELETE CASCADE,
-    "ListingId"             UUID REFERENCES "Listings"("Id") ON DELETE SET NULL,
     "StripePaymentIntentId" VARCHAR(255) NOT NULL,
     "StripeSessionId"       VARCHAR(255),
     "Amount"                DECIMAL(10,2) NOT NULL,
     "Status"                VARCHAR(50)   NOT NULL DEFAULT 'pending',
-    "CreatedAt"             TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+    "CreatedAt"             TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    "TokensPurchased"       INT NOT NULL DEFAULT 0
 );
 
 -- ── EF Migrations History ─────────────────────────────────────────────────────

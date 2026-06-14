@@ -172,10 +172,21 @@ export const availabilityApi = {
 
 // ── Payments ────────────────────────────────────────────────────────────────────────
 export const paymentsApi = {
+  // Old per-listing checkout (kept for backward compat)
   createCheckout: (listingId: string) =>
     api.post<{ checkoutUrl: string; sessionId: string }>("/payments/checkout", {
       listingId,
     }),
+
+  // New token top-up
+  createTokenCheckout: (agentId: string, tokenAmount: number) =>
+    api.post<{ sessionId: string; url: string }>(
+      "/payments/create-checkout-session",
+      { agentId, tokenAmount },
+    ),
+
+  getTokenBalance: () =>
+    api.get<{ tokenBalance: number }>("/payments/token-balance"),
 };
 
 // ── Admin ──────────────────────────────────────────────────────────────────────────

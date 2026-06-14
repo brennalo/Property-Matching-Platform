@@ -13,6 +13,7 @@ import {
   Clock,
   Ban,
   Download,
+  Coins,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
@@ -387,12 +388,11 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const json = XLSX.utils.sheet_to_json(sheet) as any[];
 
-      // Map XLSX columns to BatchListingRequest
       const listings: BatchListingRow[] = json.map((row) => ({
         PropertyName: row["PropertyName"] || row["Property Name"] || "",
-        Bedrooms: parseInt(row["Bedrooms"] || row["Bedrooms"] || "0"),
-        Bathrooms: parseInt(row["Bathrooms"] || row["Bathrooms"] || "0"),
-        Toilets: parseInt(row["Toilets"] || row["Toilets"] || "0"),
+        Bedrooms: parseInt(row["Bedrooms"] || "0"),
+        Bathrooms: parseInt(row["Bathrooms"] || "0"),
+        Toilets: parseInt(row["Toilets"] || "0"),
         Address: row["Address"] || "",
         Price: parseFloat(row["Price"] || "0"),
         Type: row["Type"] || "Condo",
@@ -445,7 +445,6 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Listings");
 
-    // Define columns
     worksheet.columns = [
       { header: "PropertyName", key: "PropertyName", width: 25 },
       { header: "Bedrooms", key: "Bedrooms", width: 10 },
@@ -458,7 +457,6 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
       { header: "Longitude", key: "Longitude", width: 15 },
     ];
 
-    // Add example row
     worksheet.addRow({
       PropertyName: "Example Property",
       Bedrooms: 3,
@@ -471,7 +469,6 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
       Longitude: 101.6953,
     });
 
-    // Apply data validation dropdown for the 'Type' column (column G = 7)
     const allowedTypes = [
       "Landed",
       "Condo",
@@ -491,7 +488,6 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
       };
     }
 
-    // Write file
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -502,6 +498,7 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
     link.click();
     URL.revokeObjectURL(link.href);
   };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -516,7 +513,6 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
           Import multiple listings from an Excel file
         </p>
 
-        {/* Warning banner */}
         <div
           style={{
             background: "rgba(232, 160, 69, 0.1)",
@@ -529,7 +525,7 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
           }}
         >
           ⚠️ <strong>Images not supported in batch mode.</strong> Upload images
-          individually after importing listings using the listing detail page.
+          individually after importing listings.
         </div>
 
         {success ? (
@@ -600,7 +596,6 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
                 onChange={handleFileSelect}
               />
             </div>
-
             <div className="flex gap-3">
               <button className="btn btn-outline" onClick={downloadTemplate}>
                 Download Template
@@ -622,8 +617,8 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
 }
 
 export default function AgentListingsPage() {
-  const navigate = useNavigate();
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [showForm, setShowForm] = useState(false);
   const [showBatch, setShowBatch] = useState(false);
   const [editTarget, setEditTarget] = useState<Listing | null>(null);
@@ -641,6 +636,11 @@ export default function AgentListingsPage() {
   const { data: listings = [], isLoading } = useQuery({
     queryKey: ["my-listings"],
     queryFn: () => listingsApi.getMine().then((r) => r.data),
+  });
+
+  const { data: balanceData } = useQuery({
+    queryKey: ["token-balance"],
+    queryFn: () => paymentsApi.getTokenBalance().then((r) => r.data),
   });
 
   const createMut = useMutation({
@@ -718,7 +718,13 @@ export default function AgentListingsPage() {
           <h1 className="page-title">My Listings</h1>
           <p className="page-sub">Manage your property listings</p>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="flex gap-2">
+          <button
+            className="btn btn-outline btn-sm"
+            onClick={() => navigate("/agent/topup")}
+          >
+            <Coins size={14} /> {balanceData?.tokenBalance ?? 0} tokens
+          </button>
           <button
             className="btn btn-outline"
             onClick={() => setShowBatch(true)}

@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace PropertyMatch.API.Models;
 
 public enum UserRole { Tenant, Agent, Admin }
-public enum UserStatus { Pending, Verified, Blocked }   // replaces IsActive bool
+public enum UserStatus { Pending, Verified, Blocked }
 public enum ListingStatus { Draft, PendingPayment, Active, Inactive }
 public enum ScheduleStatus { Pending, Confirmed, Cancelled }
 public enum ResidencyType { Landed, Condo, Apartment, Townhouse, Studio }
@@ -43,7 +43,7 @@ public class EmailVerification
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid UserId { get; set; }
-    public string Token { get; set; } = "";   // 32-byte random hex
+    public string Token { get; set; } = "";
     public DateTime ExpiresAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
@@ -165,8 +165,7 @@ public class Payment
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid AgentId { get; set; }   // FK → Agents.UserId
-    public Guid? ListingId { get; set; }
-
+    public int TokensPurchased { get; set; } = 0;
     [Required] public string StripePaymentIntentId { get; set; } = "";
     public string? StripeSessionId { get; set; }
 

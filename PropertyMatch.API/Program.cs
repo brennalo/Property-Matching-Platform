@@ -7,6 +7,7 @@ using Microsoft.IdentityModel.Tokens;
 using PropertyMatch.API.Data;
 using PropertyMatch.API.Middleware;
 using PropertyMatch.API.Services;
+using Stripe;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -77,14 +78,12 @@ builder.Services.AddHttpClient();
 builder.Services.AddControllers()
     .AddJsonOptions(opts =>
     {
-        // Serialize/deserialize enums as strings ("Tenant" not 0)
-        // so the frontend can send role:"Tenant", status:"Pending" etc.
         opts.JsonSerializerOptions.Converters.Add(
             new System.Text.Json.Serialization.JsonStringEnumConverter());
     });
 
-// ── Stripe ───────────────────────────────────────────────────────────────
-Stripe.StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
+// ── Stripe ────────────────────────────────────────────────────────────────────
+StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
 
 var app = builder.Build();
 
@@ -101,14 +100,11 @@ app.UseCors("Frontend");
 // Vite dist/ is copied here by the .csproj BeforeTargets="Build" step.
 app.UseDefaultFiles();   // serves index.html for /
 app.UseStaticFiles();    // serves JS/CSS/assets
-
+app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// API routes
 app.MapControllers();
-
-// SPA fallback — any non-API route returns index.html so React Router works
 app.MapFallbackToFile("index.html");
 
 app.Run();

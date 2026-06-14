@@ -12,6 +12,7 @@ import {
   XCircle,
   PlusCircle,
   DollarSign,
+  Coins,
 } from "lucide-react";
 
 interface DashboardData {
@@ -317,6 +318,9 @@ export default function AgentDashboardPage() {
           </Link>
           <Link to="/agent/calendar" className="btn btn-outline">
             <Clock size={14} /> View Calendar
+          </Link>
+          <Link to="/agent/topup" className="btn btn-outline">
+            <Coins size={14} /> Top Up Tokens
           </Link>
         </div>
       </div>
