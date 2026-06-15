@@ -152,7 +152,8 @@ public record AgentDetailResponse(
     Guid UserId, string FullName, string Email,
     UserStatus Status,
     DateTime CreatedAt, DateTime? VerifiedAt,
-    int ListingCount, string? LicenseNumber, int TokenBalance);
+    int ListingCount, string? LicenseNumber, int TokenBalance,
+    string? LppehSearchUrl);
 
 public record UpdateAgentStatusRequest(UserStatus Status);
 

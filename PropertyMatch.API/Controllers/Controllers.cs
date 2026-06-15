@@ -255,11 +255,19 @@ public class AdminController(AppDbContext db) : ControllerBase
             .OrderByDescending(a => a.User.CreatedAt)
             .ToListAsync();
 
-        return Ok(agents.Select(a => new AgentDetailResponse(
-            a.UserId, a.User.FullName, a.User.Email,
-            a.User.Status,
-            a.User.CreatedAt, a.User.VerifiedAt,
-            a.Listings.Count, a.LicenseNumber, a.TokenBalance)));
+        return Ok(agents.Select(a =>
+        {
+            var license = a.LicenseNumber?.Trim().ToUpper();
+
+            var lppehUrl = LppehLicenseValidator.GenerateSearchUrl(a.LicenseNumber);
+
+            return new AgentDetailResponse(
+                a.UserId, a.User.FullName, a.User.Email,
+                a.User.Status,
+                a.User.CreatedAt, a.User.VerifiedAt,
+                a.Listings.Count, a.LicenseNumber, a.TokenBalance,
+                lppehUrl);
+        }));
     }
 
     [HttpPut("agents/{id}/status")]

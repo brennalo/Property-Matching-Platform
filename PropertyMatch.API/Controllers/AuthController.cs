@@ -27,6 +27,14 @@ public class AuthController(
         if (req.Role == UserRole.Admin)
             return BadRequest(new { message = "Cannot register as admin" });
 
+        if (req.Role == UserRole.Agent)
+        {
+            if (!LppehLicenseValidator.IsValid(req.LicenseNumber))
+            {
+                return BadRequest(new { message = "Invalid LPPEH registration number format." });
+            }
+        }
+
         var user = new User
         {
             Email = req.Email.ToLowerInvariant(),
@@ -44,7 +52,7 @@ public class AuthController(
             db.Agents.Add(new Agent
             {
                 UserId = user.Id,
-                LicenseNumber = req.LicenseNumber,
+                LicenseNumber = LppehLicenseValidator.Normalize(req.LicenseNumber!)
             });
         }
 

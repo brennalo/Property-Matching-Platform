@@ -143,6 +143,7 @@ export interface AgentDetail {
   listingCount: number;
   licenseNumber: string | null;
   tokenBalance: number;
+  lppehSearchUrl: string | null;
 }
 
 export interface AgentAvailability {
