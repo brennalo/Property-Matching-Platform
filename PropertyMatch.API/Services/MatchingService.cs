@@ -144,11 +144,13 @@ public class MatchingService(
     }
 
     private static ListingResponse MapToResponse(Listing l) => new(
-        l.Id, l.AgentId, l.Agent?.User?.FullName ?? "Agent",
-        l.Name, l.Rooms, l.Toilets,
-        l.Lat, l.Lng, l.Address,
-        l.ResidencyType, l.Price, l.Status,
-        l.CreatedAt,
-        l.Images.OrderBy(i => i.DisplayOrder).Select(i => i.S3Url).ToList(),
-        l.SourceUrl, l.SourcePlatform);
+    l.Id, l.AgentId, l.Agent?.User?.FullName ?? "Agent",
+    l.Name, l.Rooms, l.Toilets,
+    l.Lat, l.Lng, l.Address,
+    l.ResidencyType, l.Price, l.Status,
+    l.CreatedAt,
+    l.Images.OrderBy(i => i.DisplayOrder)
+        .Select(i => new ImageDto(i.Id, i.S3Url, i.DisplayOrder, i.Caption))
+        .ToList(),
+    l.SourceUrl, l.SourcePlatform);
 }

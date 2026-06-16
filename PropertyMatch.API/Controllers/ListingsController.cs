@@ -76,6 +76,12 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
         if (agent.User.Status != UserStatus.Verified)
             return Forbid();
 
+        // ── Token check ──────────────────────────────────────────
+        if (agent.TokenBalance < 1)
+            return BadRequest(new { message = "Insufficient tokens. Please top up before listing." });
+
+        agent.TokenBalance -= 1;
+
         var listing = new Listing
         {
             AgentId = agent.UserId,
@@ -95,6 +101,62 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
 
         return CreatedAtAction(nameof(GetById), new { id = listing.Id },
             new { listing.Id, message = "Listing created. Proceed to payment to activate." });
+    }
+
+    // POST /api/listings/batch — batch upload multiple listings (XLSX)
+    [HttpPost("batch")]
+    [Authorize(Roles = "Agent")]
+    public async Task<IActionResult> BatchCreate([FromBody] List<BatchListingRequest> requests)
+    {
+        var userId = User.GetUserId();
+        var agent = await db.Agents
+            .Include(a => a.User)
+            .FirstOrDefaultAsync(a => a.UserId == userId);
+
+        if (agent == null) return NotFound(new { message = "Agent profile not found" });
+        if (agent.User.Status != UserStatus.Verified)
+            return Forbid();
+
+        var successCount = 0;
+        var errors = new List<string>();
+
+        foreach (var req in requests)
+        {
+            try
+            {
+                // Validate required fields
+                if (string.IsNullOrWhiteSpace(req.PropertyName))
+                    throw new Exception("PropertyName is required");
+                if (string.IsNullOrWhiteSpace(req.Address))
+                    throw new Exception("Address is required");
+                if (!Enum.TryParse<ResidencyType>(req.Type, out var residencyType))
+                    throw new Exception($"Invalid Type: {req.Type}");
+
+                var listing = new Listing
+                {
+                    AgentId = agent.UserId,
+                    Name = req.PropertyName,
+                    Rooms = req.Bedrooms,
+                    Toilets = req.Bathrooms,  // Map Bathrooms to Toilets
+                    Lat = req.Latitude,
+                    Lng = req.Longitude,
+                    Address = req.Address,
+                    ResidencyType = residencyType,
+                    Price = req.Price,
+                    Status = ListingStatus.PendingPayment
+                };
+
+                db.Listings.Add(listing);
+                await db.SaveChangesAsync();
+                successCount++;
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"Row failed: {req.PropertyName} — {ex.Message}");
+            }
+        }
+
+        return Ok(new BatchListingResponse(successCount, errors.Count, errors));
     }
 
     // PUT /api/listings/{id}
@@ -137,6 +199,65 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
         return Ok(new { urls });
     }
 
+    // PUT /api/listings/{id}/images/reorder — reorder images
+    [HttpPut("{id}/images/reorder")]
+    [Authorize(Roles = "Agent")]
+    public async Task<IActionResult> ReorderImages(Guid id, [FromBody] List<ReorderImageRequest> requests)
+    {
+        var userId = User.GetUserId();
+        var agent = await db.Agents.FirstOrDefaultAsync(a => a.UserId == userId);
+        var listing = await db.Listings
+            .Include(l => l.Images)
+            .FirstOrDefaultAsync(l => l.Id == id && l.AgentId == agent!.UserId);
+
+        if (listing == null) return NotFound();
+
+        foreach (var req in requests)
+        {
+            var image = listing.Images.FirstOrDefault(i => i.Id == req.ImageId);
+            if (image != null)
+                image.DisplayOrder = req.DisplayOrder;
+        }
+
+        await db.SaveChangesAsync();
+        return Ok(new { message = "Images reordered" });
+    }
+
+    // PUT /api/listings/{id}/images/{imageId}/caption — update image caption
+    [HttpPut("{id}/images/{imageId}/caption")]
+    [Authorize(Roles = "Agent")]
+    public async Task<IActionResult> UpdateImageCaption(Guid id, Guid imageId, [FromBody] ImageUploadWithCaptionRequest req)
+    {
+        var userId = User.GetUserId();
+        var agent = await db.Agents.FirstOrDefaultAsync(a => a.UserId == userId);
+        var image = await db.ListingImages
+            .Include(i => i.Listing)
+            .FirstOrDefaultAsync(i => i.Id == imageId && i.Listing.Id == id && i.Listing.AgentId == agent!.UserId);
+
+        if (image == null) return NotFound();
+
+        image.Caption = req.Caption;
+        await db.SaveChangesAsync();
+        return Ok(new { message = "Caption updated" });
+    }
+
+    // DELETE /api/listings/{id}/images/{imageId} — delete single image
+    [HttpDelete("{id}/images/{imageId}")]
+    [Authorize(Roles = "Agent")]
+    public async Task<IActionResult> DeleteImage(Guid id, Guid imageId)
+    {
+        var userId = User.GetUserId();
+        var agent = await db.Agents.FirstOrDefaultAsync(a => a.UserId == userId);
+        var image = await db.ListingImages
+            .Include(i => i.Listing)
+            .FirstOrDefaultAsync(i => i.Id == imageId && i.Listing.Id == id && i.Listing.AgentId == agent!.UserId);
+
+        if (image == null) return NotFound();
+
+        await s3.DeleteImageAsync(imageId);
+        return Ok(new { message = "Image deleted" });
+    }
+
     // DELETE /api/listings/{id}
     [HttpDelete("{id}")]
     [Authorize(Roles = "Agent")]
@@ -157,10 +278,12 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
     }
 
     private static ListingResponse MapResponse(Listing l) => new(
-        l.Id, l.AgentId, l.Agent?.User?.FullName ?? "",
-        l.Name, l.Rooms, l.Toilets,
-        l.Lat, l.Lng, l.Address,
-        l.ResidencyType, l.Price, l.Status, l.CreatedAt,
-        l.Images.OrderBy(i => i.DisplayOrder).Select(i => i.S3Url).ToList(),
-        l.SourceUrl, l.SourcePlatform);
+    l.Id, l.AgentId, l.Agent?.User?.FullName ?? "",
+    l.Name, l.Rooms, l.Toilets,
+    l.Lat, l.Lng, l.Address,
+    l.ResidencyType, l.Price, l.Status, l.CreatedAt,
+    l.Images.OrderBy(i => i.DisplayOrder)
+        .Select(i => new ImageDto(i.Id, i.S3Url ?? "", i.DisplayOrder, i.Caption))
+        .ToList(),
+    l.SourceUrl, l.SourcePlatform);
 }

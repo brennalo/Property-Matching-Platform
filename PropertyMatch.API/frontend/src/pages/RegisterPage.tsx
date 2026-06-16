@@ -30,6 +30,17 @@ export default function RegisterPage() {
             return
         }
 
+        if (form.role === 'Agent' && !form.licenseNumber.trim()) {
+            setError('License number is required for agent registration')
+            return
+        }
+
+        if (form.role === 'Agent' && !/^(REN|E|REA|PEA|PPM|PM|PV|V)\d+$/.test(form.licenseNumber.trim().toUpperCase()))
+        {
+            setError('Invalid license format. Example: REN80928 or REA8294')
+            return
+        }
+
         setLoading(true)
         try {
             await authApi.register(
@@ -66,7 +77,7 @@ export default function RegisterPage() {
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: 28 }}>
                         Click the link in the email to activate your account.
                         {form.role === 'Agent' && (
-                            <> After verifying, your account will be reviewed by an admin before you can post listings.</>
+                            <> Your license number format has been recorded. After email verification, your account will be reviewed by an admin before you can post listings.</>
                         )}
                     </p>
                     <div style={{ display: 'flex', gap: 8 }}>
@@ -162,11 +173,11 @@ export default function RegisterPage() {
                             <div className="form-group">
                                 <label className="form-label">
                                     Real Estate License No.
-                                    <span style={{ fontWeight: 400, color: 'var(--text-dim)', marginLeft: 6, fontSize: '0.78rem' }}>(optional)</span>
+                                    <span style={{ fontWeight: 400, color: 'var(--text-dim)', marginLeft: 6, fontSize: '0.78rem' }}>(required)</span>
                                 </label>
-                                <input className="input" type="text" value={form.licenseNumber}
-                                    onChange={e => update('licenseNumber', e.target.value)}
-                                    placeholder="e.g. E12345" />
+                                <input className="input" type="text" required={form.role === 'Agent'} value={form.licenseNumber}
+                                    onChange={e => update('licenseNumber', e.target.value.toUpperCase().replace(/\s/g, ''))}
+                                    placeholder="e.g. REN80928 or REA8294" />
                             </div>
                         )}
 

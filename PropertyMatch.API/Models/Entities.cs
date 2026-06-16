@@ -4,13 +4,13 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace PropertyMatch.API.Models;
 
 public enum UserRole { Tenant, Agent, Admin }
-public enum UserStatus { Pending, Verified, Blocked }   // replaces IsActive bool
+public enum UserStatus { Pending, Verified, Blocked }
 public enum ListingStatus { Draft, PendingPayment, Active, Inactive }
 public enum ScheduleStatus { Pending, Confirmed, Cancelled }
 public enum ResidencyType { Landed, Condo, Apartment, Townhouse, Studio }
 public enum TransportMode { Driving, Walking, Transit, Bicycling }
 
-// ── User ──────────────────────────────────────────────────────────────────────
+// ── User ────────────────────────────────────────────────────────────────
 
 public class User
 {
@@ -37,20 +37,20 @@ public class User
     public ICollection<ViewingSchedule> ViewingSchedules { get; set; } = [];
 }
 
-// ── Email Verification ────────────────────────────────────────────────────────
+// ── Email Verification ───────────────────────────────────────────────────────
 
 public class EmailVerification
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid UserId { get; set; }
-    public string Token { get; set; } = "";   // 32-byte random hex
+    public string Token { get; set; } = "";
     public DateTime ExpiresAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public User User { get; set; } = null!;
 }
 
-// ── Agent ─────────────────────────────────────────────────────────────────────
+// ── Agent ────────────────────────────────────────────────────────────────
 // UserId is BOTH the primary key AND the foreign key to Users.
 
 public class Agent
@@ -66,9 +66,10 @@ public class Agent
     public User User { get; set; } = null!;
     public ICollection<Listing> Listings { get; set; } = [];
     public ICollection<Payment> Payments { get; set; } = [];
+    public ICollection<AgentAvailability> Availabilities { get; set; } = [];
 }
 
-// ── Listing ───────────────────────────────────────────────────────────────────
+// ── Listing ───────────────────────────────────────────────────────────────
 
 public class Listing
 {
@@ -99,7 +100,7 @@ public class Listing
     public ICollection<ViewingSchedule> ViewingSchedules { get; set; } = [];
 }
 
-// ── Listing Image ─────────────────────────────────────────────────────────────
+// ── Listing Image ─────────────────────────────────────────────────────────
 
 public class ListingImage
 {
@@ -107,11 +108,29 @@ public class ListingImage
     public Guid ListingId { get; set; }
     [Required] public string S3Url { get; set; } = "";
     public int DisplayOrder { get; set; }
+    [MaxLength(30)] public string? Caption { get; set; }  
 
     public Listing Listing { get; set; } = null!;
 }
 
-// ── Lifestyle Template ────────────────────────────────────────────────────────
+// ── Agent Availability ────────────────────────────────────────────────────────
+
+public class AgentAvailability
+{
+    public Guid Id { get; set; }
+    public Guid AgentId { get; set; }
+    public string StartTime { get; set; } = "09:00";
+    public string EndTime { get; set; } = "17:00";
+    public DateTime ValidFromDate { get; set; }
+    public DateTime ValidToDate { get; set; }
+    public string? Reason { get; set; }
+    public DateTime CreatedAt { get; set; }
+
+
+    public Agent? Agent { get; set; }
+}
+
+// ── Lifestyle Template ───────────────────────────────────────────────────────
 
 public class LifestyleTemplate
 {
@@ -127,7 +146,7 @@ public class LifestyleTemplate
     public User Tenant { get; set; } = null!;
 }
 
-// ── Viewing Schedule ──────────────────────────────────────────────────────────
+// ── Viewing Schedule ────────────────────────────────────────────────────────
 
 public class ViewingSchedule
 {
@@ -140,14 +159,13 @@ public class ViewingSchedule
     public User Tenant { get; set; } = null!;
 }
 
-// ── Payment ───────────────────────────────────────────────────────────────────
+// ── Payment ───────────────────────────────────────────────────────────
 
 public class Payment
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid AgentId { get; set; }   // FK → Agents.UserId
-    public Guid? ListingId { get; set; }
-
+    public int TokensPurchased { get; set; } = 0;
     [Required] public string StripePaymentIntentId { get; set; } = "";
     public string? StripeSessionId { get; set; }
 

@@ -74,7 +74,8 @@ CREATE TABLE IF NOT EXISTS "ListingImages" (
     "Id"           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "ListingId"    UUID NOT NULL REFERENCES "Listings"("Id") ON DELETE CASCADE,
     "S3Url"        TEXT NOT NULL,
-    "DisplayOrder" INT  NOT NULL DEFAULT 0
+    "DisplayOrder" INT  NOT NULL DEFAULT 0,
+    "Caption"      TEXT
 );
 
 -- ── Lifestyle Templates ───────────────────────────────────────────────────────
@@ -95,16 +96,31 @@ CREATE TABLE IF NOT EXISTS "ViewingSchedules" (
     PRIMARY KEY ("ListingId", "ScheduledAt")
 );
 
+-- ── Agent Availability ────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS "AgentAvailabilities" (
+    "Id"           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    "AgentId"      UUID NOT NULL REFERENCES "Agents"("UserId") ON DELETE CASCADE,
+    "StartTime"    VARCHAR(5) NOT NULL,
+    "EndTime"      VARCHAR(5) NOT NULL,
+    "ValidFromDate" DATE NOT NULL,
+    "ValidToDate"   DATE NOT NULL,
+    "Reason"       VARCHAR(200),
+    "CreatedAt"    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_agent_availabilities_agent_id ON "AgentAvailabilities"("AgentId");
+CREATE INDEX idx_agent_availabilities_dates ON "AgentAvailabilities"("AgentId", "ValidFromDate", "ValidToDate");
+
 -- ── Payments ──────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS "Payments" (
     "Id"                    UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "AgentId"               UUID NOT NULL REFERENCES "Agents"("UserId") ON DELETE CASCADE,
-    "ListingId"             UUID REFERENCES "Listings"("Id") ON DELETE SET NULL,
     "StripePaymentIntentId" VARCHAR(255) NOT NULL,
     "StripeSessionId"       VARCHAR(255),
     "Amount"                DECIMAL(10,2) NOT NULL,
     "Status"                VARCHAR(50)   NOT NULL DEFAULT 'pending',
-    "CreatedAt"             TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+    "CreatedAt"             TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    "TokensPurchased"       INT NOT NULL DEFAULT 0
 );
 
 -- ── EF Migrations History ─────────────────────────────────────────────────────
