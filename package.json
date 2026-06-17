@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "date-fns": "^4.4.0",
+    "exceljs": "^4.4.0",
+    "react-day-picker": "^10.0.1"
+  }
+}

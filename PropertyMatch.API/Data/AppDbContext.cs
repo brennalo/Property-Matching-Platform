@@ -13,6 +13,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<LifestyleTemplate> LifestyleTemplates => Set<LifestyleTemplate>();
     public DbSet<ViewingSchedule> ViewingSchedules => Set<ViewingSchedule>();
     public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<AgentAvailability> AgentAvailabilities => Set<AgentAvailability>();
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -55,6 +56,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasOne(i => i.Listing)
             .WithMany(l => l.Images)
             .HasForeignKey(i => i.ListingId);
+        mb.Entity<ListingImage>()
+            .Property(i => i.Caption)
+            .HasMaxLength(30);
+
+        // ── AgentAvailability ─────────────────────────────────────────────────
+        mb.Entity<AgentAvailability>()
+            .HasOne(a => a.Agent)
+            .WithMany(a => a.Availabilities)
+            .HasForeignKey(a => a.AgentId);
 
         // ── ViewingSchedule composite PK ──────────────────────────────────────
         mb.Entity<ViewingSchedule>()
@@ -79,10 +89,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .Property(t => t.PlaceTypes)
             .HasColumnType("text[]");
 
-        // ── Indexes ───────────────────────────────────────────────────────────
+        // ── Indexes ────────────────────────────────────────────────────────────
         mb.Entity<User>().HasIndex(u => u.Email).IsUnique();
         mb.Entity<Listing>().HasIndex(l => l.Status);
         mb.Entity<Listing>().HasIndex(l => l.AgentId);
-
+        mb.Entity<AgentAvailability>().HasIndex(a => a.AgentId);
     }
 }

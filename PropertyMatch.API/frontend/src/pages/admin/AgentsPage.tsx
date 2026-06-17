@@ -51,7 +51,7 @@ export default function AdminAgentsPage() {
       <p className="page-sub">Verify agent accounts and manage their access</p>
 
       {/* Filters */}
-          <div className="flex gap-3 mb-5" style={{ flexWrap: 'wrap' }}>
+        <div className="flex gap-3 mb-5" style={{ flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', flex: '1 1 200px' }}>
           <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
           <input className="input" style={{ paddingLeft: 34 }} placeholder="Search by name or email…"
@@ -121,6 +121,20 @@ function AgentRow({ agent: a, onAction, loading }: {
             <span>📋 {a.listingCount} listing{a.listingCount !== 1 ? 's' : ''}</span>
             <span>📅 Registered {formatDate(a.createdAt)}</span>
             {a.verifiedAt && <span>✅ Verified {formatDate(a.verifiedAt)}</span>}
+            {a.licenseNumber && (
+                <span>🪪 License: {a.licenseNumber}</span>
+            )}
+
+            {a.lppehSearchUrl && (
+                <a
+                    href={a.lppehSearchUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: 'var(--accent)', textDecoration: 'underline' }}
+                >
+                    (Check LPPEH)
+                </a>
+            )}
           </div>
         </div>
 

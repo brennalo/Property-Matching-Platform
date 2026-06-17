@@ -3,7 +3,7 @@ using PropertyMatch.API.Services;
 
 namespace PropertyMatch.API.DTOs;
 
-// ── Auth ──────────────────────────────────────────────────────────────────────
+// ── Auth ────────────────────────────────────────────────────────────────
 
 public record RegisterRequest(
     string Email,
@@ -24,7 +24,7 @@ public record AuthResponse(
 
 public record ResendVerificationRequest(string Email);
 
-// ── Listings ──────────────────────────────────────────────────────────────────
+// ── Listings ───────────────────────────────────────────────────────────────
 
 public record CreateListingRequest(
     string Name, int Rooms, int Toilets,
@@ -36,16 +36,37 @@ public record UpdateListingRequest(
     double? Lat, double? Lng, string? Address,
     ResidencyType? ResidencyType, decimal? Price);
 
+// For batch upload
+public record BatchListingRequest(
+    string PropertyName, int Bedrooms, int Bathrooms, int Toilets,
+    string Address, decimal Price, string Type,
+    double Latitude, double Longitude, string Description);
+
+public record BatchListingResponse(
+    int SuccessCount, int FailureCount, List<string> Errors);
+
+// Image DTO with caption
+public record ImageDto(
+    Guid Id, string Url, int DisplayOrder, string? Caption);
+
 public record ListingResponse(
     Guid Id, Guid AgentId, string AgentName,
     string Name, int Rooms, int Toilets,
     double Lat, double Lng, string Address,
     ResidencyType ResidencyType, decimal Price,
     ListingStatus Status, DateTime CreatedAt,
-    List<string> ImageUrls,
+    List<ImageDto> Images,
     string? SourceUrl, string? SourcePlatform);
 
-// ── Match ─────────────────────────────────────────────────────────────────────
+// Image reorder request
+public record ReorderImageRequest(
+    Guid ImageId, int DisplayOrder);
+
+// Image upload with caption
+public record ImageUploadWithCaptionRequest(
+    string? Caption);
+
+// ── Match ────────────────────────────────────────────────────────────────
 
 public record PlaceLocationDto(string Name, double Lat, double Lng);
 
@@ -81,7 +102,7 @@ public record MatchedListingResponse(
 public record CreateTemplateRequest(string Name, List<string> PlaceTypes);
 public record TemplateResponse(Guid Id, string Name, List<string> PlaceTypes, DateTime CreatedAt);
 
-// ── Schedules ─────────────────────────────────────────────────────────────────
+// ── Schedules ──────────────────────────────────────────────────────────────
 
 public record CreateScheduleRequest(Guid ListingId, DateTime ScheduledAt);
 
@@ -92,12 +113,36 @@ public record ScheduleResponse(
 
 public record BookedSlotResponse(DateTime ScheduledAt, ScheduleStatus Status);
 
-// ── Payments ──────────────────────────────────────────────────────────────────
+// ── Availability ──────────────────────────────────────────────────────────────
+
+public record AgentAvailabilityRequest(
+    string StartTime,
+    string EndTime,
+    DateTime ValidFromDate,
+    DateTime ValidToDate,
+    string? Reason = null
+);
+
+public record AgentAvailabilityResponse(
+    Guid Id,
+    Guid AgentId,
+    string StartTime,
+    string EndTime,
+    DateTime ValidFromDate,
+    DateTime ValidToDate,
+    string? Reason,
+    DateTime CreatedAt
+);
+
+public record AgentAvailabilityListResponse(
+    List<AgentAvailabilityResponse> Availabilities);
+
+// ── Payments ───────────────────────────────────────────────────────────────
 
 public record CreateCheckoutRequest(Guid ListingId);
 public record CheckoutResponse(string CheckoutUrl, string SessionId);
 
-// ── Admin ─────────────────────────────────────────────────────────────────────
+// ── Admin ───────────────────────────────────────────────────────────────
 
 public record AnalyticsResponse(
     int TotalAgents, int TotalUsers, int TotalListings,
@@ -107,6 +152,22 @@ public record AgentDetailResponse(
     Guid UserId, string FullName, string Email,
     UserStatus Status,
     DateTime CreatedAt, DateTime? VerifiedAt,
-    int ListingCount, string? LicenseNumber, int TokenBalance);
+    int ListingCount, string? LicenseNumber, int TokenBalance,
+    string? LppehSearchUrl);
 
 public record UpdateAgentStatusRequest(UserStatus Status);
+
+public record AgentProfileDto(string FullName, string Email, string Status, int TokenBalance);
+public record ListingStatsDto(int Active, int PendingPayment, int Draft, int Inactive);
+public record AppointmentStatsDto(int Total, int Pending, int Confirmed, int Cancelled);
+public record UpcomingViewingDto(Guid ListingId, string ListingName, DateTime ScheduledAt, string Status, string TenantName);
+public record TopListingDto(Guid ListingId, string ListingName, int AppointmentCount);
+public record PendingPaymentListingDto(Guid Id, string Name, decimal Price, DateTime CreatedAt);
+public record AgentDashboardResponse(
+    AgentProfileDto Profile,
+    ListingStatsDto Listings,
+    AppointmentStatsDto Appointments,
+    List<UpcomingViewingDto> UpcomingViewings,
+    List<TopListingDto> TopListings,
+    List<PendingPaymentListingDto> PendingPayments
+);

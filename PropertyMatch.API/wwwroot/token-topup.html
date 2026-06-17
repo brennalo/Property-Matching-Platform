@@ -1,0 +1,169 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Token Top-Up</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            max-width: 480px;
+            margin: 60px auto;
+            padding: 0 20px;
+        }
+
+        h2 {
+            color: #333;
+        }
+
+        .packages {
+            display: flex;
+            gap: 10px;
+            margin: 16px 0;
+        }
+
+        .pkg {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            background: white;
+        }
+
+            .pkg:hover, .pkg.selected {
+                border-color: #635bff;
+                background: #f0efff;
+            }
+
+            .pkg strong {
+                display: block;
+                font-size: 20px;
+                color: #635bff;
+            }
+
+            .pkg span {
+                font-size: 12px;
+                color: #666;
+            }
+
+        label {
+            display: block;
+            margin-top: 16px;
+            font-weight: bold;
+        }
+
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-top: 6px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        button {
+            margin-top: 20px;
+            width: 100%;
+            padding: 12px;
+            background: #635bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+            button:hover {
+                background: #4f46e5;
+            }
+
+        #msg {
+            margin-top: 16px;
+            color: #c0392b;
+        }
+
+        .balance {
+            background: #f0efff;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h2>🏠 PropertyMatch — Token Top-Up</h2>
+    <div class="balance">💰 Current Balance: <strong id="balanceDisplay">—</strong> tokens</div>
+    <p>Each token costs <strong>RM 1</strong> and allows you to post 1 property listing.</p>
+
+    <label>Quick Select:</label>
+    <div class="packages">
+        <div class="pkg" onclick="selectPackage(5)">
+            <strong>5</strong><span>tokens</span><span>RM 5</span>
+        </div>
+        <div class="pkg" onclick="selectPackage(10)">
+            <strong>10</strong><span>tokens</span><span>RM 10</span>
+        </div>
+        <div class="pkg" onclick="selectPackage(50)">
+            <strong>50</strong><span>tokens</span><span>RM 50</span>
+        </div>
+    </div>
+
+    <label for="agentId">Agent ID:</label>
+    <input type="text" id="agentId" placeholder="00000000-0000-0000-0000-000000000010" />
+
+    <label for="tokens">Custom Token Amount:</label>
+    <input type="number" id="tokens" value="10" min="1" max="1000" />
+
+    <p style="color:#888; font-size:13px;">Total: RM <span id="totalDisplay">10</span></p>
+
+    <button onclick="checkout()">Top Up Tokens</button>
+    <p id="msg"></p>
+
+    <script>
+    document.getElementById('tokens').addEventListener('input', function() {
+      document.getElementById('totalDisplay').textContent = this.value;
+    });
+
+    function selectPackage(amount) {
+      document.getElementById('tokens').value = amount;
+      document.getElementById('totalDisplay').textContent = amount;
+      document.querySelectorAll('.pkg').forEach(p => p.classList.remove('selected'));
+      event.currentTarget.classList.add('selected');
+    }
+
+    async function checkout() {
+      const agentId     = document.getElementById('agentId').value.trim();
+      const tokenAmount = parseInt(document.getElementById('tokens').value);
+
+      if (!agentId) {
+        document.getElementById('msg').textContent = 'Please enter your Agent ID.';
+        return;
+      }
+      if (!tokenAmount || tokenAmount < 1) {
+        document.getElementById('msg').textContent = 'Please enter a valid token amount.';
+        return;
+      }
+
+      document.getElementById('msg').textContent = 'Redirecting to Stripe...';
+
+      try {
+        const res = await fetch('/api/payments/create-checkout-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agentId, tokenAmount })
+        });
+
+        const data = await res.json();
+
+        if (data.url) {
+          window.location.href = data.url;
+        } else {
+          document.getElementById('msg').textContent = data.error ?? 'Error creating session.';
+        }
+      } catch (err) {
+        document.getElementById('msg').textContent = 'Request failed: ' + err.message;
+      }
+    }
+    </script>
+</body>
+</html>
