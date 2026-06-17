@@ -1,6 +1,6 @@
 export type UserRole = "Tenant" | "Agent" | "Admin";
-export type UserStatus = "Pending" | "Verified" | "Blocked";
-export type AgentStatus = "Pending" | "Verified" | "Blocked";
+export type UserStatus = 'Pending' | 'Unapproved' | 'Verified' | 'Blocked'
+export type AgentStatus = 'Pending' | 'Unapproved' | 'Verified' | 'Blocked'
 export type ListingStatus = "Draft" | "PendingPayment" | "Active" | "Inactive";
 export type ScheduleStatus = "Pending" | "Confirmed" | "Cancelled";
 export type ResidencyType =

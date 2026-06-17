@@ -5,7 +5,8 @@ import type { AgentDetail, AgentStatus } from '../../types'
 import { CheckCircle2, Ban, RotateCcw, Search } from 'lucide-react'
 
 const STATUS_BADGE: Record<AgentStatus, string> = {
-  Pending: 'badge-amber',
+  Pending: 'badge-grey',
+  Unapproved: 'badge-amber',
   Verified: 'badge-green',
   Blocked: 'badge-red',
 }
@@ -59,7 +60,7 @@ export default function AdminAgentsPage() {
         </div>
 
         <div className="flex gap-2">
-          {(['', 'Pending', 'Verified', 'Blocked'] as const).map(s => (
+          {(['', 'Pending', 'Unapproved', 'Verified', 'Blocked'] as const).map(s => (
             <button key={s} onClick={() => setFilter(s)}
               className={`btn btn-sm ${filter === s ? 'btn-primary' : 'btn-outline'}`}>
               {s || 'All'}
@@ -140,7 +141,7 @@ function AgentRow({ agent: a, onAction, loading }: {
 
         {/* Actions */}
         <div className="flex gap-2" style={{ flexShrink: 0 }}>
-          {a.status === 'Pending' && (
+          {a.status === 'Unapproved' && (
             <>
               <button className="btn btn-sm" style={{ background: 'var(--teal-dim)', color: 'var(--teal)', border: 'none', cursor: 'pointer' }}
                 disabled={loading}
@@ -152,6 +153,11 @@ function AgentRow({ agent: a, onAction, loading }: {
                 <Ban size={13} /> Reject
               </button>
             </>
+          )}
+          {a.status === 'Pending' && (
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+            Awaiting email verification
+            </span>
           )}
           {a.status === 'Verified' && (
             <button className="btn btn-danger btn-sm" disabled={loading}

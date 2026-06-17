@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { listingsApi, paymentsApi } from "../../api";
 import type { Listing, ResidencyType, BatchListingRow } from "../../types";
@@ -709,7 +710,18 @@ export default function AgentListingsPage() {
   };
 
   const urlParams = new URLSearchParams(window.location.search);
-  const paymentStatus = urlParams.get("payment");
+    const paymentStatus = urlParams.get("payment");
+
+  const { user } = useAuth();
+
+  const canCreateListing = user?.status === "Verified";
+
+  const getApprovalMessage = () => {
+    if (user?.status === "Pending") return "Please verify your email before creating listings.";
+    if (user?.status === "Unapproved") return "Your account is awaiting admin approval. You cannot create listings yet.";
+    if (user?.status === "Blocked") return "Your account has been blocked. You cannot create listings.";
+    return "Only verified agents can create listings.";
+  };
 
   return (
     <div>
@@ -727,13 +739,23 @@ export default function AgentListingsPage() {
           </button>
           <button
             className="btn btn-outline"
-            onClick={() => setShowBatch(true)}
+            onClick={() => {
+              if (!canCreateListing) {
+                showToast(getApprovalMessage(), "error");
+                return;
+              }
+              setShowBatch(true);
+            }}
           >
             <Download size={15} /> Batch Import
           </button>
           <button
             className="btn btn-primary"
             onClick={() => {
+              if (!canCreateListing) {
+                showToast(getApprovalMessage(), "error");
+                return;
+              }
               setShowForm(true);
               setEditTarget(null);
             }}
@@ -785,7 +807,13 @@ export default function AgentListingsPage() {
           <button
             className="btn btn-primary"
             style={{ marginTop: 16 }}
-            onClick={() => setShowForm(true)}
+            onClick={() => {
+              if (!canCreateListing) {
+                showToast(getApprovalMessage(), "error");
+                return;
+              }
+              setShowForm(true);
+            }}
           >
             <Plus size={15} /> Create Your First Listing
           </button>
@@ -891,6 +919,10 @@ export default function AgentListingsPage() {
                   <button
                     className="btn btn-ghost btn-sm"
                     onClick={() => {
+                      if (!canCreateListing) {
+                        showToast(getApprovalMessage(), "error");
+                        return;
+                      }
                       setEditTarget(l);
                       setShowForm(true);
                     }}

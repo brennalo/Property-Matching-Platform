@@ -73,8 +73,31 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
             .FirstOrDefaultAsync(a => a.UserId == userId);
 
         if (agent == null) return NotFound(new { message = "Agent profile not found" });
-        if (agent.User.Status != UserStatus.Verified)
-            return Forbid();
+
+        // Agent unable to create listing while account is not yet been approved
+        if (agent.User.Status == UserStatus.Pending)
+        {
+            return StatusCode(403, new
+            {
+                message = "Please verify your email before creating listings."
+            });
+        }
+
+        if (agent.User.Status == UserStatus.Unapproved)
+        {
+            return StatusCode(403, new
+            {
+                message = "Your account is awaiting admin approval. You cannot create listings yet."
+            });
+        }
+
+        if (agent.User.Status == UserStatus.Blocked)
+        {
+            return StatusCode(403, new
+            {
+                message = "Your account has been blocked. You cannot create listings."
+            });
+        }
 
         // ── Token check ──────────────────────────────────────────
         if (agent.TokenBalance < 1)
@@ -114,8 +137,31 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
             .FirstOrDefaultAsync(a => a.UserId == userId);
 
         if (agent == null) return NotFound(new { message = "Agent profile not found" });
-        if (agent.User.Status != UserStatus.Verified)
-            return Forbid();
+
+        // Agent unable to create listing while account is not yet been approved
+        if (agent.User.Status == UserStatus.Pending)
+        {
+            return StatusCode(403, new
+            {
+                message = "Please verify your email before creating listings."
+            });
+        }
+
+        if (agent.User.Status == UserStatus.Unapproved)
+        {
+            return StatusCode(403, new
+            {
+                message = "Your account is awaiting admin approval. You cannot create listings yet."
+            });
+        }
+
+        if (agent.User.Status == UserStatus.Blocked)
+        {
+            return StatusCode(403, new
+            {
+                message = "Your account has been blocked. You cannot create listings."
+            });
+        }
 
         var successCount = 0;
         var errors = new List<string>();

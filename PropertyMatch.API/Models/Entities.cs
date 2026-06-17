@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace PropertyMatch.API.Models;
 
 public enum UserRole { Tenant, Agent, Admin }
-public enum UserStatus { Pending, Verified, Blocked }
+public enum UserStatus { Pending, Unapproved, Verified, Blocked }
 public enum ListingStatus { Draft, PendingPayment, Active, Inactive }
 public enum ScheduleStatus { Pending, Confirmed, Cancelled }
 public enum ResidencyType { Landed, Condo, Apartment, Townhouse, Studio }

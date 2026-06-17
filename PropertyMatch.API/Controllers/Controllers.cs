@@ -257,8 +257,6 @@ public class AdminController(AppDbContext db) : ControllerBase
 
         return Ok(agents.Select(a =>
         {
-            var license = a.LicenseNumber?.Trim().ToUpper();
-
             var lppehUrl = LppehLicenseValidator.GenerateSearchUrl(a.LicenseNumber);
 
             return new AgentDetailResponse(
@@ -277,6 +275,12 @@ public class AdminController(AppDbContext db) : ControllerBase
             .Include(a => a.User)
             .FirstOrDefaultAsync(a => a.UserId == id);
         if (agent == null) return NotFound();
+
+        // Admin will only approve agents after email verification
+        if (req.Status == UserStatus.Verified && agent.User.Status == UserStatus.Pending)
+        {
+            return BadRequest(new { message = "Agent must verify email before admin approval." });
+        }
 
         agent.User.Status = req.Status;
 
