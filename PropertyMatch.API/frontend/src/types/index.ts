@@ -132,6 +132,19 @@ export interface Analytics {
   totalPayments: number;
   blockedAgents: number;
 }
+export interface TenantDetail {
+    userId: string
+    fullName: string
+    email: string
+    status: UserStatus
+    createdAt: string
+    verifiedAt: string | null
+    totalViewings: number
+    pendingViewings: number
+    confirmedViewings: number
+    cancelledViewings: number
+    lastViewingAt: string | null
+}
 
 export interface AgentDetail {
   userId: string;

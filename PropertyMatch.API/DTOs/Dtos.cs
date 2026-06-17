@@ -155,6 +155,22 @@ public record AgentDetailResponse(
     int ListingCount, string? LicenseNumber, int TokenBalance,
     string? LppehSearchUrl);
 
+public record TenantDetailResponse(
+    Guid UserId,
+    string FullName,
+    string Email,
+    UserStatus Status,
+    DateTime CreatedAt,
+    DateTime? VerifiedAt,
+    int TotalViewings,
+    int PendingViewings,
+    int ConfirmedViewings,
+    int CancelledViewings,
+    DateTime? LastViewingAt
+);
+
+public record UpdateTenantStatusRequest(UserStatus Status);
+
 public record UpdateAgentStatusRequest(UserStatus Status);
 
 public record AgentProfileDto(string FullName, string Email, string Status, int TokenBalance);

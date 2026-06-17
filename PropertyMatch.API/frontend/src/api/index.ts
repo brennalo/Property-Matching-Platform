@@ -8,6 +8,7 @@ import type {
   MatchRequest,
   Analytics,
   AgentDetail,
+  TenantDetail,
   UserStatus,
   AgentAvailability,
   BatchListingRow,
@@ -199,7 +200,12 @@ export const adminApi = {
     api.get(`/admin/analytics/agent-performance?top=${top}`),
   getListingStatus: () => api.get("/admin/analytics/listing-status"),
   getAvgPriceByType: () => api.get("/admin/analytics/avg-price-by-type"),
-  getConversionRate: () => api.get("/admin/analytics/conversion-rate"),
+    getConversionRate: () => api.get("/admin/analytics/conversion-rate"),
+  getTenants: (status?: UserStatus) =>
+    api.get<TenantDetail[]>('/admin/tenants', { params: { status } }),
+
+    updateTenantStatus: (id: string, status: UserStatus) =>
+    api.put(`/admin/tenants/${id}/status`, { status }),
 
   getAgents: (status?: UserStatus) =>
     api.get<AgentDetail[]>("/admin/agents", {

@@ -303,6 +303,57 @@ public class AdminController(AppDbContext db) : ControllerBase
         return Ok(new { message = $"Agent status updated to {req.Status}" });
     }
 
+    [HttpGet("tenants")]
+    public async Task<IActionResult> GetTenants([FromQuery] UserStatus? status)
+    {
+        var query = db.Users
+            .Include(u => u.ViewingSchedules)
+            .Where(u => u.Role == UserRole.Tenant)
+            .AsQueryable();
+
+        if (status.HasValue)
+            query = query.Where(u => u.Status == status.Value);
+
+        var tenants = await query
+            .OrderByDescending(u => u.CreatedAt)
+            .ToListAsync();
+
+        return Ok(tenants.Select(t => new TenantDetailResponse(
+            t.Id,
+            t.FullName,
+            t.Email,
+            t.Status,
+            t.CreatedAt,
+            t.VerifiedAt,
+            t.ViewingSchedules.Count,
+            t.ViewingSchedules.Count(v => v.Status == ScheduleStatus.Pending),
+            t.ViewingSchedules.Count(v => v.Status == ScheduleStatus.Confirmed),
+            t.ViewingSchedules.Count(v => v.Status == ScheduleStatus.Cancelled),
+            t.ViewingSchedules
+                .OrderByDescending(v => v.ScheduledAt)
+                .Select(v => (DateTime?)v.ScheduledAt)
+                .FirstOrDefault()
+        )));
+    }
+
+    [HttpPut("tenants/{id}/status")]
+    public async Task<IActionResult> UpdateTenantStatus(Guid id, [FromBody] UpdateTenantStatusRequest req)
+    {
+        var tenant = await db.Users
+            .FirstOrDefaultAsync(u => u.Id == id && u.Role == UserRole.Tenant);
+
+        if (tenant == null) return NotFound();
+
+        tenant.Status = req.Status;
+
+        if (req.Status == UserStatus.Verified && tenant.VerifiedAt == null)
+            tenant.VerifiedAt = DateTime.UtcNow;
+
+        await db.SaveChangesAsync();
+
+        return Ok(new { message = $"Tenant status updated to {req.Status}" });
+    }
+
     [HttpGet("listings")]
     public async Task<IActionResult> GetAllListings()
     {
