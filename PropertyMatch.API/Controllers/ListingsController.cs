@@ -229,6 +229,30 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
         return Ok(new { message = "Listing updated" });
     }
 
+    // PATCH /api/listings/{id}/status
+    [HttpPatch("{id}/status")]
+    [Authorize(Roles = "Agent")]
+    public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateListingStatusRequest req)
+    {
+        var userId = User.GetUserId();
+
+        var agent = await db.Agents.FirstOrDefaultAsync(a => a.UserId == userId);
+        if (agent == null) return NotFound(new { message = "Agent profile not found" });
+
+        var listing = await db.Listings
+            .FirstOrDefaultAsync(l => l.Id == id && l.AgentId == agent.UserId);
+
+        if (listing == null) return NotFound(new { message = "Listing not found" });
+
+        if (req.Status != ListingStatus.Active && req.Status != ListingStatus.Booked)
+            return BadRequest(new { message = "Only Active or Booked status is allowed." });
+
+        listing.Status = req.Status;
+        await db.SaveChangesAsync();
+
+        return Ok(new { message = $"Listing marked as {req.Status}" });
+    }
+
     // POST /api/listings/{id}/images — multipart upload
     [HttpPost("{id}/images")]
     [Authorize(Roles = "Agent")]

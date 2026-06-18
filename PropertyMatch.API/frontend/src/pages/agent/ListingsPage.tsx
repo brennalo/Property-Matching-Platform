@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { listingsApi, paymentsApi } from "../../api";
-import type { Listing, ResidencyType, BatchListingRow } from "../../types";
+import type { Listing, ResidencyType, BatchListingRow, ListingStatus } from "../../types";
 import {
   Plus,
   Pencil,
@@ -33,12 +33,14 @@ function StatusBadge({ status }: { status: Listing["status"] }) {
     PendingPayment: "badge-amber",
     Draft: "badge-grey",
     Inactive: "badge-red",
+    Booked: "badge-amber",
   };
   const icons: Record<string, React.ReactNode> = {
     Active: <CheckCircle2 size={11} />,
     PendingPayment: <CreditCard size={11} />,
     Draft: <Clock size={11} />,
     Inactive: <Ban size={11} />,
+    Booked: <Ban size={11} />,
   };
   return (
     <span className={`badge ${map[status] ?? "badge-grey"}`}>
@@ -709,6 +711,17 @@ export default function AgentListingsPage() {
     }
   };
 
+  const statusMut = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: ListingStatus }) =>
+        listingsApi.updateStatus(id, status),
+    onSuccess: () => {
+        qc.invalidateQueries({ queryKey: ['my-listings'] })
+        showToast('Listing status updated!')
+    },
+    onError: (e: any) =>
+        showToast(e.response?.data?.message ?? 'Failed to update status', 'error'),
+  })
+
   const urlParams = new URLSearchParams(window.location.search);
     const paymentStatus = urlParams.get("payment");
 
@@ -939,6 +952,22 @@ export default function AgentListingsPage() {
                   >
                     <Trash2 size={13} />
                   </button>
+                  {l.status === 'Active' && (
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={() => statusMut.mutate({ id: l.id, status: 'Booked' })}
+                    >
+                      Mark as Booked
+                    </button>
+                  )}
+                  {l.status === 'Booked' && (
+                    <button
+                      className="btn btn-success btn-sm"
+                      onClick={() => statusMut.mutate({ id: l.id, status: 'Active' })}
+                    >
+                      Mark as Active
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

@@ -12,6 +12,7 @@ import type {
   UserStatus,
   AgentAvailability,
   BatchListingRow,
+  ListingStatus,
   ImageDto,
 } from "../types";
 
@@ -52,6 +53,9 @@ export const listingsApi = {
   getMine: () => api.get<Listing[]>("/listings/mine"),
 
   getById: (id: string) => api.get<Listing>(`/listings/${id}`),
+
+  updateStatus: (id: string, status: ListingStatus) =>
+      api.patch(`/listings/${id}/status`, { status }),
 
   create: (data: {
     name: string;

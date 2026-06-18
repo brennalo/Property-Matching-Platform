@@ -5,7 +5,7 @@ namespace PropertyMatch.API.Models;
 
 public enum UserRole { Tenant, Agent, Admin }
 public enum UserStatus { Pending, Unapproved, Verified, Blocked }
-public enum ListingStatus { Draft, PendingPayment, Active, Inactive }
+public enum ListingStatus { Draft, PendingPayment, Active, Inactive, Booked }
 public enum ScheduleStatus { Pending, Confirmed, Cancelled }
 public enum ResidencyType { Landed, Condo, Apartment, Townhouse, Studio }
 public enum TransportMode { Driving, Walking, Transit, Bicycling }

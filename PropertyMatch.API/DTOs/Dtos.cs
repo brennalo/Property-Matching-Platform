@@ -36,6 +36,8 @@ public record UpdateListingRequest(
     double? Lat, double? Lng, string? Address,
     ResidencyType? ResidencyType, decimal? Price);
 
+public record UpdateListingStatusRequest(ListingStatus Status);
+
 // For batch upload
 public record BatchListingRequest(
     string PropertyName, int Bedrooms, int Bathrooms, int Toilets,
