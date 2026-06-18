@@ -73,8 +73,31 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
             .FirstOrDefaultAsync(a => a.UserId == userId);
 
         if (agent == null) return NotFound(new { message = "Agent profile not found" });
-        if (agent.User.Status != UserStatus.Verified)
-            return Forbid();
+
+        // Agent unable to create listing while account is not yet been approved
+        if (agent.User.Status == UserStatus.Pending)
+        {
+            return StatusCode(403, new
+            {
+                message = "Please verify your email before creating listings."
+            });
+        }
+
+        if (agent.User.Status == UserStatus.Unapproved)
+        {
+            return StatusCode(403, new
+            {
+                message = "Your account is awaiting admin approval. You cannot create listings yet."
+            });
+        }
+
+        if (agent.User.Status == UserStatus.Blocked)
+        {
+            return StatusCode(403, new
+            {
+                message = "Your account has been blocked. You cannot create listings."
+            });
+        }
 
         // ── Token check ──────────────────────────────────────────
         if (agent.TokenBalance < 1)
@@ -114,8 +137,31 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
             .FirstOrDefaultAsync(a => a.UserId == userId);
 
         if (agent == null) return NotFound(new { message = "Agent profile not found" });
-        if (agent.User.Status != UserStatus.Verified)
-            return Forbid();
+
+        // Agent unable to create listing while account is not yet been approved
+        if (agent.User.Status == UserStatus.Pending)
+        {
+            return StatusCode(403, new
+            {
+                message = "Please verify your email before creating listings."
+            });
+        }
+
+        if (agent.User.Status == UserStatus.Unapproved)
+        {
+            return StatusCode(403, new
+            {
+                message = "Your account is awaiting admin approval. You cannot create listings yet."
+            });
+        }
+
+        if (agent.User.Status == UserStatus.Blocked)
+        {
+            return StatusCode(403, new
+            {
+                message = "Your account has been blocked. You cannot create listings."
+            });
+        }
 
         var successCount = 0;
         var errors = new List<string>();
@@ -181,6 +227,30 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
 
         await db.SaveChangesAsync();
         return Ok(new { message = "Listing updated" });
+    }
+
+    // PATCH /api/listings/{id}/status
+    [HttpPatch("{id}/status")]
+    [Authorize(Roles = "Agent")]
+    public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateListingStatusRequest req)
+    {
+        var userId = User.GetUserId();
+
+        var agent = await db.Agents.FirstOrDefaultAsync(a => a.UserId == userId);
+        if (agent == null) return NotFound(new { message = "Agent profile not found" });
+
+        var listing = await db.Listings
+            .FirstOrDefaultAsync(l => l.Id == id && l.AgentId == agent.UserId);
+
+        if (listing == null) return NotFound(new { message = "Listing not found" });
+
+        if (req.Status != ListingStatus.Active && req.Status != ListingStatus.Booked)
+            return BadRequest(new { message = "Only Active or Booked status is allowed." });
+
+        listing.Status = req.Status;
+        await db.SaveChangesAsync();
+
+        return Ok(new { message = $"Listing marked as {req.Status}" });
     }
 
     // POST /api/listings/{id}/images — multipart upload

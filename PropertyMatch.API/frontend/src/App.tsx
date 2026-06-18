@@ -37,6 +37,7 @@ import AdminAgentsPage from "./pages/admin/AgentsPage";
 import TokenTopUpPage from "./pages/agent/TokenTopUpPage";
 import PaymentSuccessPage from "./pages/agent/PaymentSuccessPage";
 import PaymentCancelPage from "./pages/agent/PaymentCancelPage";
+import AdminTenantsPage from "./pages/admin/TenantsPage";
 
 import {
   Search,
@@ -235,6 +236,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
       label: "Analytics",
     },
     { to: "/admin/agents", icon: <Users size={16} />, label: "Agents" },
+      { to: "/admin/tenants", icon: <Users size={16} />, label: "Tenants" },
   ];
 
   const links =
@@ -481,6 +483,16 @@ export default function App() {
                 <ProtectedRoute roles={["Admin"]}>
                   <AppShell>
                     <AdminAgentsPage />
+                  </AppShell>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/tenants"
+              element={
+                <ProtectedRoute roles={["Admin"]}>
+                  <AppShell>
+                    <AdminTenantsPage />
                   </AppShell>
                 </ProtectedRoute>
               }

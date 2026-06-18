@@ -106,7 +106,7 @@ public class AuthController(
 
         var user = verification.User;
 
-        if (user.Status == UserStatus.Verified)
+        if (user.Status != UserStatus.Pending)
         {
             db.EmailVerifications.Remove(verification);
             await db.SaveChangesAsync();
@@ -118,8 +118,17 @@ public class AuthController(
         }
 
         // Mark user as email-verified
-        user.Status = UserStatus.Verified;
-        user.VerifiedAt = DateTime.UtcNow;
+        if (user.Role == UserRole.Agent)
+        {
+            // Email verified, but admin has not approved yet
+            user.Status = UserStatus.Unapproved;
+        }
+        else
+        {
+            // Tenant can be verified directly after email verification
+            user.Status = UserStatus.Verified;
+            user.VerifiedAt = DateTime.UtcNow;
+        }
 
         // Remove the used token
         db.EmailVerifications.Remove(verification);
@@ -140,7 +149,7 @@ public class AuthController(
         var user = await db.Users.FirstOrDefaultAsync(u => u.Email == req.Email.ToLowerInvariant());
 
         // Always return 200 so we don't leak whether an email is registered
-        if (user == null || user.Status == UserStatus.Verified)
+        if (user == null || user.Status == UserStatus.Verified || user.Status == UserStatus.Unapproved)
             return Ok(new { message = "If that email exists and is unverified, a new link has been sent." });
 
         // Delete any existing tokens for this user

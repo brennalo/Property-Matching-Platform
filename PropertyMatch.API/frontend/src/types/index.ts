@@ -1,7 +1,7 @@
 export type UserRole = "Tenant" | "Agent" | "Admin";
-export type UserStatus = "Pending" | "Verified" | "Blocked";
-export type AgentStatus = "Pending" | "Verified" | "Blocked";
-export type ListingStatus = "Draft" | "PendingPayment" | "Active" | "Inactive";
+export type UserStatus = 'Pending' | 'Unapproved' | 'Verified' | 'Blocked'
+export type AgentStatus = 'Pending' | 'Unapproved' | 'Verified' | 'Blocked'
+export type ListingStatus = "Draft" | "PendingPayment" | "Active" | "Inactive" | "Booked";
 export type ScheduleStatus = "Pending" | "Confirmed" | "Cancelled";
 export type ResidencyType =
   | "Landed"
@@ -131,6 +131,19 @@ export interface Analytics {
   totalSchedules: number;
   totalPayments: number;
   blockedAgents: number;
+}
+export interface TenantDetail {
+    userId: string
+    fullName: string
+    email: string
+    status: UserStatus
+    createdAt: string
+    verifiedAt: string | null
+    totalViewings: number
+    pendingViewings: number
+    confirmedViewings: number
+    cancelledViewings: number
+    lastViewingAt: string | null
 }
 
 export interface AgentDetail {
