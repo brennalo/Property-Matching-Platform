@@ -13,7 +13,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<LifestyleTemplate> LifestyleTemplates => Set<LifestyleTemplate>();
     public DbSet<ViewingSchedule> ViewingSchedules => Set<ViewingSchedule>();
     public DbSet<Payment> Payments => Set<Payment>();
-    public DbSet<AgentAvailability> AgentAvailabilities => Set<AgentAvailability>();
+    public DbSet<AvailabilityTemplate> AvailabilityTemplates => Set<AvailabilityTemplate>();
+    public DbSet<AvailabilityException> AvailabilityExceptions => Set<AvailabilityException>();
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -60,11 +61,40 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .Property(i => i.Caption)
             .HasMaxLength(30);
 
-        // ── AgentAvailability ─────────────────────────────────────────────────
-        mb.Entity<AgentAvailability>()
-            .HasOne(a => a.Agent)
-            .WithMany(a => a.Availabilities)
-            .HasForeignKey(a => a.AgentId);
+    // ── Availability Templates ──────────────────────────────────────────────────
+    mb.Entity<AvailabilityTemplate>()
+        .HasOne(t => t.Agent)
+        .WithMany(a => a.AvailabilityTemplates)
+        .HasForeignKey(t => t.AgentId)
+        .OnDelete(DeleteBehavior.Cascade);
+
+    mb.Entity<AvailabilityTemplate>()
+        .HasOne(t => t.Listing)
+        .WithMany(l => l.AvailabilityTemplates)
+        .HasForeignKey(t => t.ListingId)
+        .OnDelete(DeleteBehavior.Cascade);
+
+    mb.Entity<AvailabilityTemplate>()
+        .Property(t => t.SlotDurationMinutes)
+        .HasDefaultValue(60);
+
+    // ── Availability Exceptions ──────────────────────────────────────────────────
+    mb.Entity<AvailabilityException>()
+        .HasOne(e => e.Agent)
+        .WithMany(a => a.AvailabilityExceptions)
+        .HasForeignKey(e => e.AgentId)
+        .OnDelete(DeleteBehavior.Cascade);
+
+    mb.Entity<AvailabilityException>()
+        .HasOne(e => e.Listing)
+        .WithMany(l => l.AvailabilityExceptions)
+        .HasForeignKey(e => e.ListingId)
+        .OnDelete(DeleteBehavior.Cascade);
+
+    mb.Entity<AvailabilityException>()
+        .Property(e => e.Type)
+        .HasConversion<string>();
+
 
         // ── ViewingSchedule composite PK ──────────────────────────────────────
         mb.Entity<ViewingSchedule>()
@@ -93,6 +123,21 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         mb.Entity<User>().HasIndex(u => u.Email).IsUnique();
         mb.Entity<Listing>().HasIndex(l => l.Status);
         mb.Entity<Listing>().HasIndex(l => l.AgentId);
-        mb.Entity<AgentAvailability>().HasIndex(a => a.AgentId);
-    }
+        mb.Entity<AvailabilityTemplate>()
+    .HasIndex(t => new { t.AgentId, t.ListingId })
+    .HasDatabaseName("IX_AvailabilityTemplates_AgentId_ListingId");
+
+        mb.Entity<AvailabilityTemplate>()
+            .HasIndex(t => t.DayOfWeek)
+            .HasDatabaseName("IX_AvailabilityTemplates_DayOfWeek");
+
+        mb.Entity<AvailabilityException>()
+            .HasIndex(e => new { e.AgentId, e.ListingId })
+            .HasDatabaseName("IX_AvailabilityExceptions_AgentId_ListingId");
+
+        mb.Entity<AvailabilityException>()
+            .HasIndex(e => new { e.ExceptionFrom, e.ExceptionTo })
+            .HasDatabaseName("IX_AvailabilityExceptions_ExceptionFrom_ExceptionTo");
+
+            }
 }

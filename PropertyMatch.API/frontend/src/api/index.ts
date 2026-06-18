@@ -9,7 +9,11 @@ import type {
   Analytics,
   AgentDetail,
   UserStatus,
-  AgentAvailability,
+  AvailabilityTemplate,
+  AvailabilityException,
+  AvailabilityTemplateRequest,
+  AvailabilityExceptionRequest,
+  AvailableSlot,
   BatchListingRow,
   ImageDto,
 } from "../types";
@@ -149,25 +153,47 @@ export const schedulesApi = {
     ),
 };
 
-// ── Availability ──────────────────────────────────────────────────────────────────
-// Agent availability scheduling
+// ── Availability Template and Exception ──────────────────────────────────────────────────────────────────
 export const availabilityApi = {
-  getMine: () =>
-    api.get<{ availabilities: AgentAvailability[] }>("/availability/mine"),
+  // Agent endpoints
+  getSummary: () =>
+    api.get<{
+      templates: AvailabilityTemplate[];
+      exceptions: AvailabilityException[];
+    }>("/availability/summary"),
 
-  getByAgentId: (agentId: string) =>
-    api.get<{ availabilities: AgentAvailability[] }>(
-      `/availability/${agentId}`,
+  addTemplates: (
+    templates: Array<{
+      dayOfWeek: number;
+      startTime: string;
+      endTime: string;
+      slotDurationMinutes?: number;
+      validFrom?: string | null;
+      validTo?: string | null;
+      listingId?: string | null;
+    }>,
+  ) => api.post("/availability/templates", templates),
+
+  addExceptions: (
+    exceptions: Array<{
+      exceptionFrom: string;
+      exceptionTo: string;
+      type: "blocked" | "custom_hours";
+      startTime?: string | null;
+      endTime?: string | null;
+      reason?: string | null;
+      listingId?: string | null;
+    }>,
+  ) => api.post("/availability/exceptions", exceptions),
+
+  deleteTemplate: (id: string) => api.delete(`/availability/templates/${id}`),
+  deleteException: (id: string) => api.delete(`/availability/exceptions/${id}`),
+
+  // Tenant endpoint
+  getSlots: (listingId: string, from: Date, to: Date) =>
+    api.get<AvailableSlot[]>(
+      `/availability/slots?listingId=${listingId}&from=${from.toISOString()}&to=${to.toISOString()}`,
     ),
-
-  create: (dayOfWeek: number, startTime: string, endTime: string) =>
-    api.post("/availability", { dayOfWeek, startTime, endTime }),
-
-  batchCreate: (
-    slots: Array<{ dayOfWeek: number; startTime: string; endTime: string }>,
-  ) => api.post("/availability/batch", slots),
-
-  delete: (id: string) => api.delete(`/availability/${id}`),
 };
 
 // ── Payments ────────────────────────────────────────────────────────────────────────

@@ -113,29 +113,65 @@ public record ScheduleResponse(
 
 public record BookedSlotResponse(DateTime ScheduledAt, ScheduleStatus Status);
 
-// ── Availability ──────────────────────────────────────────────────────────────
+// ── Availability Template & Exception ──────────────────────────────────────────────────────────────
 
-public record AgentAvailabilityRequest(
+public record AvailabilityTemplateRequest(
+    int DayOfWeek,
     string StartTime,
     string EndTime,
-    DateTime ValidFromDate,
-    DateTime ValidToDate,
-    string? Reason = null
+    int? SlotDurationMinutes = null,
+    DateTime? ValidFrom = null,
+    DateTime? ValidTo = null,
+    Guid? ListingId = null
 );
 
-public record AgentAvailabilityResponse(
+public record AvailabilityTemplateResponse(
     Guid Id,
-    Guid AgentId,
+    int DayOfWeek,
     string StartTime,
     string EndTime,
-    DateTime ValidFromDate,
-    DateTime ValidToDate,
-    string? Reason,
+    int SlotDurationMinutes,
+    DateTime? ValidFrom,
+    DateTime? ValidTo,
+    Guid? ListingId,
+    bool IsActive,
     DateTime CreatedAt
 );
 
-public record AgentAvailabilityListResponse(
-    List<AgentAvailabilityResponse> Availabilities);
+public record AvailabilityExceptionRequest(
+    DateTime ExceptionFrom,
+    DateTime ExceptionTo,
+    string Type,
+    string? StartTime = null,
+    string? EndTime = null,
+    string? Reason = null,
+    Guid? ListingId = null
+);
+
+public record AvailabilityExceptionResponse(
+    Guid Id,
+    DateTime ExceptionFrom,
+    DateTime ExceptionTo,
+    string Type,
+    string? StartTime,
+    string? EndTime,
+    string? Reason,
+    Guid? ListingId,
+    DateTime CreatedAt
+);
+
+public record AvailableSlotDto(
+    DateTime Date,
+    string StartTime,
+    string EndTime,
+    bool IsBooked
+);
+
+
+public record AgentAvailabilitySummaryResponse(
+    List<AvailabilityTemplateResponse> Templates,
+    List<AvailabilityExceptionResponse> Exceptions
+);
 
 // ── Payments ───────────────────────────────────────────────────────────────
 
