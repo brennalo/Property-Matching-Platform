@@ -36,6 +36,8 @@ public record UpdateListingRequest(
     double? Lat, double? Lng, string? Address,
     ResidencyType? ResidencyType, decimal? Price);
 
+public record UpdateListingStatusRequest(ListingStatus Status);
+
 // For batch upload
 public record BatchListingRequest(
     string PropertyName, int Bedrooms, int Bathrooms, int Toilets,
@@ -154,6 +156,22 @@ public record AgentDetailResponse(
     DateTime CreatedAt, DateTime? VerifiedAt,
     int ListingCount, string? LicenseNumber, int TokenBalance,
     string? LppehSearchUrl);
+
+public record TenantDetailResponse(
+    Guid UserId,
+    string FullName,
+    string Email,
+    UserStatus Status,
+    DateTime CreatedAt,
+    DateTime? VerifiedAt,
+    int TotalViewings,
+    int PendingViewings,
+    int ConfirmedViewings,
+    int CancelledViewings,
+    DateTime? LastViewingAt
+);
+
+public record UpdateTenantStatusRequest(UserStatus Status);
 
 public record UpdateAgentStatusRequest(UserStatus Status);
 

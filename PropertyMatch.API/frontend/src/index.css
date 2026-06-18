@@ -16,6 +16,8 @@
   --teal-dim: #1a5a4e;
   --red: #e05c5c;
   --red-dim: #5c2020;
+  --green: #378b73;
+  --green-dim: #7ba591;
   --radius: 10px;
   --radius-lg: 16px;
   --shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
@@ -194,6 +196,19 @@ a:hover {
 .btn-danger:hover:not(:disabled) {
   background: var(--red);
   color: #fff;
+}
+
+.btn-success {
+    background: var(--green);
+    color: #000;
+    border: 1px solid var(--green);
+    transition: all 0.2s ease;
+}
+
+.btn-success:hover:not(:disabled) {
+  background: var(--green-dim);
+  color: #000;
+  border-color: var(--green-dim);
 }
 
 .btn-sm {
