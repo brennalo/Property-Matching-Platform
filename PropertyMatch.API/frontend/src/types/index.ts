@@ -4,11 +4,13 @@ export type AgentStatus = 'Pending' | 'Unapproved' | 'Verified' | 'Blocked'
 export type ListingStatus = "Draft" | "PendingPayment" | "Active" | "Inactive" | "Booked";
 export type ScheduleStatus = "Pending" | "Confirmed" | "Cancelled";
 export type ResidencyType =
-  | "Landed"
+  | "Landed" 
   | "Condo"
   | "Apartment"
   | "Townhouse"
-  | "Studio";
+  | "Studio"
+  | "MasterRoom"
+  | "SharedRoom";
 export type TransportMode = "Driving" | "Walking" | "Transit" | "Bicycling";
 
 export interface AuthUser {
@@ -43,8 +45,6 @@ export interface Listing {
   createdAt: string;
   images: ImageDto[];
   imageUrls: string[];
-  sourceUrl: string | null;
-  sourcePlatform: string | null;
 }
 
 export interface TransitStep {

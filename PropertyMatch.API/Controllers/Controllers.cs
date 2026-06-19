@@ -99,8 +99,6 @@ public class SchedulesController(AppDbContext db, ResendEmailService _resendEmai
         // Check listing exists and is agent-owned (agent listing has no SourceUrl)
         var listing = await db.Listings.FindAsync(req.ListingId);
         if (listing == null) return NotFound(new { message = "Listing not found" });
-        if (listing.SourceUrl != null)
-            return BadRequest(new { message = "Cannot schedule viewing for scraped listings. Use the source link." });
         if (listing.Status != ListingStatus.Active)
             return BadRequest(new { message = "Listing is not active" });
 

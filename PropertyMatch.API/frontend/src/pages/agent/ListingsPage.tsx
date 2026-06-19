@@ -25,6 +25,8 @@ const RESIDENCY_TYPES: ResidencyType[] = [
   "Apartment",
   "Townhouse",
   "Studio",
+  "MasterRoom",
+  "SharedRoom"
 ];
 
 function StatusBadge({ status }: { status: Listing["status"] }) {
@@ -473,11 +475,13 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
     });
 
     const allowedTypes = [
-      "Landed",
-      "Condo",
-      "Apartment",
-      "Townhouse",
-      "Studio",
+        "Landed",
+        "Condo",
+        "Apartment",
+        "Townhouse",
+        "Studio",
+        "MasterRoom",
+        "SharedRoom"
     ];
     for (let row = 2; row <= 100; row++) {
       const cell = worksheet.getCell(`G${row}`);

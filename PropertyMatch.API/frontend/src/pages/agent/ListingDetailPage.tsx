@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { listingsApi } from "../../api";
+import { listingsApi, viewHistoryApi } from "../../api";
 import type { Listing, ResidencyType, ImageDto } from "../../types";
 import {
   ArrowLeft,
@@ -24,6 +24,8 @@ const RESIDENCY_TYPES: ResidencyType[] = [
   "Apartment",
   "Townhouse",
   "Studio",
+  "MasterRoom",
+  "SharedRoom"
 ];
 
 interface ListingFormData {

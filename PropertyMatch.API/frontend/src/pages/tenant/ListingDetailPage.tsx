@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery,useMutation,useQueryClient } from "@tanstack/react-query";
-import { schedulesApi, availabilityApi,favouritesApi,agentApi,conversationsApi,viewHistoryApi } from "../../api";
+import { schedulesApi, availabilityApi,favouritesApi,agentApi,conversationsApi,viewHistoryApi, listingsApi } from "../../api";
 import type {
   MatchedListing,
   ModeCommuteResult,
@@ -1779,78 +1779,86 @@ function ScheduleModal({
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function ListingDetailPage() {
-  const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
-  const qc = useQueryClient();
-  const [result, setResult] = useState<MatchedListing | null>(null);
-  const [workplaceLat, setWorkplaceLat] = useState<number | null>(null);
-  const [workplaceLng, setWorkplaceLng] = useState<number | null>(null);
-  const [showSchedule, setShowSchedule] = useState(false);
+    const navigate = useNavigate();
+    const { id } = useParams<{ id: string }>();
+    const qc = useQueryClient();
+    const [result, setResult] = useState<MatchedListing | null>(null);
+    const [workplaceLat, setWorkplaceLat] = useState<number | null>(null);
+    const [workplaceLng, setWorkplaceLng] = useState<number | null>(null);
+    const [showSchedule, setShowSchedule] = useState(false);
+    const mapsReady = useGoogleMaps();
 
-  const mapsReady = useGoogleMaps();
+    useEffect(() => {
+        const raw = sessionStorage.getItem("matchResults");
+        const reqRaw = sessionStorage.getItem("matchReq");
+        if (raw && id) {
+            const results: MatchedListing[] = JSON.parse(raw);
+            const found = results.find((r) => r.listing.id === id);
+            if (found) {
+                setResult(found);
+                if (reqRaw) {
+                    const req = JSON.parse(reqRaw);
+                    setWorkplaceLat(req.workplaceLat ?? null);
+                    setWorkplaceLng(req.workplaceLng ?? null);
+                }
+                return;
+            }
+        }
+        if (id) {
+            listingsApi.getById(id).then(res => {
+                setResult({
+                    listing: res.data,
+                    totalScore: 0,
+                    numericScore: 0,
+                    commuteScore: 0,
+                    lifestyleScore: 0,
+                    commuteMinutes: null,
+                    commuteRoutes: [],
+                    lifestylePlaces: {},
+                });
+            }).catch(() => navigate("/search"));
+        }
+    }, [id, navigate]);
 
-  useEffect(() => {
-    const raw = sessionStorage.getItem("matchResults");
-    const reqRaw = sessionStorage.getItem("matchReq");
-    if (!raw || !id) {
-      navigate("/results");
-      return;
-    }
 
-    const results: MatchedListing[] = JSON.parse(raw);
-    const found = results.find((r) => r.listing.id === id);
-    if (!found) {
-      navigate("/results");
-      return;
-    }
-    setResult(found);
+    // ── ALL hooks must be here, before any early return ──
+    const listingId = result?.listing?.id;
+    const agentId = result?.listing?.agentId;
 
-    if (reqRaw) {
-      const req = JSON.parse(reqRaw);
-      setWorkplaceLat(req.workplaceLat ?? null);
-      setWorkplaceLng(req.workplaceLng ?? null);
-    }
-  }, [id, navigate]);
+    useEffect(() => {
+        if (listingId) {
+            viewHistoryApi.track(listingId);
+        }
+    }, [listingId]);
 
-  if (!result)
-    return (
-      <div style={{ textAlign: "center", padding: 60 }}>
-        <span className="spinner" />
-      </div>
-    );
-
-  const { listing } = result;
-  const isScraped = !!listing.sourceUrl;
-  const hasRoutes =
-    result.commuteRoutes.length > 0 && workplaceLat && workplaceLng;
-
-    // Favourite state
     const { data: favStatus } = useQuery({
-        queryKey: ['fav-status', listing?.id],
-        queryFn: () => favouritesApi.getStatus(listing!.id).then(r => r.data),
-        enabled: !!listing?.id,
+        queryKey: ['fav-status', listingId],
+        queryFn: () => favouritesApi.getStatus(listingId!).then(r => r.data),
+        enabled: !!listingId,
     });
-
     const toggleFav = useMutation({
         mutationFn: () =>
             favStatus?.saved
-                ? favouritesApi.remove(listing!.id)
-                : favouritesApi.add(listing!.id),
-        onSuccess: () => qc.invalidateQueries({ queryKey: ['fav-status', listing?.id] }),
+                ? favouritesApi.remove(listingId!)
+                : favouritesApi.add(listingId!),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['fav-status', listingId] }),
     });
-
-    // Agent enquire
     const enquireMut = useMutation({
-        mutationFn: () => conversationsApi.open(listing!.id),
+        mutationFn: () => conversationsApi.open(listingId!),
         onSuccess: () => navigate('/conversations'),
     });
-
-    // Agent profile
     const { data: agentProfile } = useQuery({
-        queryKey: ['agent-public', listing?.agentId],
-        queryFn: () => agentApi.getPublicProfile(listing!.agentId).then(r => r.data),
-        enabled: !!listing?.agentId,
+        queryKey: ['agent-public', agentId],
+        queryFn: () => agentApi.getPublicProfile(agentId!).then(r => r.data),
+        enabled: !!agentId,
     });
+
+    // ── early return AFTER all hooks ──
+    if (!result) return null;
+
+    const { listing } = result;
+    const hasRoutes = result.commuteRoutes.length > 0 && workplaceLat && workplaceLng;
+
 
   return (
     <div style={{ maxWidth: 920, margin: "0 auto" }}>
@@ -1895,14 +1903,6 @@ export default function ListingDetailPage() {
                 >
                   {listing.name}
                 </h1>
-                {listing.sourcePlatform && (
-                  <span
-                    className="badge badge-grey"
-                    style={{ marginBottom: 8, display: "inline-block" }}
-                  >
-                    {listing.sourcePlatform}
-                  </span>
-                )}
                 <p
                   style={{
                     color: "var(--text-muted)",

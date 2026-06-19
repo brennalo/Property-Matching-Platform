@@ -9,7 +9,7 @@ public enum UserRole { Tenant, Agent, Admin }
 public enum UserStatus { Pending, Unapproved, Verified, Blocked }
 public enum ListingStatus { Draft, PendingPayment, Active, Inactive, Booked }
 public enum ScheduleStatus { Pending, Confirmed, Cancelled }
-public enum ResidencyType { Landed, Condo, Apartment, Townhouse, Studio }
+public enum ResidencyType { Landed, Condo, Apartment, Townhouse, Studio, MasterRoom, SharedRoom }
 public enum TransportMode { Driving, Walking, Transit, Bicycling }
 
 // ── User ────────────────────────────────────────────────────────────────
@@ -104,10 +104,6 @@ public class Listing
     public string? Description { get; set; }
     public ListingStatus Status { get; set; } = ListingStatus.Draft;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-    public string? SourceUrl { get; set; }
-    public string? SourcePlatform { get; set; }
-
     public Agent Agent { get; set; } = null!;
     public ICollection<ListingImage> Images { get; set; } = [];
     public ICollection<ViewingSchedule> ViewingSchedules { get; set; } = [];

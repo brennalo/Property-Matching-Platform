@@ -9,7 +9,7 @@ declare global {
     interface Window { google: any; __gmapsReady: boolean }
 }
 
-const RESIDENCY_TYPES: ResidencyType[] = ['Landed', 'Condo', 'Apartment', 'Townhouse', 'Studio']
+const RESIDENCY_TYPES: ResidencyType[] = ['Landed', 'Condo', 'Apartment', 'Townhouse', 'Studio','MasterRoom','SharedRoom']
 const TRANSPORT_MODES: { value: TransportMode; label: string; icon: string }[] = [
     { value: 'Driving', label: 'Drive', icon: '🚗' },
     { value: 'Transit', label: 'Transit', icon: '🚇' },

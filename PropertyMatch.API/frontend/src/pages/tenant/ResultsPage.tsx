@@ -155,14 +155,6 @@ export default function ResultsPage() {
                     <span style={{ fontWeight: 600, fontSize: "0.95rem" }}>
                       {r.listing.name}
                     </span>
-                    {r.listing.sourcePlatform && (
-                      <span
-                        className="badge badge-grey"
-                        style={{ fontSize: "0.7rem" }}
-                      >
-                        {r.listing.sourcePlatform}
-                      </span>
-                    )}
                   </div>
                   <div
                     className="flex gap-3 mt-1"
