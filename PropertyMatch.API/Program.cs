@@ -73,6 +73,7 @@ builder.Services.AddScoped<GooglePlacesService>();
 builder.Services.AddScoped<StripeService>();
 builder.Services.AddScoped<S3Service>();
 builder.Services.AddScoped<ResendEmailService>();
+builder.Services.AddScoped<AvailabilityService>();
 builder.Services.AddHttpClient();
 
 builder.Services.AddControllers()

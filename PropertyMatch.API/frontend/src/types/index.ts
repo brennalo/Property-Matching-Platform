@@ -159,15 +159,54 @@ export interface AgentDetail {
   lppehSearchUrl: string | null;
 }
 
-export interface AgentAvailability {
+export interface AvailabilityTemplate {
   id: string;
-  agentId: string;
-  startTime: string;
-  endTime: string;
-  validFromDate: string;
-  validToDate: string;
+  dayOfWeek: number; // 0=Sunday, 1=Monday...
+  startTime: string; // "09:00"
+  endTime: string; // "17:00"
+  slotDurationMinutes: number;
+  validFrom?: string | null;
+  validTo?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  listingId?: string | null;
+}
+
+export interface AvailabilityException {
+  id: string;
+  exceptionFrom: string; // ISO date
+  exceptionTo: string;
+  type: "blocked" | "custom_hours";
+  startTime?: string | null;
+  endTime?: string | null;
   reason?: string | null;
   createdAt: string;
+  listingId?: string | null;
+}
+
+export interface AvailabilityTemplateRequest {
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  slotDurationMinutes?: number;
+  validFrom?: string | null;
+  validTo?: string | null;
+}
+
+export interface AvailabilityExceptionRequest {
+  exceptionFrom: string;
+  exceptionTo: string;
+  type: "blocked" | "custom_hours";
+  startTime?: string | null;
+  endTime?: string | null;
+  reason?: string | null;
+}
+
+export interface AvailableSlot {
+  date: string; // "2025-06-20"
+  startTime: string; // "09:00"
+  endTime: string; // "10:00"
+  isBooked: boolean;
 }
 
 export interface BatchListingRow {

@@ -1,7 +1,7 @@
-﻿import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { schedulesApi, scheduleSlotsApi, availabilityApi } from "../../api";
+import { schedulesApi, availabilityApi } from "../../api";
 import type {
   MatchedListing,
   ModeCommuteResult,
@@ -9,7 +9,6 @@ import type {
   BookedSlot,
   PlaceLocation,
   ImageDto,
-  AgentAvailability,
 } from "../../types";
 import {
   getPlaceTypeColor,
@@ -1252,358 +1251,11 @@ const HOUR_OPTIONS = Array.from({ length: 13 }, (_, i) => {
   };
 });
 
-// ── Calendar picker – date‑bound availability ────────────────────────────────
-interface CalendarPickerProps {
-  selectedDate: string;
-  selectedTime: string;
-  onSelectDate: (d: string) => void;
-  onSelectTime: (t: string) => void;
-  bookedSlots: BookedSlot[];
-  availability: AgentAvailability[];
-}
-
-function CalendarPicker({
-  selectedDate,
-  selectedTime,
-  onSelectDate,
-  onSelectTime,
-  bookedSlots,
-  availability,
-}: CalendarPickerProps) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const [viewYear, setViewYear] = useState(today.getFullYear());
-  const [viewMonth, setViewMonth] = useState(today.getMonth());
-
-  const firstDay = new Date(viewYear, viewMonth, 1).getDay();
-  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-  const cells: (number | null)[] = [
-    ...Array(firstDay).fill(null),
-    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
-  ];
-
-  // Set of already booked datetime strings (ISO date+hour)
-  const bookedSet = new Set(
-    (bookedSlots || []).map((s) => {
-      const d = new Date(s.scheduledAt);
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:00`;
-    }),
-  );
-
-  // Helper: get hour options for a given date string
-  const getHourOptionsForDate = (dateStr: string) => {
-    if (!dateStr) return [];
-    const targetDate = new Date(dateStr);
-    targetDate.setHours(0, 0, 0, 0);
-
-    // Find all slots that cover this date
-    const matchingSlots = availability.filter((slot) => {
-      const from = new Date(slot.validFromDate);
-      const to = new Date(slot.validToDate);
-      from.setHours(0, 0, 0, 0);
-      to.setHours(0, 0, 0, 0);
-      return targetDate >= from && targetDate <= to;
-    });
-
-    if (matchingSlots.length === 0) return [];
-
-    // Collect all possible hours from the matching slots
-    const hours: number[] = [];
-    for (const slot of matchingSlots) {
-      const startHour = parseInt(slot.startTime.split(":")[0], 10);
-      const endHour = parseInt(slot.endTime.split(":")[0], 10);
-      for (let h = startHour; h < endHour; h++) {
-        if (!hours.includes(h)) hours.push(h);
-      }
-    }
-    hours.sort((a, b) => a - b);
-    return hours.map((h) => ({
-      value: `${String(h).padStart(2, "0")}:00`,
-      label: h < 12 ? `${h}:00 AM` : h === 12 ? "12:00 PM" : `${h - 12}:00 PM`,
-    }));
-  };
-
-  const hourOptions = getHourOptionsForDate(selectedDate);
-
-  const prevMonth = () =>
-    viewMonth === 0
-      ? (setViewYear((y) => y - 1), setViewMonth(11))
-      : setViewMonth((m) => m - 1);
-  const nextMonth = () =>
-    viewMonth === 11
-      ? (setViewYear((y) => y + 1), setViewMonth(0))
-      : setViewMonth((m) => m + 1);
-
-  return (
-    <div>
-      {/* Month navigation */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 10,
-        }}
-      >
-        <button
-          type="button"
-          className="btn btn-ghost btn-sm"
-          onClick={prevMonth}
-        >
-          <ChevronLeft size={14} />
-        </button>
-        <span style={{ fontWeight: 600, fontSize: "0.9rem" }}>
-          {MONTHS[viewMonth]} {viewYear}
-        </span>
-        <button
-          type="button"
-          className="btn btn-ghost btn-sm"
-          onClick={nextMonth}
-        >
-          <ChevronRight size={14} />
-        </button>
-      </div>
-
-      {/* Day headers */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(7,1fr)",
-          gap: 2,
-          marginBottom: 4,
-        }}
-      >
-        {WEEK.map((d) => (
-          <div
-            key={d}
-            style={{
-              textAlign: "center",
-              fontSize: "0.7rem",
-              color: "var(--text-dim)",
-              fontWeight: 600,
-            }}
-          >
-            {d}
-          </div>
-        ))}
-      </div>
-
-      {/* Date cells */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(7,1fr)",
-          gap: 2,
-        }}
-      >
-        {cells.map((day, i) => {
-          if (!day) return <div key={i} />;
-          const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-          const cellDate = new Date(viewYear, viewMonth, day);
-          const isPast = cellDate < today;
-          const isSel = selectedDate === dateStr;
-          const isToday = cellDate.getTime() === today.getTime();
-
-          // Check availability for this specific date
-          const hourOptionsForCell = getHourOptionsForDate(dateStr);
-          const hasAvailability = hourOptionsForCell.length > 0;
-          const bookedCount = hourOptionsForCell.filter((h) =>
-            bookedSet.has(`${dateStr}T${h.value}`),
-          ).length;
-          const totalAvailable = hourOptionsForCell.length;
-          const fullyBooked =
-            totalAvailable > 0 && bookedCount >= totalAvailable;
-
-          let bg = "transparent",
-            color = "var(--text)",
-            cursor = "pointer";
-          if (isPast || !hasAvailability) {
-            color = "var(--text-dim)";
-            cursor = "not-allowed";
-          }
-          if (fullyBooked && !isPast && hasAvailability) {
-            bg = "var(--red-dim)";
-            color = "var(--red)";
-            cursor = "not-allowed";
-          }
-          if (isSel) {
-            bg = "var(--accent)";
-            color = "#0f0f0e";
-          }
-          if (isToday && !isSel && hasAvailability) {
-            color = "var(--accent)";
-          }
-
-          let title = "";
-          if (!hasAvailability) title = "Agent not available on this day";
-          else if (fullyBooked) title = "All available slots are booked";
-
-          return (
-            <div
-              key={i}
-              title={title}
-              onClick={() => {
-                if (!isPast && hasAvailability && !fullyBooked)
-                  onSelectDate(dateStr);
-              }}
-              style={{
-                textAlign: "center",
-                padding: "6px 2px",
-                borderRadius: 6,
-                fontSize: "0.82rem",
-                fontWeight: isToday ? 700 : 400,
-                background: bg,
-                color,
-                cursor,
-                border:
-                  isToday && !isSel
-                    ? "1px solid var(--accent)"
-                    : "1px solid transparent",
-                position: "relative",
-              }}
-            >
-              {day}
-              {hasAvailability && bookedCount > 0 && !fullyBooked && !isSel && (
-                <div
-                  style={{
-                    position: "absolute",
-                    bottom: 2,
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    width: 4,
-                    height: 4,
-                    borderRadius: "50%",
-                    background: "var(--accent)",
-                  }}
-                />
-              )}
-              {fullyBooked && (
-                <div
-                  style={{
-                    position: "absolute",
-                    bottom: 2,
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    width: 4,
-                    height: 4,
-                    borderRadius: "50%",
-                    background: "var(--red)",
-                  }}
-                />
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Legend */}
-      <div
-        style={{
-          display: "flex",
-          gap: 14,
-          marginTop: 10,
-          fontSize: "0.72rem",
-          color: "var(--text-dim)",
-        }}
-      >
-        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: "50%",
-              background: "var(--accent)",
-              display: "inline-block",
-            }}
-          />
-          Partially booked
-        </span>
-        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: "50%",
-              background: "var(--red)",
-              display: "inline-block",
-            }}
-          />
-          Fully booked
-        </span>
-        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: "50%",
-              background: "var(--border)",
-              display: "inline-block",
-            }}
-          />
-          Agent unavailable
-        </span>
-      </div>
-
-      {/* Time slot picker */}
-      {selectedDate && (
-        <div style={{ marginTop: 16 }}>
-          <label
-            className="form-label"
-            style={{ marginBottom: 10, display: "block" }}
-          >
-            Pick a Time Slot
-          </label>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
-              gap: 6,
-            }}
-          >
-            {hourOptions.map((h) => {
-              const isTaken = bookedSet.has(`${selectedDate}T${h.value}`);
-              const isActive = selectedTime === h.value;
-              return (
-                <button
-                  key={h.value}
-                  type="button"
-                  disabled={isTaken}
-                  onClick={() => onSelectTime(h.value)}
-                  className={`btn btn-sm ${isActive ? "btn-primary" : isTaken ? "" : "btn-outline"}`}
-                  style={{
-                    justifyContent: "center",
-                    fontSize: "0.75rem",
-                    background: isTaken ? "var(--red-dim)" : undefined,
-                    color: isTaken ? "var(--red)" : undefined,
-                    border: isTaken ? "1px solid var(--red-dim)" : undefined,
-                    cursor: isTaken ? "not-allowed" : "pointer",
-                    opacity: isTaken ? 0.7 : 1,
-                    textDecoration: isTaken ? "line-through" : "none",
-                  }}
-                >
-                  {h.label}
-                </button>
-              );
-            })}
-          </div>
-          {hourOptions.length === 0 && selectedDate && (
-            <p
-              style={{ fontSize: "0.75rem", color: "var(--red)", marginTop: 8 }}
-            >
-              Agent has no availability on this day.
-            </p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Schedule modal ─────────────────────────────────────────────────────────
 function ScheduleModal({
   listingId,
   listingName,
-  agentId, // new prop
+  agentId,
   onClose,
 }: {
   listingId: string;
@@ -1611,46 +1263,187 @@ function ScheduleModal({
   agentId: string;
   onClose: () => void;
 }) {
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
+  const [selectedDate, setSelectedDate] = useState<string>("");
+  const [selectedTime, setSelectedTime] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
-
-  // Fetch booked slots – cast API response to BookedSlot[]
-  const { data: bookedSlotsRaw } = useQuery({
-    queryKey: ["booked-slots", listingId],
-    queryFn: async () => {
-      const res = await scheduleSlotsApi.getBookedSlots(listingId);
-      // Cast the response to match BookedSlot[] (status strings are compatible)
-      return res.data as BookedSlot[];
-    },
-    staleTime: 30_000,
+  const [viewDate, setViewDate] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    d.setHours(0, 0, 0, 0);
+    return d;
   });
-  const bookedSlots: BookedSlot[] = bookedSlotsRaw ?? [];
 
-  // Fetch agent availability – cast to AgentAvailability[]
-  const { data: availabilityData, isLoading: availLoading } = useQuery({
-    queryKey: ["agent-availability", agentId],
+  // Compute first and last day of the viewed month
+  const fromDate = useMemo(() => {
+    const d = new Date(viewDate);
+    d.setDate(1);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, [viewDate]);
+
+  const toDate = useMemo(() => {
+    const d = new Date(viewDate);
+    d.setMonth(d.getMonth() + 1);
+    d.setDate(0); // last day of month
+    d.setHours(23, 59, 59, 999);
+    return d;
+  }, [viewDate]);
+
+  // Fetch available slots for the month
+  const { data: slots = [], isLoading: slotsLoading } = useQuery({
+    queryKey: [
+      "available-slots",
+      listingId,
+      fromDate.toISOString(),
+      toDate.toISOString(),
+    ],
     queryFn: async () => {
-      const res = await availabilityApi.getByAgentId(agentId);
-      return res.data.availabilities as AgentAvailability[];
+      const res = await availabilityApi.getSlots(listingId, fromDate, toDate);
+      return res.data;
     },
-    staleTime: 5 * 60_000,
+    staleTime: 60_000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    enabled: !!listingId,
   });
-  const availability: AgentAvailability[] = availabilityData ?? [];
+
+  // Group slots by date string (YYYY-MM-DD)
+  const slotsByDate = useMemo(() => {
+    const map: Record<string, typeof slots> = {};
+    slots.forEach((slot) => {
+      const dateKey = slot.date.split("T")[0]; // YYYY-MM-DD
+      if (!map[dateKey]) map[dateKey] = [];
+      map[dateKey].push(slot);
+    });
+    return map;
+  }, [slots]);
+
+  // Build calendar grid
+  const calendarData = useMemo(() => {
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+    const firstDayOfMonth = new Date(year, month, 1).getDay(); // 0=Sun
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const rows: Array<Array<{ day: number; dateStr: string; status: string }>> =
+      [];
+    let currentRow: Array<{ day: number; dateStr: string; status: string }> =
+      [];
+
+    // Fill leading empty cells
+    for (let i = 0; i < firstDayOfMonth; i++) {
+      currentRow.push({ day: 0, dateStr: "", status: "empty" });
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateObj = new Date(year, month, day);
+      const dateStr = dateObj.toISOString().split("T")[0];
+      const isPast = dateObj < today;
+
+      // Determine status
+      let status = "unavailable";
+      const daySlots = slotsByDate[dateStr] || [];
+      if (daySlots.length > 0) {
+        const bookedCount = daySlots.filter((s) => s.isBooked).length;
+        if (bookedCount === daySlots.length) {
+          status = "fully-booked";
+        } else {
+          status = "partially-booked";
+        }
+      } else {
+        status = isPast ? "past" : "unavailable";
+      }
+
+      currentRow.push({ day, dateStr, status });
+
+      if (currentRow.length === 7) {
+        rows.push(currentRow);
+        currentRow = [];
+      }
+    }
+
+    // Fill trailing empty cells
+    while (currentRow.length < 7 && currentRow.length > 0) {
+      currentRow.push({ day: 0, dateStr: "", status: "empty" });
+    }
+    if (currentRow.length > 0) {
+      rows.push(currentRow);
+    }
+
+    return rows;
+  }, [viewDate, slotsByDate]);
+
+  const goPrevMonth = () => {
+    setViewDate((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1));
+    setSelectedDate("");
+    setSelectedTime("");
+  };
+
+  const goNextMonth = () => {
+    setViewDate((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1));
+    setSelectedDate("");
+    setSelectedTime("");
+  };
+
+  const handleDateClick = (dateStr: string, status: string) => {
+    if (
+      status === "unavailable" ||
+      status === "past" ||
+      status === "fully-booked"
+    )
+      return;
+    setSelectedDate(dateStr);
+    setSelectedTime("");
+  };
 
   const handleBook = async () => {
-    if (!date || !time) return;
+    if (!selectedDate || !selectedTime) return;
     setLoading(true);
     setError("");
     try {
-      await schedulesApi.create(listingId, new Date(`${date}T${time}:00`));
+      await schedulesApi.create(
+        listingId,
+        new Date(`${selectedDate}T${selectedTime}:00`),
+      );
       setSuccess(true);
     } catch (e: any) {
       setError(e.response?.data?.message ?? "Booking failed");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "partially-booked":
+        return "var(--accent)";
+      case "fully-booked":
+        return "var(--red)";
+      case "available":
+        return "var(--teal)";
+      case "past":
+        return "var(--text-dim)";
+      default:
+        return "var(--bg-input)";
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "partially-booked":
+        return "Partially booked";
+      case "fully-booked":
+        return "Fully booked";
+      case "available":
+        return "Available";
+      case "past":
+        return "Past";
+      default:
+        return "Unavailable";
     }
   };
 
@@ -1694,13 +1487,16 @@ function ScheduleModal({
               Viewing Scheduled!
             </p>
             <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
-              {new Date(`${date}T${time}`).toLocaleString("en-MY", {
-                weekday: "long",
-                day: "numeric",
-                month: "long",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              {new Date(`${selectedDate}T${selectedTime}`).toLocaleString(
+                "en-MY",
+                {
+                  weekday: "long",
+                  day: "numeric",
+                  month: "long",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                },
+              )}
             </p>
             <p
               style={{
@@ -1719,45 +1515,223 @@ function ScheduleModal({
               Done
             </button>
           </div>
-        ) : availLoading ? (
+        ) : slotsLoading ? (
           <div style={{ textAlign: "center", padding: 20 }}>
             <span className="spinner" />
           </div>
         ) : (
           <>
-            <CalendarPicker
-              selectedDate={date}
-              selectedTime={time}
-              onSelectDate={(d) => {
-                setDate(d);
-                setTime("");
+            {/* Month Navigation */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 16,
               }}
-              onSelectTime={setTime}
-              bookedSlots={bookedSlots}
-              availability={availability}
-            />
-            {date && time && (
-              <div
-                style={{
-                  marginTop: 14,
-                  padding: "10px 14px",
-                  background: "var(--bg-input)",
-                  borderRadius: 8,
-                  fontSize: "0.83rem",
-                  color: "var(--text-muted)",
-                }}
-              >
-                📅{" "}
-                {new Date(`${date}T${time}`).toLocaleString("en-MY", {
-                  weekday: "long",
-                  day: "numeric",
+            >
+              <button className="btn btn-ghost btn-sm" onClick={goPrevMonth}>
+                <ChevronLeft size={16} />
+              </button>
+              <span style={{ fontWeight: 600, fontSize: "1rem" }}>
+                {viewDate.toLocaleDateString("en-MY", {
                   month: "long",
                   year: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
                 })}
+              </span>
+              <button className="btn btn-ghost btn-sm" onClick={goNextMonth}>
+                <ChevronRight size={16} />
+              </button>
+            </div>
+
+            {/* Calendar Grid */}
+            <div style={{ marginBottom: 16 }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(7, 1fr)",
+                  gap: 4,
+                  textAlign: "center",
+                  fontSize: "0.7rem",
+                  color: "var(--text-dim)",
+                  fontWeight: 600,
+                  marginBottom: 6,
+                }}
+              >
+                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+                  <div key={d}>{d}</div>
+                ))}
+              </div>
+              {calendarData.map((row, rowIdx) => (
+                <div
+                  key={rowIdx}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(7, 1fr)",
+                    gap: 4,
+                  }}
+                >
+                  {row.map((cell, colIdx) => {
+                    if (cell.status === "empty") {
+                      return <div key={colIdx} />;
+                    }
+                    const isSelected = selectedDate === cell.dateStr;
+                    const canClick =
+                      cell.status !== "unavailable" &&
+                      cell.status !== "past" &&
+                      cell.status !== "fully-booked";
+                    return (
+                      <div
+                        key={colIdx}
+                        onClick={() =>
+                          handleDateClick(cell.dateStr, cell.status)
+                        }
+                        style={{
+                          aspectRatio: "1",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderRadius: 6,
+                          background: isSelected
+                            ? "var(--accent)"
+                            : cell.status === "past"
+                              ? "var(--bg-input)"
+                              : "transparent",
+                          color: isSelected
+                            ? "#0f0f0e"
+                            : cell.status === "past"
+                              ? "var(--text-dim)"
+                              : "var(--text)",
+                          cursor: canClick ? "pointer" : "default",
+                          fontSize: "0.85rem",
+                          fontWeight: isSelected ? 700 : 400,
+                          position: "relative",
+                          border: isSelected
+                            ? "2px solid var(--accent)"
+                            : "2px solid transparent",
+                        }}
+                      >
+                        <span>{cell.day}</span>
+                        {cell.status !== "empty" &&
+                          cell.status !== "past" &&
+                          cell.status !== "unavailable" && (
+                            <span
+                              style={{
+                                position: "absolute",
+                                bottom: 4,
+                                width: 6,
+                                height: 6,
+                                borderRadius: "50%",
+                                background: getStatusColor(cell.status),
+                              }}
+                            />
+                          )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+
+            {/* Legend */}
+            <div
+              style={{
+                display: "flex",
+                gap: 12,
+                flexWrap: "wrap",
+                fontSize: "0.7rem",
+                color: "var(--text-dim)",
+                marginBottom: 16,
+              }}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background: "var(--teal)",
+                    display: "inline-block",
+                  }}
+                />
+                Available
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background: "var(--accent)",
+                    display: "inline-block",
+                  }}
+                />
+                Partially booked
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background: "var(--red)",
+                    display: "inline-block",
+                  }}
+                />
+                Fully booked
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background: "var(--bg-input)",
+                    display: "inline-block",
+                  }}
+                />
+                Unavailable
+              </span>
+            </div>
+
+            {/* Time slot picker (only if a date with free slots is selected) */}
+            {selectedDate && (
+              <div style={{ marginBottom: 16 }}>
+                <label
+                  className="form-label"
+                  style={{ marginBottom: 8, display: "block" }}
+                >
+                  Select a Time
+                </label>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {(slotsByDate[selectedDate] || [])
+                    .filter((slot) => !slot.isBooked)
+                    .map((slot) => (
+                      <button
+                        key={`${slot.startTime}-${slot.endTime}`}
+                        className={`btn btn-sm ${selectedTime === slot.startTime ? "btn-primary" : "btn-outline"}`}
+                        onClick={() => setSelectedTime(slot.startTime)}
+                      >
+                        {slot.startTime} – {slot.endTime}
+                      </button>
+                    ))}
+                </div>
+                {slotsByDate[selectedDate]?.filter((s) => !s.isBooked)
+                  .length === 0 && (
+                  <p
+                    style={{
+                      color: "var(--red)",
+                      fontSize: "0.8rem",
+                      marginTop: 8,
+                    }}
+                  >
+                    No free slots on this day.
+                  </p>
+                )}
               </div>
             )}
+
             {error && (
               <p
                 style={{
@@ -1769,6 +1743,7 @@ function ScheduleModal({
                 {error}
               </p>
             )}
+
             <div
               style={{
                 display: "flex",
@@ -1783,7 +1758,7 @@ function ScheduleModal({
               <button
                 className="btn btn-primary"
                 onClick={handleBook}
-                disabled={!date || !time || loading}
+                disabled={!selectedDate || !selectedTime || loading}
               >
                 {loading ? (
                   <span className="spinner" />
