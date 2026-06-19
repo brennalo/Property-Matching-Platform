@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { schedulesApi, availabilityApi } from "../../api";
+import { useQuery,useMutation,useQueryClient } from "@tanstack/react-query";
+import { schedulesApi, availabilityApi,favouritesApi,agentApi,conversationsApi,viewHistoryApi } from "../../api";
 import type {
   MatchedListing,
   ModeCommuteResult,
@@ -18,6 +18,7 @@ import {
 import {
   ArrowLeft,
   Bed,
+  Heart,
   Bath,
   MapPin,
   Clock,
@@ -1780,7 +1781,7 @@ function ScheduleModal({
 export default function ListingDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-
+  const qc = useQueryClient();
   const [result, setResult] = useState<MatchedListing | null>(null);
   const [workplaceLat, setWorkplaceLat] = useState<number | null>(null);
   const [workplaceLng, setWorkplaceLng] = useState<number | null>(null);
@@ -1822,6 +1823,34 @@ export default function ListingDetailPage() {
   const isScraped = !!listing.sourceUrl;
   const hasRoutes =
     result.commuteRoutes.length > 0 && workplaceLat && workplaceLng;
+
+    // Favourite state
+    const { data: favStatus } = useQuery({
+        queryKey: ['fav-status', listing?.id],
+        queryFn: () => favouritesApi.getStatus(listing!.id).then(r => r.data),
+        enabled: !!listing?.id,
+    });
+
+    const toggleFav = useMutation({
+        mutationFn: () =>
+            favStatus?.saved
+                ? favouritesApi.remove(listing!.id)
+                : favouritesApi.add(listing!.id),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['fav-status', listing?.id] }),
+    });
+
+    // Agent enquire
+    const enquireMut = useMutation({
+        mutationFn: () => conversationsApi.open(listing!.id),
+        onSuccess: () => navigate('/conversations'),
+    });
+
+    // Agent profile
+    const { data: agentProfile } = useQuery({
+        queryKey: ['agent-public', listing?.agentId],
+        queryFn: () => agentApi.getPublicProfile(listing!.agentId).then(r => r.data),
+        enabled: !!listing?.agentId,
+    });
 
   return (
     <div style={{ maxWidth: 920, margin: "0 auto" }}>
@@ -1996,23 +2025,6 @@ export default function ListingDetailPage() {
             <h3 style={{ fontSize: "0.95rem", fontWeight: 600 }}>
               Interested?
             </h3>
-            {isScraped ? (
-              <>
-                <p style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>
-                  Sourced from {listing.sourcePlatform}. Contact the agent via
-                  the original platform.
-                </p>
-                <a
-                  href={listing.sourceUrl!}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-outline w-full"
-                  style={{ justifyContent: "center" }}
-                >
-                  <ExternalLink size={14} /> View on {listing.sourcePlatform}
-                </a>
-              </>
-            ) : (
               <>
                 <p style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>
                   Book a viewing with the agent.
@@ -2024,8 +2036,44 @@ export default function ListingDetailPage() {
                 >
                   <CalendarPlus size={14} /> Schedule a Viewing
                 </button>
-              </>
-            )}
+                </>
+
+            <div className="card" style={{ padding: 20, marginTop: 24 }}>
+                <div style={{ fontWeight: 700, marginBottom: 12, fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                    LISTED BY
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                        <div style={{ fontWeight: 600, fontSize: '1rem' }}>{agentProfile?.fullName}</div>
+                        {agentProfile?.licenseNumber && (
+                            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                                License: {agentProfile.licenseNumber}
+                            </div>
+                        )}
+                        {agentProfile?.contactNo && (
+                            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                                Contact: {agentProfile.contactNo}
+                            </div>
+                        )}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        <button
+                            className={`btn ${favStatus?.saved ? 'btn-primary' : 'btn-outline'}`}
+                            onClick={() => toggleFav.mutate()}
+                            title={favStatus?.saved ? 'Remove from saved' : 'Save listing'}
+                        >
+                            <Heart size={15} fill={favStatus?.saved ? 'currentColor' : 'none'} />
+                        </button>
+                        <button
+                            className="btn btn-primary"
+                            onClick={() => enquireMut.mutate()}
+                            disabled={enquireMut.isPending}
+                        >
+                            {enquireMut.isPending ? <span className="spinner" /> : 'Enquire More'}
+                        </button>
+                    </div>
+                </div>
+            </div>
 
             <div className="divider" />
 

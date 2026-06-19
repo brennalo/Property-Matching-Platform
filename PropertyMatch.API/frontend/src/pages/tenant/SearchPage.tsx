@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { templatesApi, matchApi } from '../../api'
+import { templatesApi, matchApi, searchHistoryApi } from '../../api'
 import type { MatchRequest, ResidencyType, TransportMode } from '../../types'
 import { Search, Clock, Car, MapPin, CheckCircle2 } from 'lucide-react'
 
@@ -209,6 +209,7 @@ export default function SearchPage() {
             const { data } = await matchApi.search(req)
             sessionStorage.setItem('matchResults', JSON.stringify(data))
             sessionStorage.setItem('matchReq', JSON.stringify(req))
+            searchHistoryApi.save(JSON.stringify(req)).catch(() => { }); //IGNORE ERRORS HERE
             navigate('/results')
         } catch (err: any) {
             setError(err.response?.data?.message ?? 'Search failed. Please try again.')

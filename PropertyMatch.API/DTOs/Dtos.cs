@@ -56,9 +56,9 @@ public record ListingResponse(
     string Name, int Rooms, int Toilets,
     double Lat, double Lng, string Address,
     ResidencyType ResidencyType, decimal Price,
+    string? Amenities, string? Description,
     ListingStatus Status, DateTime CreatedAt,
-    List<ImageDto> Images,
-    string? SourceUrl, string? SourcePlatform);
+    List<ImageDto> Images);
 
 // Image reorder request
 public record ReorderImageRequest(
@@ -111,7 +111,9 @@ public record CreateScheduleRequest(Guid ListingId, DateTime ScheduledAt);
 public record ScheduleResponse(
     Guid ListingId, string ListingName, string ListingAddress,
     Guid TenantId, string TenantName,
-    DateTime ScheduledAt, ScheduleStatus Status);
+    DateTime ScheduledAt, ScheduleStatus Status, string? Reason);
+
+public record UpdateScheduleStatusRequest(ScheduleStatus Status, string? Reason = null);
 
 public record BookedSlotResponse(DateTime ScheduledAt, ScheduleStatus Status);
 
@@ -225,3 +227,52 @@ public record AgentDashboardResponse(
     List<TopListingDto> TopListings,
     List<PendingPaymentListingDto> PendingPayments
 );
+
+// ── Favourites ────────────────────────────────────────────────────────────────
+public record FavouriteResponse(
+    Guid ListingId, string Name, string Address,
+    decimal Price, string ResidencyType,
+    int Rooms, int Toilets,
+    string? ThumbnailUrl,
+    string AgentName, DateTime SavedAt);
+
+// ── Search Logs ───────────────────────────────────────────────────────────────
+public record SearchLogResponse(DateTime SearchedAt, string Snapshot);
+public record SaveSearchLogRequest(string Snapshot);
+
+// ── View History ──────────────────────────────────────────────────────────────
+public record ViewHistoryResponse(
+    Guid ListingId, string Name, string Address,
+    decimal Price, string ResidencyType,
+    string? ThumbnailUrl, string AgentName, DateTime ViewedAt);
+
+// ── Conversations ─────────────────────────────────────────────────────────────
+public record OpenConversationRequest(Guid ListingId);
+
+public record ConversationSummaryResponse(
+    Guid Id, string ListingName,
+    string TenantName, string AgentName,
+    string? LastMessage, DateTime? LastMessageAt,
+    int UnreadCount, Guid ListingId);
+
+public record MessageResponse(
+    Guid Id, Guid SenderId, string SenderRole,
+    string Content, bool IsRead, DateTime CreatedAt);
+
+public record SendMessageRequest(string Content);
+
+// ── Browse / Landing Page ─────────────────────────────────────────────────────
+public record BrowseListingResponse(
+    Guid Id, string Name, string Address,
+    double Lat, double Lng,
+    decimal Price, string ResidencyType,
+    int Rooms, int Toilets,
+    string? Amenities, string? Description,
+    List<string> Images,
+    string AgentName, string? AgentLicense, string? AgentContact,
+    int ViewingCount);
+
+// ── Agent public profile (for listing detail page) ────────────────────────────
+public record AgentPublicProfileResponse(
+    Guid AgentId, string FullName,
+    string? LicenseNumber, string? ContactNo, decimal? Ratings);

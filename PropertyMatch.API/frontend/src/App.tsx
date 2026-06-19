@@ -38,6 +38,11 @@ import TokenTopUpPage from "./pages/agent/TokenTopUpPage";
 import PaymentSuccessPage from "./pages/agent/PaymentSuccessPage";
 import PaymentCancelPage from "./pages/agent/PaymentCancelPage";
 import AdminTenantsPage from "./pages/admin/TenantsPage";
+import BrowsePage from './pages/BrowsePage';
+import FavouritesPage from './pages/tenant/FavouritesPage';
+import HistoryPage from './pages/tenant/HistoryPage';
+import ConversationsPage from './pages/tenant/ConversationsPage';
+import AgentConversationsPage from './pages/agent/ConversationsPage';
 
 import {
   Search,
@@ -50,6 +55,8 @@ import {
   Building2,
   Menu,
   Coins,
+  MessageSquare,
+  Clock,
 } from "lucide-react";
 
 const queryClient = new QueryClient({
@@ -204,7 +211,10 @@ function AppShell({ children }: { children: React.ReactNode }) {
       icon: <Heart size={16} />,
       label: "Lifestyle Templates",
     },
-    { to: "/my-schedules", icon: <Calendar size={16} />, label: "My Viewings" },
+      { to: "/my-schedules", icon: <Calendar size={16} />, label: "My Viewings" },
+      { to: '/favourites', icon: <Heart size={16} />, label: 'Saved Listings' },
+      { to: '/history', icon: <Clock size={16} />, label: 'History' },
+      { to: '/conversations', icon: <MessageSquare size={16} />, label: 'Messages' },
   ];
   const agentLinks = [
     {
@@ -227,7 +237,8 @@ function AppShell({ children }: { children: React.ReactNode }) {
       to: "/agent/topup",
       icon: <Coins size={16} />,
       label: "Top Up Tokens",
-    },
+      },
+      { to: '/agent/conversations', icon: <MessageSquare size={16} />, label: 'Messages' },
   ];
   const adminLinks = [
     {
@@ -347,7 +358,7 @@ export default function App() {
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/email-verified" element={<EmailVerifiedPage />} />
             <Route path="/" element={<RootRedirect />} />
-
+            <Route path="/browse" element={<BrowsePage />} />
             {/* Tenant — SearchPage accessible even when Pending */}
             <Route
               path="/search"
@@ -399,8 +410,22 @@ export default function App() {
                     <TenantSchedulesPage />
                   </AppShell>
                 </ProtectedRoute>
-              }
-            />
+            }/>
+            <Route path="/favourites" element={
+                <ProtectedRoute roles={['Tenant']} requireVerified>
+                    <AppShell><FavouritesPage /></AppShell>
+                </ProtectedRoute>
+            } />
+            <Route path="/history" element={
+                <ProtectedRoute roles={['Tenant']} requireVerified>
+                    <AppShell><HistoryPage /></AppShell>
+                </ProtectedRoute>
+            } />
+            <Route path="/conversations" element={
+                <ProtectedRoute roles={['Tenant']} requireVerified>
+                    <AppShell><ConversationsPage /></AppShell>
+                </ProtectedRoute>
+            } />
 
             {/* Agent — all require verified */}
             <Route
@@ -433,6 +458,11 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+            <Route path="/agent/conversations" element={
+                <ProtectedRoute roles={['Agent']} requireVerified>
+                    <AppShell><AgentConversationsPage /></AppShell>
+                </ProtectedRoute>
+            } />
             <Route
               path="/agent/calendar"
               element={

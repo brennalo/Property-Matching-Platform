@@ -1,5 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.VisualBasic;
 using PropertyMatch.API.Models;
+using Stripe;
+using System.Reflection.Emit;
 
 namespace PropertyMatch.API.Data;
 
@@ -15,6 +18,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<AvailabilityTemplate> AvailabilityTemplates => Set<AvailabilityTemplate>();
     public DbSet<AvailabilityException> AvailabilityExceptions => Set<AvailabilityException>();
+    public DbSet<Reviews> Reviews => Set<Reviews>();
+    public DbSet<SearchLog> SearchLogs => Set<SearchLog>();
+    public DbSet<ViewHistory> ViewHistory => Set<ViewHistory>();
+    public DbSet<FavouriteListing> FavouriteListings => Set<FavouriteListing>();
+    public DbSet<Conversation> Conversations => Set<Conversation>();
+    public DbSet<Message> Messages => Set<Message>();
+    public DbSet<Feedback> Feedbacks => Set<Feedback>();
+    public DbSet<Report> Reports => Set<Report>();
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -139,5 +150,29 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasIndex(e => new { e.ExceptionFrom, e.ExceptionTo })
             .HasDatabaseName("IX_AvailabilityExceptions_ExceptionFrom_ExceptionTo");
 
-            }
+        // SearchLog composite PK
+        mb.Entity<SearchLog>()
+            .HasKey(s => new { s.TenantId, s.SearchedAt });
+
+        // ViewHistory composite PK
+        mb.Entity<ViewHistory>()
+            .HasKey(v => new { v.TenantId, v.ListingId, v.ViewedAt });
+
+        // FavouriteListing composite PK
+        mb.Entity<FavouriteListing>()
+            .HasKey(f => new { f.TenantId, f.ListingId });
+
+        // Conversation unique constraint
+        mb.Entity<Conversation>()
+            .HasIndex(c => new { c.TenantId, c.ListingId })
+            .IsUnique();
+
+        // Message → Sender (no cascade to avoid multiple cascade paths)
+        mb.Entity<Message>()
+            .HasOne(m => m.Sender)
+            .WithMany(u => u.SentMessages)
+            .HasForeignKey(m => m.SenderId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+    }
 }

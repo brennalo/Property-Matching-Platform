@@ -13,8 +13,8 @@ using PropertyMatch.API.Data;
 namespace PropertyMatch.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260618051229_AvailabilityV2_Empty")]
-    partial class AvailabilityV2_Empty
+    [Migration("20260619041243_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -31,8 +31,14 @@ namespace PropertyMatch.API.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("ContactNo")
+                        .HasColumnType("text");
+
                     b.Property<string>("LicenseNumber")
                         .HasColumnType("text");
+
+                    b.Property<decimal?>("Ratings")
+                        .HasColumnType("numeric");
 
                     b.Property<string>("StripeCustomerId")
                         .HasColumnType("text");
@@ -148,6 +154,45 @@ namespace PropertyMatch.API.Migrations
                     b.ToTable("AvailabilityTemplates");
                 });
 
+            modelBuilder.Entity("PropertyMatch.API.Models.Conversation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AgentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("AgentLastReadAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("LastMessageAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ListingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("TenantLastReadAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgentId");
+
+                    b.HasIndex("ListingId");
+
+                    b.HasIndex("TenantId", "ListingId")
+                        .IsUnique();
+
+                    b.ToTable("Conversations");
+                });
+
             modelBuilder.Entity("PropertyMatch.API.Models.EmailVerification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -175,6 +220,51 @@ namespace PropertyMatch.API.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("EmailVerifications");
+                });
+
+            modelBuilder.Entity("PropertyMatch.API.Models.FavouriteListing", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ListingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("SavedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("TenantId", "ListingId");
+
+                    b.HasIndex("ListingId");
+
+                    b.ToTable("FavouriteListings");
+                });
+
+            modelBuilder.Entity("PropertyMatch.API.Models.Feedback", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("Feedbacks");
                 });
 
             modelBuilder.Entity("PropertyMatch.API.Models.LifestyleTemplate", b =>
@@ -219,8 +309,14 @@ namespace PropertyMatch.API.Migrations
                     b.Property<Guid>("AgentId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Amenities")
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
 
                     b.Property<double>("Lat")
                         .HasColumnType("double precision");
@@ -292,6 +388,41 @@ namespace PropertyMatch.API.Migrations
                     b.ToTable("ListingImages");
                 });
 
+            modelBuilder.Entity("PropertyMatch.API.Models.Message", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("SenderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SenderRole")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ConversationId");
+
+                    b.HasIndex("SenderId");
+
+                    b.ToTable("Messages");
+                });
+
             modelBuilder.Entity("PropertyMatch.API.Models.Payment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -327,6 +458,88 @@ namespace PropertyMatch.API.Migrations
                     b.HasIndex("AgentId");
 
                     b.ToTable("Payments");
+                });
+
+            modelBuilder.Entity("PropertyMatch.API.Models.Report", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Item")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("Reports");
+                });
+
+            modelBuilder.Entity("PropertyMatch.API.Models.Reviews", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AgentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("Ratings")
+                        .HasColumnType("numeric");
+
+                    b.Property<string>("ReviewText")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgentId");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("Reviews");
+                });
+
+            modelBuilder.Entity("PropertyMatch.API.Models.SearchLog", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("SearchedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Snapshot")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("TenantId", "SearchedAt");
+
+                    b.ToTable("SearchLogs");
                 });
 
             modelBuilder.Entity("PropertyMatch.API.Models.User", b =>
@@ -371,6 +584,24 @@ namespace PropertyMatch.API.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("PropertyMatch.API.Models.ViewHistory", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ListingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ViewedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("TenantId", "ListingId", "ViewedAt");
+
+                    b.HasIndex("ListingId");
+
+                    b.ToTable("ViewHistory");
+                });
+
             modelBuilder.Entity("PropertyMatch.API.Models.ViewingSchedule", b =>
                 {
                     b.Property<Guid>("ListingId")
@@ -378,6 +609,9 @@ namespace PropertyMatch.API.Migrations
 
                     b.Property<DateTime>("ScheduledAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("text");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -440,6 +674,33 @@ namespace PropertyMatch.API.Migrations
                     b.Navigation("Listing");
                 });
 
+            modelBuilder.Entity("PropertyMatch.API.Models.Conversation", b =>
+                {
+                    b.HasOne("PropertyMatch.API.Models.Agent", "Agent")
+                        .WithMany("Conversations")
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PropertyMatch.API.Models.Listing", "Listing")
+                        .WithMany("Conversations")
+                        .HasForeignKey("ListingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PropertyMatch.API.Models.User", "Tenant")
+                        .WithMany("Conversations")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Agent");
+
+                    b.Navigation("Listing");
+
+                    b.Navigation("Tenant");
+                });
+
             modelBuilder.Entity("PropertyMatch.API.Models.EmailVerification", b =>
                 {
                     b.HasOne("PropertyMatch.API.Models.User", "User")
@@ -449,6 +710,36 @@ namespace PropertyMatch.API.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("PropertyMatch.API.Models.FavouriteListing", b =>
+                {
+                    b.HasOne("PropertyMatch.API.Models.Listing", "Listing")
+                        .WithMany("FavouritedBy")
+                        .HasForeignKey("ListingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PropertyMatch.API.Models.User", "Tenant")
+                        .WithMany("FavouriteListings")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Listing");
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("PropertyMatch.API.Models.Feedback", b =>
+                {
+                    b.HasOne("PropertyMatch.API.Models.User", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
                 });
 
             modelBuilder.Entity("PropertyMatch.API.Models.LifestyleTemplate", b =>
@@ -484,6 +775,25 @@ namespace PropertyMatch.API.Migrations
                     b.Navigation("Listing");
                 });
 
+            modelBuilder.Entity("PropertyMatch.API.Models.Message", b =>
+                {
+                    b.HasOne("PropertyMatch.API.Models.Conversation", "Conversation")
+                        .WithMany("Messages")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PropertyMatch.API.Models.User", "Sender")
+                        .WithMany("SentMessages")
+                        .HasForeignKey("SenderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Conversation");
+
+                    b.Navigation("Sender");
+                });
+
             modelBuilder.Entity("PropertyMatch.API.Models.Payment", b =>
                 {
                     b.HasOne("PropertyMatch.API.Models.Agent", "Agent")
@@ -493,6 +803,66 @@ namespace PropertyMatch.API.Migrations
                         .IsRequired();
 
                     b.Navigation("Agent");
+                });
+
+            modelBuilder.Entity("PropertyMatch.API.Models.Report", b =>
+                {
+                    b.HasOne("PropertyMatch.API.Models.User", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("PropertyMatch.API.Models.Reviews", b =>
+                {
+                    b.HasOne("PropertyMatch.API.Models.Agent", "Agent")
+                        .WithMany("Reviews")
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PropertyMatch.API.Models.User", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Agent");
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("PropertyMatch.API.Models.SearchLog", b =>
+                {
+                    b.HasOne("PropertyMatch.API.Models.User", "Tenant")
+                        .WithMany("SearchLogs")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("PropertyMatch.API.Models.ViewHistory", b =>
+                {
+                    b.HasOne("PropertyMatch.API.Models.Listing", "Listing")
+                        .WithMany("ViewHistory")
+                        .HasForeignKey("ListingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PropertyMatch.API.Models.User", "Tenant")
+                        .WithMany("ViewHistory")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Listing");
+
+                    b.Navigation("Tenant");
                 });
 
             modelBuilder.Entity("PropertyMatch.API.Models.ViewingSchedule", b =>
@@ -520,9 +890,18 @@ namespace PropertyMatch.API.Migrations
 
                     b.Navigation("AvailabilityTemplates");
 
+                    b.Navigation("Conversations");
+
                     b.Navigation("Listings");
 
                     b.Navigation("Payments");
+
+                    b.Navigation("Reviews");
+                });
+
+            modelBuilder.Entity("PropertyMatch.API.Models.Conversation", b =>
+                {
+                    b.Navigation("Messages");
                 });
 
             modelBuilder.Entity("PropertyMatch.API.Models.Listing", b =>
@@ -531,7 +910,13 @@ namespace PropertyMatch.API.Migrations
 
                     b.Navigation("AvailabilityTemplates");
 
+                    b.Navigation("Conversations");
+
+                    b.Navigation("FavouritedBy");
+
                     b.Navigation("Images");
+
+                    b.Navigation("ViewHistory");
 
                     b.Navigation("ViewingSchedules");
                 });
@@ -540,9 +925,19 @@ namespace PropertyMatch.API.Migrations
                 {
                     b.Navigation("Agent");
 
+                    b.Navigation("Conversations");
+
                     b.Navigation("EmailVerifications");
 
+                    b.Navigation("FavouriteListings");
+
                     b.Navigation("LifestyleTemplates");
+
+                    b.Navigation("SearchLogs");
+
+                    b.Navigation("SentMessages");
+
+                    b.Navigation("ViewHistory");
 
                     b.Navigation("ViewingSchedules");
                 });

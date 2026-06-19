@@ -87,7 +87,7 @@ public class LifestyleTemplatesController(AppDbContext db) : ControllerBase
 [ApiController]
 [Route("api/schedules")]
 [Authorize]
-public class SchedulesController(AppDbContext db) : ControllerBase
+public class SchedulesController(AppDbContext db, ResendEmailService _resendEmailService) : ControllerBase
 {
     // Tenant: book a viewing
     [HttpPost]
@@ -160,19 +160,57 @@ public class SchedulesController(AppDbContext db) : ControllerBase
     // Agent: confirm or cancel a schedule
     [HttpPatch("{listingId}/{scheduledAt}")]
     [Authorize(Roles = "Agent")]
-    public async Task<IActionResult> UpdateStatus(Guid listingId, DateTime scheduledAt, [FromBody] ScheduleStatus status)
+    public async Task<IActionResult> UpdateStatus(
+        Guid listingId, DateTime scheduledAt,
+        [FromBody] UpdateScheduleStatusRequest req)
     {
-        var schedule = await db.ViewingSchedules.FindAsync(listingId, scheduledAt.ToUniversalTime());
+        var schedule = await db.ViewingSchedules
+            .Include(v => v.Listing)
+            .Include(v => v.Tenant)
+            .FirstOrDefaultAsync(v =>
+                v.ListingId == listingId &&
+                v.ScheduledAt == scheduledAt.ToUniversalTime());
+
         if (schedule == null) return NotFound();
-        schedule.Status = status;
+
+        schedule.Status = req.Status;
+        if (req.Reason != null) schedule.Reason = req.Reason;
         await db.SaveChangesAsync();
+
+        // Email tenant: confirmed
+        if (req.Status == ScheduleStatus.Confirmed)
+        {
+            _ = _resendEmailService.SendViewingConfirmedToTenantAsync(
+                schedule.Tenant.Email, schedule.Tenant.FullName,
+                schedule.Listing.Name, schedule.Listing.Address,
+                schedule.ScheduledAt)
+                .ContinueWith(t =>
+                {
+                    if (t.IsFaulted)
+                        Console.Error.WriteLine($"[Email] Confirmation email failed: {t.Exception}");
+                });
+        }
+
+        // Email tenant: cancelled/rejected
+        if (req.Status == ScheduleStatus.Cancelled)
+        {
+            _ = _resendEmailService.SendViewingRejectedToTenantAsync(
+                schedule.Tenant.Email, schedule.Tenant.FullName,
+                schedule.Listing.Name, schedule.ScheduledAt, req.Reason)
+                .ContinueWith(t =>
+                {
+                    if (t.IsFaulted)
+                        Console.Error.WriteLine($"[Email] Rejection email failed: {t.Exception}");
+                });
+        }
+
         return Ok(new { message = "Schedule updated" });
     }
 
     private static ScheduleResponse MapResponse(ViewingSchedule v) => new(
         v.ListingId, v.Listing?.Name ?? "", v.Listing?.Address ?? "",
         v.TenantId, v.Tenant?.FullName ?? "",
-        v.ScheduledAt, v.Status);
+        v.ScheduledAt, v.Status, v.Reason);
 }
 
 //// ── Payments ──────────────────────────────────────────────────────────────────

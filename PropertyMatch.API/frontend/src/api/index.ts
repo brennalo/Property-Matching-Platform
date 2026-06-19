@@ -267,3 +267,44 @@ export const scheduleSlotsApi = {
       `/schedules/listing/${listingId}/slots`,
     ),
 };
+
+// ── Favourites ────────────────────────────────────────────────────────────────
+export const favouritesApi = {
+    getAll: () => api.get('/favourites'),
+    add: (listingId: string) => api.post(`/favourites/${listingId}`),
+    remove: (listingId: string) => api.delete(`/favourites/${listingId}`),
+    getStatus: (listingId: string) => api.get<{ saved: boolean }>(`/favourites/${listingId}/status`),
+};
+
+// ── Search History ─────────────────────────────────────────────────────────────
+export const searchHistoryApi = {
+    getAll: () => api.get('/search-history'),
+    save: (snapshot: string) => api.post('/search-history', { snapshot }),
+};
+
+// ── View History ───────────────────────────────────────────────────────────────
+export const viewHistoryApi = {
+    getAll: () => api.get('/view-history'),
+    track: (listingId: string) => api.post(`/view-history/${listingId}`),
+};
+
+// ── Conversations ──────────────────────────────────────────────────────────────
+export const conversationsApi = {
+    open: (listingId: string) =>
+        api.post<{ conversationId: string }>('/conversations/open', { listingId }),
+    getAll: () => api.get('/conversations'),
+    getMessages: (conversationId: string) =>
+        api.get(`/conversations/${conversationId}/messages`),
+    sendMessage: (conversationId: string, content: string) =>
+        api.post(`/conversations/${conversationId}/messages`, { content }),
+};
+
+// ── Browse (public landing page) ───────────────────────────────────────────────
+export const browseApi = {
+    getListings: () => api.get('/browse/listings'),
+};
+
+// ── Agent public profile ───────────────────────────────────────────────────────
+export const agentApi = {
+    getPublicProfile: (agentId: string) => api.get(`/agents/${agentId}/public`),
+};

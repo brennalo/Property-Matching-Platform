@@ -232,3 +232,79 @@ export {
   getPlaceTypeLabel,
   searchPlaceTypes,
 } from "../types/placeTypes";
+
+export interface FavouriteListing {
+    listingId: string;
+    name: string;
+    address: string;
+    price: number;
+    residencyType: string;
+    rooms: number;
+    toilets: number;
+    thumbnailUrl?: string;
+    agentName: string;
+    savedAt: string;
+}
+
+export interface ViewHistoryItem {
+    listingId: string;
+    name: string;
+    address: string;
+    price: number;
+    residencyType: string;
+    thumbnailUrl?: string;
+    agentName: string;
+    viewedAt: string;
+}
+
+export interface SearchLogItem {
+    searchedAt: string;
+    snapshot: string; // JSON
+}
+
+export interface Conversation {
+    id: string;
+    listingName: string;
+    tenantName: string;
+    agentName: string;
+    lastMessage?: string;
+    lastMessageAt?: string;
+    unreadCount: number;
+    listingId: string;
+}
+
+export interface Message {
+    id: string;
+    senderId: string;
+    senderRole: string;
+    content: string;
+    isRead: boolean;
+    createdAt: string;
+}
+
+export interface BrowseListing {
+    id: string;
+    name: string;
+    address: string;
+    lat: number;
+    lng: number;
+    price: number;
+    residencyType: string;
+    rooms: number;
+    toilets: number;
+    amenities?: string;
+    description?: string;
+    images: string[];
+    agentName: string;
+    agentLicense?: string;
+    agentContact?: string;
+    viewingCount: number;
+}
+
+export interface AgentPublicProfile {
+    agentId: string;
+    fullName: string;
+    licenseNumber?: string;
+    contactNo?: string;
+    ratings?: number;
+}
