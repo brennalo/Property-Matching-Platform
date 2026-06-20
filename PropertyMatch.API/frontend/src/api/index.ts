@@ -57,30 +57,27 @@ export const listingsApi = {
   updateStatus: (id: string, status: ListingStatus) =>
       api.patch(`/listings/${id}/status`, { status }),
 
-  create: (data: {
-    name: string;
-    rooms: number;
-    toilets: number;
-    lat: number;
-    lng: number;
-    address: string;
-    residencyType: string;
-    price: number;
-  }) => api.post<{ id: string; message: string }>("/listings", data),
+    create: (data: {
+        name: string; rooms: number; toilets: number;
+        lat: number; lng: number; address: string;
+        residencyType: string; price: number; description?: string
+    }) => api.post<{ id: string; message: string }>('/listings', data),
 
-  update: (
-    id: string,
-    data: Partial<{
-      name: string;
-      rooms: number;
-      toilets: number;
-      lat: number;
-      lng: number;
-      address: string;
-      residencyType: string;
-      price: number;
-    }>,
-  ) => api.put(`/listings/${id}`, data),
+    update: (id: string, data: Partial<{
+        name: string; rooms: number; toilets: number;
+        lat: number; lng: number; address: string;
+        residencyType: string; price: number; description?: string
+    }>) => api.put(`/listings/${id}`, data),
+
+    generateDescription: (data: {
+        name: string;
+        rooms: number;
+        toilets: number;
+        address: string;
+        residencyType: string;
+        price: number;
+        extraDetails?: string
+    }) => api.post<{ description: string }>('/listings/generate-description', data),
 
   uploadImages: (id: string, files: File[]) => {
     const form = new FormData();

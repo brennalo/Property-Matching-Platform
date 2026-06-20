@@ -88,7 +88,7 @@ public class Listing
 
     [Column(TypeName = "decimal(12,2)")]
     public decimal Price { get; set; }
-
+    public string? Description { get; set; }
     public ListingStatus Status { get; set; } = ListingStatus.Draft;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

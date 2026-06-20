@@ -1859,7 +1859,7 @@ export default function ListingDetailPage() {
       </button>
 
       {/* Use enhanced gallery with images (ImageDto[]) instead of imageUrls */}
-      <ImageGallery images={listing.images} name={listing.name} />
+      <ImageGallery images={listing.images ?? []} name={listing.name} />
 
       <div
         style={{

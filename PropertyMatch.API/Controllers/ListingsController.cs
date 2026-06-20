@@ -12,7 +12,7 @@ namespace PropertyMatch.API.Controllers;
 [ApiController]
 [Route("api/listings")]
 [Authorize]
-public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
+public class ListingsController(AppDbContext db, S3Service s3, GroqService groq) : ControllerBase
 {
     // GET /api/listings — public, returns all active listings (for tenants)
     [HttpGet]
@@ -116,6 +116,7 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
             Address = req.Address,
             ResidencyType = req.ResidencyType,
             Price = req.Price,
+            Description = req.Description,
             Status = ListingStatus.PendingPayment
         };
 
@@ -189,6 +190,7 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
                     Address = req.Address,
                     ResidencyType = residencyType,
                     Price = req.Price,
+                    Description = req.Description,
                     Status = ListingStatus.PendingPayment
                 };
 
@@ -224,6 +226,7 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
         if (req.Address != null) listing.Address = req.Address;
         if (req.ResidencyType.HasValue) listing.ResidencyType = req.ResidencyType.Value;
         if (req.Price.HasValue) listing.Price = req.Price.Value;
+        if (req.Description != null) listing.Description = req.Description;
 
         await db.SaveChangesAsync();
         return Ok(new { message = "Listing updated" });
@@ -253,7 +256,6 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
         return Ok(new { message = $"Listing marked as {req.Status}" });
     }
 
-    // POST /api/listings/{id}/images — multipart upload
     [HttpPost("{id}/images")]
     [Authorize(Roles = "Agent")]
     public async Task<IActionResult> UploadImages(Guid id, [FromForm] List<IFormFile> files)
@@ -264,6 +266,31 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
 
         if (listing == null) return NotFound();
         if (files.Count == 0) return BadRequest(new { message = "No files provided" });
+
+        // ── Image content check ──────────────────────────────────────────
+        foreach (var file in files)
+        {
+            using var ms = new MemoryStream();
+            await file.CopyToAsync(ms);
+            var imageBytes = ms.ToArray();
+
+            try
+            {
+                var (isValid, reason) = await groq.CheckImageAsync(imageBytes, file.ContentType);
+                if (!isValid)
+                {
+                    return BadRequest(new
+                    {
+                        message = $"Image '{file.FileName}' was rejected: {reason}"
+                    });
+                }
+            }
+            catch (InvalidOperationException ex)
+            {
+                return StatusCode(500, new { message = $"Image verification failed: {ex.Message}" });
+            }
+        }
+        // ──────────────────────────────────────────────────────────────────
 
         var urls = await s3.UploadListingImagesAsync(id, files);
         return Ok(new { urls });
@@ -347,13 +374,29 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
         return Ok(new { message = "Listing deleted" });
     }
 
+    [HttpPost("generate-description")]
+    [Authorize(Roles = "Agent")]
+    public async Task<IActionResult> GenerateDescription([FromBody] GenerateDescriptionRequest req)
+    {
+        try
+        {
+            var description = await groq.GenerateListingDescriptionAsync(
+                req.Name, req.Rooms, req.Toilets, req.Address, req.ResidencyType, req.Price, req.ExtraDetails);
+
+            return Ok(new GenerateDescriptionResponse(description));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(500, new { message = ex.Message });
+        }
+    }
+
     private static ListingResponse MapResponse(Listing l) => new(
     l.Id, l.AgentId, l.Agent?.User?.FullName ?? "",
     l.Name, l.Rooms, l.Toilets,
     l.Lat, l.Lng, l.Address,
-    l.ResidencyType, l.Price, l.Status, l.CreatedAt,
-    l.Images.OrderBy(i => i.DisplayOrder)
-        .Select(i => new ImageDto(i.Id, i.S3Url ?? "", i.DisplayOrder, i.Caption))
-        .ToList(),
+    l.ResidencyType, l.Price, l.Description,
+    l.Status, l.CreatedAt,
+    l.Images.OrderBy(i => i.DisplayOrder).Select(i => i.S3Url).ToList(),
     l.SourceUrl, l.SourcePlatform);
 }

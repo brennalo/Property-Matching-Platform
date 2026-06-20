@@ -28,23 +28,23 @@ export interface ImageDto {
 }
 
 export interface Listing {
-  id: string;
-  agentId: string;
-  agentName: string;
-  name: string;
-  rooms: number;
-  toilets: number;
-  lat: number;
-  lng: number;
-  address: string;
-  residencyType: ResidencyType;
-  price: number;
-  status: ListingStatus;
-  createdAt: string;
-  images: ImageDto[];
-  imageUrls: string[];
-  sourceUrl: string | null;
-  sourcePlatform: string | null;
+    id: string;
+    agentId: string;
+    agentName: string;
+    name: string
+    rooms: number;
+    toilets: number;
+    lat: number;
+    lng: number;
+    address: string
+    residencyType: ResidencyType;
+    price: number; description: string | null
+    status: ListingStatus;
+    createdAt: string
+    imageUrls: string[];
+    images?: ImageDto[];
+    sourceUrl: string | null;
+    sourcePlatform: string | null
 }
 
 export interface TransitStep {

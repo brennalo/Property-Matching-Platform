@@ -29,12 +29,14 @@ public record ResendVerificationRequest(string Email);
 public record CreateListingRequest(
     string Name, int Rooms, int Toilets,
     double Lat, double Lng, string Address,
-    ResidencyType ResidencyType, decimal Price);
+    ResidencyType ResidencyType, decimal Price,
+    string? Description = null);
 
 public record UpdateListingRequest(
     string? Name, int? Rooms, int? Toilets,
     double? Lat, double? Lng, string? Address,
-    ResidencyType? ResidencyType, decimal? Price);
+    ResidencyType? ResidencyType, decimal? Price,
+    string? Description = null);
 
 public record UpdateListingStatusRequest(ListingStatus Status);
 
@@ -56,8 +58,9 @@ public record ListingResponse(
     string Name, int Rooms, int Toilets,
     double Lat, double Lng, string Address,
     ResidencyType ResidencyType, decimal Price,
+    string? Description,
     ListingStatus Status, DateTime CreatedAt,
-    List<ImageDto> Images,
+    List<string> ImageUrls,
     string? SourceUrl, string? SourcePlatform);
 
 // Image reorder request
@@ -98,6 +101,14 @@ public record MatchedListingResponse(
     int? CommuteMinutes,
     Dictionary<string, List<PlaceLocationDto>> LifestylePlaces,
     List<ModeCommuteResult> CommuteRoutes);
+
+// ── Description ───────────────────────────────────────────────────────
+public record GenerateDescriptionRequest(
+    string Name, int Rooms, int Toilets,
+    string Address, ResidencyType ResidencyType, decimal Price,
+    string? ExtraDetails = null);
+
+public record GenerateDescriptionResponse(string Description);
 
 // ── Lifestyle Templates ───────────────────────────────────────────────────────
 
