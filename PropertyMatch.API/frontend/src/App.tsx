@@ -43,7 +43,7 @@ import FavouritesPage from './pages/tenant/FavouritesPage';
 import HistoryPage from './pages/tenant/HistoryPage';
 import ConversationsPage from './pages/tenant/ConversationsPage';
 import AgentConversationsPage from './pages/agent/ConversationsPage';
-
+import ScoringConfigPage from './pages/admin/ScoringConfigPage';
 import {
   Search,
   Heart,
@@ -57,6 +57,8 @@ import {
   Coins,
   MessageSquare,
   Clock,
+  Building,
+  Settings,
 } from "lucide-react";
 
 const queryClient = new QueryClient({
@@ -204,7 +206,8 @@ function AppShell({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const tenantLinks = [
+    const tenantLinks = [
+    { to: "/browse", icon: <Building size={16} />, label: "Browse" },  
     { to: "/search", icon: <Search size={16} />, label: "Find a Home" },
     {
       to: "/lifestyle",
@@ -248,6 +251,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
     },
     { to: "/admin/agents", icon: <Users size={16} />, label: "Agents" },
       { to: "/admin/tenants", icon: <Users size={16} />, label: "Tenants" },
+      { to: "/admin/scoring-config", icon: <Settings size={16} />, label: "Scoring Config" },
   ];
 
   const links =
@@ -339,7 +343,7 @@ function RootRedirect() {
   const { user, loading } = useAuth();
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
-  if (user.role === "Tenant") return <Navigate to="/search" replace />;
+  if (user.role === "Tenant") return <Navigate to="/browse" replace />;
   if (user.role === "Agent") return <Navigate to="/agent/dashboard" replace />;
   return <Navigate to="/admin/dashboard" replace />;
 }
@@ -358,7 +362,11 @@ export default function App() {
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/email-verified" element={<EmailVerifiedPage />} />
             <Route path="/" element={<RootRedirect />} />
-            <Route path="/browse" element={<BrowsePage />} />
+            <Route path="/browse" element={
+                <ProtectedRoute roles={["Tenant"]} requireVerified={false}>
+                    <AppShell><BrowsePage /></AppShell>
+                </ProtectedRoute>
+            } />
             {/* Tenant — SearchPage accessible even when Pending */}
             <Route
               path="/search"
@@ -527,6 +535,11 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+            <Route path="/admin/scoring-config" element={
+                <ProtectedRoute roles={["Admin"]}>
+                    <AppShell><ScoringConfigPage /></AppShell>
+                </ProtectedRoute>
+            } />
           </Routes>
         </BrowserRouter>
       </AuthProvider>

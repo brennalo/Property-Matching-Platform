@@ -81,7 +81,7 @@ public record ModeCommuteResult(
 
 public record MatchRequest(
     int? Rooms, int? Toilets,
-    ResidencyType? ResidencyType,
+    List<ResidencyType>? ResidencyTypes,
     decimal? PriceMin, decimal? PriceMax,
     string WorkplaceAddress,
     double WorkplaceLat, double WorkplaceLng,

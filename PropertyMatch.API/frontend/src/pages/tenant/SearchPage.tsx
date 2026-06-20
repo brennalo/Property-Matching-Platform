@@ -133,7 +133,8 @@ export default function SearchPage() {
 
     const [form, setForm] = useState({
         rooms: '', toilets: '',
-        residencyType: '' as ResidencyType | '',
+        // in useState initializer
+        residencyTypes: [] as ResidencyType[], 
         priceMin: '', priceMax: '',
         transportModes: ['Driving'] as TransportMode[],
         maxCommuteMinutes: '45',
@@ -199,7 +200,7 @@ export default function SearchPage() {
         }
         if (form.rooms) req.rooms = parseInt(form.rooms)
         if (form.toilets) req.toilets = parseInt(form.toilets)
-        if (form.residencyType) req.residencyType = form.residencyType
+        if (form.residencyTypes.length > 0) req.residencyTypes = form.residencyTypes;
         if (form.priceMin) req.priceMin = parseFloat(form.priceMin)
         if (form.priceMax) req.priceMax = parseFloat(form.priceMax)
         if (form.lifestyleTemplateId) req.lifestyleTemplateId = form.lifestyleTemplateId
@@ -251,11 +252,20 @@ export default function SearchPage() {
                         <div className="form-group" style={{ marginTop: 14 }}>
                             <label className="form-label">Property Type</label>
                             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                <button type="button" onClick={() => update('residencyType', '')}
-                                    className={`btn btn-sm ${!form.residencyType ? 'btn-primary' : 'btn-outline'}`}>Any</button>
+                                <button type="button"
+                                    onClick={() => update('residencyTypes', [])}
+                                    className={`btn btn-sm ${form.residencyTypes.length === 0 ? 'btn-primary' : 'btn-outline'}`}>
+                                    Any
+                                </button>
                                 {RESIDENCY_TYPES.map(t => (
-                                    <button key={t} type="button" onClick={() => update('residencyType', t)}
-                                        className={`btn btn-sm ${form.residencyType === t ? 'btn-primary' : 'btn-outline'}`}>{t}</button>
+                                    <button key={t} type="button"
+                                        onClick={() => {
+                                            const cur = form.residencyTypes;
+                                            update('residencyTypes', cur.includes(t) ? cur.filter(x => x !== t) : [...cur, t]);
+                                        }}
+                                        className={`btn btn-sm ${form.residencyTypes.includes(t) ? 'btn-primary' : 'btn-outline'}`}>
+                                        {t}
+                                    </button>
                                 ))}
                             </div>
                         </div>

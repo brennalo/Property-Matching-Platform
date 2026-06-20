@@ -9,13 +9,11 @@ public class GooglePlacesService(HttpClient http, IConfiguration config)
     private readonly string _apiKey = config["Google:ApiKey"]
         ?? throw new InvalidOperationException("Google:ApiKey not configured");
 
-    private const int RadiusMeters = 800; // Fixed 800m radius
-
     /// <summary>
     /// Returns places of a given type within 800m of a location.
     /// place_type examples: "cafe", "gym", "restaurant", "pharmacy", "supermarket"
     /// </summary>
-    public async Task<List<PlaceLocation>> GetNearbyPlacesAsync(double lat, double lng, string placeType)
+    public async Task<List<PlaceLocation>> GetNearbyPlacesAsync(double lat, double lng, string placeType, int radiusMeter)
     {
         // Using Places API (New) - Nearby Search
         var url = $"https://places.googleapis.com/v1/places:searchNearby?key={_apiKey}";
@@ -29,7 +27,7 @@ public class GooglePlacesService(HttpClient http, IConfiguration config)
                 circle = new
                 {
                     center = new { latitude = lat, longitude = lng },
-                    radius = (double)RadiusMeters
+                    radius = (double)radiusMeter
                 }
             }
         };
@@ -78,9 +76,9 @@ public class GooglePlacesService(HttpClient http, IConfiguration config)
     /// Returns a dict of placeType -> list of places (frontend derives count from list length).
     /// </summary>
     public async Task<Dictionary<string, List<PlaceLocation>>> GetLifestylePlacesAsync(
-        double lat, double lng, List<string> placeTypes)
+        double lat, double lng, List<string> placeTypes,int radiusMeter)
     {
-        var tasks = placeTypes.Select(async pt => (pt, await GetNearbyPlacesAsync(lat, lng, pt)));
+        var tasks = placeTypes.Select(async pt => (pt, await GetNearbyPlacesAsync(lat, lng, pt,radiusMeter)));
         var results = await Task.WhenAll(tasks);
         return results.ToDictionary(r => r.pt, r => r.Item2);
     }

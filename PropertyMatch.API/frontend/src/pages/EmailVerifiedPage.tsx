@@ -31,16 +31,15 @@ export default function VerifyEmailBanner() {
 
     return (
         <div style={{
-            gridColumn: '1 / -1',   // span both columns
-            gridRow: 2,               // sits between topbar (row1) and content (row3)
+            width: '100%',
             background: 'linear-gradient(90deg, rgba(232,160,69,0.15) 0%, rgba(232,160,69,0.08) 100%)',
             borderBottom: '1px solid rgba(232,160,69,0.3)',
-            padding: '10px 24px',
+            padding: '8px 24px',
             display: 'flex',
             alignItems: 'center',
             gap: 12,
             fontSize: '0.85rem',
-            zIndex: 90,
+            flexShrink: 0,   // don't grow to fill remaining height
         }}>
             <Mail size={16} style={{ color: 'var(--accent)', flexShrink: 0 }} />
 

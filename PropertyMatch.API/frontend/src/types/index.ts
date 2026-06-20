@@ -113,7 +113,7 @@ export interface BookedSlot {
 export interface MatchRequest {
   rooms?: number;
   toilets?: number;
-  residencyType?: ResidencyType;
+  residencyTypes?: ResidencyType[];
   priceMin?: number;
   priceMax?: number;
   workplaceAddress: string;
@@ -307,4 +307,19 @@ export interface AgentPublicProfile {
     licenseNumber?: string;
     contactNo?: string;
     ratings?: number;
+}
+
+export interface ScoringConfig {
+    id: number
+    weightNumeric: number
+    weightCommute: number
+    weightLifestyle: number
+    lifestyleRadiusMeters: number
+}
+
+export interface ScoringConfigRequest {
+    weightNumeric: number
+    weightCommute: number
+    weightLifestyle: number
+    lifestyleRadiusMeters: number
 }

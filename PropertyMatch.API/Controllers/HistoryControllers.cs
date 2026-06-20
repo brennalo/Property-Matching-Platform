@@ -245,6 +245,10 @@ public class ConversationsController(AppDbContext db) : ControllerBase
         var role = User.FindFirst("role")?.Value ?? User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
         if (role == "Tenant") conv.TenantLastReadAt = DateTime.UtcNow;
         else if (role == "Agent") conv.AgentLastReadAt = DateTime.UtcNow;
+
+        foreach (var m in conv.Messages.Where(m => !m.IsRead && m.SenderRole != role))
+            m.IsRead = true;
+
         await db.SaveChangesAsync();
 
         return Ok(conv.Messages.Select(m => new MessageResponse(
@@ -309,4 +313,37 @@ public class BrowseController(AppDbContext db) : ControllerBase
             l.ViewingSchedules.Count
         )));
     }
+
+    [ApiController]
+    [Route("api/admin/scoring-config")]
+    [Authorize(Roles = "Admin")]
+    public class ScoringConfigController(AppDbContext db) : ControllerBase
+    {
+        [HttpGet]
+        public async Task<IActionResult> Get()
+        {
+            var cfg = await db.ScoringConfig.FindAsync(1);
+            return Ok(cfg);
+        }
+
+        [HttpPut]
+        public async Task<IActionResult> Update([FromBody] ScoringConfigRequest req)
+        {
+            var total = req.WeightNumeric + req.WeightCommute + req.WeightLifestyle;
+            if (Math.Abs(total - 1.0) > 0.001)
+                return BadRequest("Weights must sum to 1.0");
+
+            var cfg = await db.ScoringConfig.FindAsync(1);
+            cfg!.WeightNumeric = req.WeightNumeric;
+            cfg.WeightCommute = req.WeightCommute;
+            cfg.WeightLifestyle = req.WeightLifestyle;
+            cfg.LifestyleRadiusMeters = req.LifestyleRadiusMeters;
+            await db.SaveChangesAsync();
+            return Ok(cfg);
+        }
+    }
+
+    public record ScoringConfigRequest(
+        double WeightNumeric, double WeightCommute, double WeightLifestyle,
+        int LifestyleRadiusMeters);
 }

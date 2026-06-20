@@ -18,6 +18,8 @@ import type {
   BatchListingRow,
   ListingStatus,
   ImageDto,
+  ScoringConfigRequest,
+  ScoringConfig,
 } from "../types";
 
 const api = axios.create({
@@ -308,3 +310,8 @@ export const browseApi = {
 export const agentApi = {
     getPublicProfile: (agentId: string) => api.get(`/agents/${agentId}/public`),
 };
+
+export const scoringConfigApi = {
+    get: () => api.get<ScoringConfig>('/admin/scoring-config'),
+    update: (req: ScoringConfigRequest) => api.put('/admin/scoring-config', req),
+}

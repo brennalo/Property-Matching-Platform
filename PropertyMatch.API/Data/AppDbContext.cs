@@ -26,7 +26,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<Feedback> Feedbacks => Set<Feedback>();
     public DbSet<Report> Reports => Set<Report>();
-
+    public DbSet<ScoringConfig> ScoringConfig => Set<ScoringConfig>();
     protected override void OnModelCreating(ModelBuilder mb)
     {
         // ── Enum → string conversions ─────────────────────────────────────────
@@ -173,6 +173,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .WithMany(u => u.SentMessages)
             .HasForeignKey(m => m.SenderId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        mb.Entity<ScoringConfig>().HasData(
+            new ScoringConfig { Id = 1 }
+);
 
     }
 }
