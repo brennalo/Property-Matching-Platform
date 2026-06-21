@@ -34,7 +34,7 @@ function StatusBadge({ status }: { status: Listing["status"] }) {
   return (
     <span className={`badge ${map[status] ?? "badge-grey"}`}>
       {icons[status]}{" "}
-      {status === "PendingPayment" ? "Awaiting Payment" : status}
+        {status === "PendingPayment" ? "Pending (Legacy)" : status}
     </span>
   );
 }
@@ -688,11 +688,11 @@ export default function AgentListingsPage() {
             price: parseFloat(data.price),
             description: data.description || undefined,
         }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["my-listings"] });
-      setShowForm(false);
-      showToast("Listing created! Proceed to payment to activate it.");
-    },
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["my-listings"] });
+            setShowForm(false);
+            showToast("Listing created and is now active!");
+        },
     onError: (e: any) =>
       showToast(
         e.response?.data?.message ?? "Failed to create listing",
@@ -945,60 +945,60 @@ export default function AgentListingsPage() {
                   }}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {l.status === "PendingPayment" && (
-                    <button
-                      className="btn btn-primary btn-sm"
-                      onClick={() => handlePayment(l.id)}
-                      disabled={payLoading === l.id}
-                    >
-                      {payLoading === l.id ? (
-                        <span className="spinner" />
-                      ) : (
-                        <>
-                          <CreditCard size={13} /> Pay to Activate
-                        </>
-                      )}
-                    </button>
-                  )}
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => {
-                      if (!canCreateListing) {
-                        showToast(getApprovalMessage(), "error");
-                        return;
-                      }
-                      setEditTarget(l);
-                      setShowForm(true);
-                    }}
-                  >
-                    <Pencil size={13} />
-                  </button>
-                  <button
-                    className="btn btn-danger btn-sm"
-                    disabled={deleteMut.isPending}
-                    onClick={() => {
-                      if (confirm(`Delete "${l.name}"?`))
-                        deleteMut.mutate(l.id);
-                    }}
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                  {l.status === 'Active' && (
-                    <button
-                      className="btn btn-primary btn-sm"
-                      onClick={() => statusMut.mutate({ id: l.id, status: 'Booked' })}
-                    >
-                      Mark as Booked
-                    </button>
-                  )}
-                  {l.status === 'Booked' && (
-                    <button
-                      className="btn btn-success btn-sm"
-                      onClick={() => statusMut.mutate({ id: l.id, status: 'Active' })}
-                    >
-                      Mark as Active
-                    </button>
-                  )}
+                  {/*{l.status === "PendingPayment" && (*/}
+                  {/*  <button*/}
+                  {/*    className="btn btn-primary btn-sm"*/}
+                  {/*    onClick={() => handlePayment(l.id)}*/}
+                  {/*    disabled={payLoading === l.id}*/}
+                  {/*  >*/}
+                  {/*    {payLoading === l.id ? (*/}
+                  {/*      <span className="spinner" />*/}
+                  {/*    ) : (*/}
+                  {/*      <>*/}
+                  {/*        <CreditCard size={13} /> Pay to Activate*/}
+                  {/*      </>*/}
+                  {/*    )}*/}
+                  {/*  </button>*/}
+                  {/*)}*/}
+                          {l.status === 'Active' && (
+                              <button
+                                  className="btn btn-primary btn-sm"
+                                  onClick={() => statusMut.mutate({ id: l.id, status: 'Booked' })}
+                              >
+                                  Mark as Booked
+                              </button>
+                          )}
+                          {l.status === 'Booked' && (
+                              <button
+                                  className="btn btn-success btn-sm"
+                                  onClick={() => statusMut.mutate({ id: l.id, status: 'Active' })}
+                              >
+                                  Mark as Active
+                              </button>
+                          )}
+                          <button
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => {
+                                  if (!canCreateListing) {
+                                      showToast(getApprovalMessage(), "error");
+                                      return;
+                                  }
+                                  setEditTarget(l);
+                                  setShowForm(true);
+                              }}
+                          >
+                              <Pencil size={13} />
+                          </button>
+                          <button
+                              className="btn btn-danger btn-sm"
+                              disabled={deleteMut.isPending}
+                              onClick={() => {
+                                  if (confirm(`Delete "${l.name}"?`))
+                                      deleteMut.mutate(l.id);
+                              }}
+                          >
+                              <Trash2 size={13} />
+                          </button>
                 </div>
               </div>
             </div>

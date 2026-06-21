@@ -117,14 +117,14 @@ public class ListingsController(AppDbContext db, S3Service s3, GroqService groq)
             ResidencyType = req.ResidencyType,
             Price = req.Price,
             Description = req.Description,
-            Status = ListingStatus.PendingPayment
+            Status = ListingStatus.Active
         };
 
         db.Listings.Add(listing);
         await db.SaveChangesAsync();
 
         return CreatedAtAction(nameof(GetById), new { id = listing.Id },
-            new { listing.Id, message = "Listing created. Proceed to payment to activate." });
+            new { listing.Id, message = "Listing created and is now active." });
     }
 
     // POST /api/listings/batch — batch upload multiple listings (XLSX)
@@ -164,6 +164,17 @@ public class ListingsController(AppDbContext db, S3Service s3, GroqService groq)
             });
         }
 
+        // ── Token check for entire batch ──────────────────────────────────
+        var requiredTokens = requests.Count;
+        if (agent.TokenBalance < requiredTokens)
+        {
+            return BadRequest(new
+            {
+                message = $"Insufficient tokens. This batch requires {requiredTokens} tokens but you only have {agent.TokenBalance}. Please top up before uploading."
+            });
+        }
+        // ────────────────────────────────────────────────────────────────────
+
         var successCount = 0;
         var errors = new List<string>();
 
@@ -191,10 +202,11 @@ public class ListingsController(AppDbContext db, S3Service s3, GroqService groq)
                     ResidencyType = residencyType,
                     Price = req.Price,
                     Description = req.Description,
-                    Status = ListingStatus.PendingPayment
+                    Status = ListingStatus.Active
                 };
 
                 db.Listings.Add(listing);
+                agent.TokenBalance -= 1;
                 await db.SaveChangesAsync();
                 successCount++;
             }
