@@ -3,7 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { listingsApi, paymentsApi } from "../../api";
-import type { Listing, ResidencyType, BatchListingRow, ListingStatus } from "../../types";
+import type {
+  Listing,
+  ResidencyType,
+  BatchListingRow,
+  ListingStatus,
+} from "../../types";
 import {
   Plus,
   Pencil,
@@ -26,7 +31,7 @@ const RESIDENCY_TYPES: ResidencyType[] = [
   "Townhouse",
   "Studio",
   "MasterRoom",
-  "SharedRoom"
+  "SharedRoom",
 ];
 
 function StatusBadge({ status }: { status: Listing["status"] }) {
@@ -404,6 +409,7 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
         Latitude: parseFloat(row["Latitude"] || row["Lat"] || "0"),
         Longitude: parseFloat(row["Longitude"] || row["Lng"] || "0"),
         Description: row["Description"] || "",
+        Amenities: row["Amenities"] || "",
       }));
 
       setFiles([file]);
@@ -432,6 +438,7 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
         Latitude: parseFloat(row["Latitude"] || row["Lat"] || "0"),
         Longitude: parseFloat(row["Longitude"] || row["Lng"] || "0"),
         Description: row["Description"] || "",
+        Amenities: row["Amenities"] || "",
       }));
 
       setLoading(true);
@@ -450,6 +457,7 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Listings");
 
+    // Define columns – include Description and Amenities
     worksheet.columns = [
       { header: "PropertyName", key: "PropertyName", width: 25 },
       { header: "Bedrooms", key: "Bedrooms", width: 10 },
@@ -460,8 +468,11 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
       { header: "Type", key: "Type", width: 15 },
       { header: "Latitude", key: "Latitude", width: 15 },
       { header: "Longitude", key: "Longitude", width: 15 },
+      { header: "Description", key: "Description", width: 40 },
+      { header: "Amenities", key: "Amenities", width: 30 },
     ];
 
+    // Example row with all fields
     worksheet.addRow({
       PropertyName: "Example Property",
       Bedrooms: 3,
@@ -472,16 +483,19 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
       Type: "Condo",
       Latitude: 3.1478,
       Longitude: 101.6953,
+      Description: "A nice condominium with pool and gym",
+      Amenities: "Air conditioner, Bed, Fridge, Water Heater",
     });
 
+    // Data validation for Type column (column G = 7)
     const allowedTypes = [
-        "Landed",
-        "Condo",
-        "Apartment",
-        "Townhouse",
-        "Studio",
-        "MasterRoom",
-        "SharedRoom"
+      "Landed",
+      "Condo",
+      "Apartment",
+      "Townhouse",
+      "Studio",
+      "MasterRoom",
+      "SharedRoom", // updated list
     ];
     for (let row = 2; row <= 100; row++) {
       const cell = worksheet.getCell(`G${row}`);
@@ -533,6 +547,9 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
         >
           ⚠️ <strong>Images not supported in batch mode.</strong> Upload images
           individually after importing listings.
+          <br />
+          ⚠️ <strong>Amenities</strong> should be entered as a comma‑separated
+          list (e.g., "Air conditioner, Bed, Fridge").
         </div>
 
         {success ? (
@@ -717,26 +734,32 @@ export default function AgentListingsPage() {
 
   const statusMut = useMutation({
     mutationFn: ({ id, status }: { id: string; status: ListingStatus }) =>
-        listingsApi.updateStatus(id, status),
+      listingsApi.updateStatus(id, status),
     onSuccess: () => {
-        qc.invalidateQueries({ queryKey: ['my-listings'] })
-        showToast('Listing status updated!')
+      qc.invalidateQueries({ queryKey: ["my-listings"] });
+      showToast("Listing status updated!");
     },
     onError: (e: any) =>
-        showToast(e.response?.data?.message ?? 'Failed to update status', 'error'),
-  })
+      showToast(
+        e.response?.data?.message ?? "Failed to update status",
+        "error",
+      ),
+  });
 
   const urlParams = new URLSearchParams(window.location.search);
-    const paymentStatus = urlParams.get("payment");
+  const paymentStatus = urlParams.get("payment");
 
   const { user } = useAuth();
 
   const canCreateListing = user?.status === "Verified";
 
   const getApprovalMessage = () => {
-    if (user?.status === "Pending") return "Please verify your email before creating listings.";
-    if (user?.status === "Unapproved") return "Your account is awaiting admin approval. You cannot create listings yet.";
-    if (user?.status === "Blocked") return "Your account has been blocked. You cannot create listings.";
+    if (user?.status === "Pending")
+      return "Please verify your email before creating listings.";
+    if (user?.status === "Unapproved")
+      return "Your account is awaiting admin approval. You cannot create listings yet.";
+    if (user?.status === "Blocked")
+      return "Your account has been blocked. You cannot create listings.";
     return "Only verified agents can create listings.";
   };
 
@@ -956,18 +979,22 @@ export default function AgentListingsPage() {
                   >
                     <Trash2 size={13} />
                   </button>
-                  {l.status === 'Active' && (
+                  {l.status === "Active" && (
                     <button
                       className="btn btn-primary btn-sm"
-                      onClick={() => statusMut.mutate({ id: l.id, status: 'Booked' })}
+                      onClick={() =>
+                        statusMut.mutate({ id: l.id, status: "Booked" })
+                      }
                     >
                       Mark as Booked
                     </button>
                   )}
-                  {l.status === 'Booked' && (
+                  {l.status === "Booked" && (
                     <button
                       className="btn btn-success btn-sm"
-                      onClick={() => statusMut.mutate({ id: l.id, status: 'Active' })}
+                      onClick={() =>
+                        statusMut.mutate({ id: l.id, status: "Active" })
+                      }
                     >
                       Mark as Active
                     </button>

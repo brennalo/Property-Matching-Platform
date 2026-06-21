@@ -25,7 +25,7 @@ const RESIDENCY_TYPES: ResidencyType[] = [
   "Townhouse",
   "Studio",
   "MasterRoom",
-  "SharedRoom"
+  "SharedRoom",
 ];
 
 interface ListingFormData {
@@ -37,6 +37,8 @@ interface ListingFormData {
   address: string;
   residencyType: ResidencyType;
   price: string;
+  description: string;
+  amenities: string;
 }
 
 // ── Image lightbox with zoom ──────────────────────────────────────────────────────────────────────
@@ -360,6 +362,8 @@ export default function AgentListingDetailPage() {
     address: "",
     residencyType: "Condo",
     price: "",
+    description: "",
+    amenities: "",
   });
 
   const [images, setImages] = useState<ImageDto[]>([]);
@@ -389,6 +393,8 @@ export default function AgentListingDetailPage() {
         address: listing.address,
         residencyType: listing.residencyType,
         price: String(listing.price),
+        description: listing.description || "",
+        amenities: listing.amenities || "",
       });
       setImages(listing.images || []);
     }
@@ -410,6 +416,8 @@ export default function AgentListingDetailPage() {
         address: data.address,
         residencyType: data.residencyType,
         price: parseFloat(data.price),
+        description: data.description,
+        amenities: data.amenities,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["listing", id] });
@@ -615,6 +623,65 @@ export default function AgentListingDetailPage() {
                   setForm((f) => ({ ...f, price: e.target.value }))
                 }
               />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Description</label>
+              <textarea
+                className="input"
+                rows={3}
+                value={form.description}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, description: e.target.value }))
+                }
+                placeholder="Describe your property..."
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Amenities (comma separated)</label>
+              <input
+                className="input"
+                value={form.amenities}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, amenities: e.target.value }))
+                }
+                placeholder="e.g. Air conditioner, Bed, Fridge, Water Heater"
+              />
+              <p
+                style={{
+                  fontSize: "0.75rem",
+                  color: "var(--text-dim)",
+                  marginTop: 4,
+                }}
+              >
+                Separate each amenity with a comma.
+              </p>
+
+              {/* Tag preview */}
+              {form.amenities && form.amenities.trim() && (
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 6,
+                    marginTop: 6,
+                  }}
+                >
+                  {form.amenities
+                    .split(",")
+                    .map((a) => a.trim())
+                    .filter(Boolean)
+                    .map((item, idx) => (
+                      <span
+                        key={idx}
+                        className="badge badge-amber"
+                        style={{ fontSize: "0.75rem" }}
+                      >
+                        {item}
+                      </span>
+                    ))}
+                </div>
+              )}
             </div>
 
             <button

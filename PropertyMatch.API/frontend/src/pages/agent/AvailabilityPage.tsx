@@ -34,6 +34,7 @@ export default function AvailabilityPage() {
     endTime: string;
     reason: string;
     listingId: string | null;
+    slotDurationMinutes: number;
   }>({
     from: "",
     to: "",
@@ -42,6 +43,7 @@ export default function AvailabilityPage() {
     endTime: "17:00",
     reason: "",
     listingId: null,
+    slotDurationMinutes: 60,
   });
   const [slotDuration, setSlotDuration] = useState(60);
   const [editingTemplateDay, setEditingTemplateDay] = useState<number | null>(
@@ -69,6 +71,10 @@ export default function AvailabilityPage() {
     if (summary) {
       setTemplates(summary.templates);
       setExceptions(summary.exceptions);
+      // Set global slot duration from first template (assuming all templates share the same)
+      if (summary.templates.length > 0) {
+        setSlotDuration(summary.templates[0].slotDurationMinutes);
+      }
     }
   }, [summary]);
 
@@ -95,6 +101,7 @@ export default function AvailabilityPage() {
         endTime: "17:00",
         reason: "",
         listingId: null,
+        slotDurationMinutes: 60,
       });
     },
     onError: () => showToast("Failed to add exception", "error"),
@@ -156,6 +163,7 @@ export default function AvailabilityPage() {
           newException.type === "custom_hours" ? newException.endTime : null,
         reason: newException.reason || null,
         listingId: newException.listingId || null,
+        slotDurationMinutes: newException.slotDurationMinutes,
       },
     ]);
   };
@@ -244,6 +252,7 @@ export default function AvailabilityPage() {
                   <>
                     <span>{tpl?.startTime || "—"}</span>
                     <span>{tpl?.endTime || "—"}</span>
+
                     <div style={{ display: "flex", gap: 4 }}>
                       <button
                         className="btn btn-ghost btn-sm"
@@ -399,6 +408,33 @@ export default function AvailabilityPage() {
             ))}
           </select>
 
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              width: "100%",
+            }}
+          >
+            <label style={{ fontSize: "0.85rem" }}>
+              Slot Duration: {newException.slotDurationMinutes} min
+            </label>
+            <input
+              type="range"
+              min={15}
+              max={120}
+              step={15}
+              value={newException.slotDurationMinutes}
+              onChange={(e) =>
+                setNewException({
+                  ...newException,
+                  slotDurationMinutes: Number(e.target.value),
+                })
+              }
+              style={{ flex: 1, maxWidth: 200 }}
+            />
+          </div>
+
           <button
             className="btn btn-primary btn-sm"
             onClick={handleAddException}
@@ -442,7 +478,8 @@ export default function AvailabilityPage() {
                     </span>
                   ) : (
                     <span style={{ marginLeft: 8 }}>
-                      🕒 {ex.startTime} – {ex.endTime}
+                      🕒 {ex.startTime} – {ex.endTime} ({ex.slotDurationMinutes}{" "}
+                      min slots)
                     </span>
                   )}
                   {ex.reason && (

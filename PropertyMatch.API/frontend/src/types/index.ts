@@ -1,10 +1,15 @@
 export type UserRole = "Tenant" | "Agent" | "Admin";
-export type UserStatus = 'Pending' | 'Unapproved' | 'Verified' | 'Blocked'
-export type AgentStatus = 'Pending' | 'Unapproved' | 'Verified' | 'Blocked'
-export type ListingStatus = "Draft" | "PendingPayment" | "Active" | "Inactive" | "Booked";
+export type UserStatus = "Pending" | "Unapproved" | "Verified" | "Blocked";
+export type AgentStatus = "Pending" | "Unapproved" | "Verified" | "Blocked";
+export type ListingStatus =
+  | "Draft"
+  | "PendingPayment"
+  | "Active"
+  | "Inactive"
+  | "Booked";
 export type ScheduleStatus = "Pending" | "Confirmed" | "Cancelled";
 export type ResidencyType =
-  | "Landed" 
+  | "Landed"
   | "Condo"
   | "Apartment"
   | "Townhouse"
@@ -45,6 +50,8 @@ export interface Listing {
   createdAt: string;
   images: ImageDto[];
   imageUrls: string[];
+  description?: string;
+  amenities?: string;
 }
 
 export interface TransitStep {
@@ -96,6 +103,7 @@ export interface LifestyleTemplate {
 }
 
 export interface ViewingSchedule {
+  id: string;
   listingId: string;
   listingName: string;
   listingAddress: string;
@@ -103,6 +111,7 @@ export interface ViewingSchedule {
   tenantName: string;
   scheduledAt: string;
   status: ScheduleStatus;
+  reason?: string | null;
 }
 
 export interface BookedSlot {
@@ -133,17 +142,17 @@ export interface Analytics {
   blockedAgents: number;
 }
 export interface TenantDetail {
-    userId: string
-    fullName: string
-    email: string
-    status: UserStatus
-    createdAt: string
-    verifiedAt: string | null
-    totalViewings: number
-    pendingViewings: number
-    confirmedViewings: number
-    cancelledViewings: number
-    lastViewingAt: string | null
+  userId: string;
+  fullName: string;
+  email: string;
+  status: UserStatus;
+  createdAt: string;
+  verifiedAt: string | null;
+  totalViewings: number;
+  pendingViewings: number;
+  confirmedViewings: number;
+  cancelledViewings: number;
+  lastViewingAt: string | null;
 }
 
 export interface AgentDetail {
@@ -182,6 +191,7 @@ export interface AvailabilityException {
   reason?: string | null;
   createdAt: string;
   listingId?: string | null;
+  slotDurationMinutes: number;
 }
 
 export interface AvailabilityTemplateRequest {
@@ -200,6 +210,7 @@ export interface AvailabilityExceptionRequest {
   startTime?: string | null;
   endTime?: string | null;
   reason?: string | null;
+  slotDurationMinutes: number;
 }
 
 export interface AvailableSlot {
@@ -219,7 +230,8 @@ export interface BatchListingRow {
   Type: ResidencyType;
   Latitude: number;
   Longitude: number;
-  Description: string;
+  Description?: string;
+  Amenities?: string;
 }
 
 // Place type data lives in placeTypes.ts — re-exported here for convenience
@@ -234,77 +246,113 @@ export {
 } from "../types/placeTypes";
 
 export interface FavouriteListing {
-    listingId: string;
-    name: string;
-    address: string;
-    price: number;
-    residencyType: string;
-    rooms: number;
-    toilets: number;
-    thumbnailUrl?: string;
-    agentName: string;
-    savedAt: string;
+  listingId: string;
+  name: string;
+  address: string;
+  price: number;
+  residencyType: string;
+  rooms: number;
+  toilets: number;
+  thumbnailUrl?: string;
+  agentName: string;
+  savedAt: string;
 }
 
 export interface ViewHistoryItem {
-    listingId: string;
-    name: string;
-    address: string;
-    price: number;
-    residencyType: string;
-    thumbnailUrl?: string;
-    agentName: string;
-    viewedAt: string;
+  listingId: string;
+  name: string;
+  address: string;
+  price: number;
+  residencyType: string;
+  thumbnailUrl?: string;
+  agentName: string;
+  viewedAt: string;
 }
 
 export interface SearchLogItem {
-    searchedAt: string;
-    snapshot: string; // JSON
+  searchedAt: string;
+  snapshot: string; // JSON
 }
 
 export interface Conversation {
-    id: string;
-    listingName: string;
-    tenantName: string;
-    agentName: string;
-    lastMessage?: string;
-    lastMessageAt?: string;
-    unreadCount: number;
-    listingId: string;
+  id: string;
+  listingName: string;
+  tenantName: string;
+  agentName: string;
+  lastMessage?: string;
+  lastMessageAt?: string;
+  unreadCount: number;
+  listingId: string;
 }
 
 export interface Message {
-    id: string;
-    senderId: string;
-    senderRole: string;
-    content: string;
-    isRead: boolean;
-    createdAt: string;
+  id: string;
+  senderId: string;
+  senderRole: string;
+  content: string;
+  isRead: boolean;
+  createdAt: string;
 }
 
 export interface BrowseListing {
-    id: string;
-    name: string;
-    address: string;
-    lat: number;
-    lng: number;
-    price: number;
-    residencyType: string;
-    rooms: number;
-    toilets: number;
-    amenities?: string;
-    description?: string;
-    images: string[];
-    agentName: string;
-    agentLicense?: string;
-    agentContact?: string;
-    viewingCount: number;
+  id: string;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  price: number;
+  residencyType: string;
+  rooms: number;
+  toilets: number;
+  amenities?: string;
+  description?: string;
+  images: string[];
+  agentName: string;
+  agentLicense?: string;
+  agentContact?: string;
+  viewingCount: number;
 }
 
 export interface AgentPublicProfile {
-    agentId: string;
-    fullName: string;
-    licenseNumber?: string;
-    contactNo?: string;
-    ratings?: number;
+  agentId: string;
+  fullName: string;
+  licenseNumber?: string;
+  contactNo?: string;
+  ratings?: number;
+}
+
+export interface ReviewResponse {
+  id: string;
+  agentId: string;
+  reviewerName: string;
+  rating: number;
+  reviewText: string;
+  createdAt: string;
+  source: "viewing" | "conversation";
+}
+
+export interface AgentReviewSummary {
+  averageRating: number;
+  totalReviews: number;
+  reviews: ReviewResponse[];
+}
+
+export interface ConversationSummaryResponse {
+  id: string;
+  listingName: string;
+  tenantName: string;
+  agentName: string;
+  lastMessage?: string | null;
+  lastMessageAt?: string | null;
+  unreadCount: number;
+  listingId: string;
+}
+
+export interface MessageResponse {
+  id: string;
+  senderId: string;
+  senderRole: string;
+  content: string;
+  isRead: boolean;
+  createdAt: string;
 }

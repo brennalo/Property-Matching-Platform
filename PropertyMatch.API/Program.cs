@@ -90,11 +90,11 @@ StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
 var app = builder.Build();
 
 // ── Auto-migrate ────────────────────────────────────────────────────────────
-using (var scope = app.Services.CreateScope())
-{
-    var dbCtx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    dbCtx.Database.Migrate();
-}
+// using (var scope = app.Services.CreateScope())
+// {
+//     var dbCtx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+//     dbCtx.Database.Migrate();
+// }
 
 app.UseCors("Frontend");
 

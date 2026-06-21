@@ -32,9 +32,17 @@ public record CreateListingRequest(
     ResidencyType ResidencyType, decimal Price);
 
 public record UpdateListingRequest(
-    string? Name, int? Rooms, int? Toilets,
-    double? Lat, double? Lng, string? Address,
-    ResidencyType? ResidencyType, decimal? Price);
+    string? Name,
+    int? Rooms,
+    int? Toilets,
+    double? Lat,
+    double? Lng,
+    string? Address,
+    ResidencyType? ResidencyType,
+    decimal? Price,
+    string? Description,
+    string? Amenities
+);
 
 public record UpdateListingStatusRequest(ListingStatus Status);
 
@@ -42,7 +50,8 @@ public record UpdateListingStatusRequest(ListingStatus Status);
 public record BatchListingRequest(
     string PropertyName, int Bedrooms, int Bathrooms, int Toilets,
     string Address, decimal Price, string Type,
-    double Latitude, double Longitude, string Description);
+    double Latitude, double Longitude, string Description,
+    string Amenities);
 
 public record BatchListingResponse(
     int SuccessCount, int FailureCount, List<string> Errors);
@@ -109,11 +118,21 @@ public record TemplateResponse(Guid Id, string Name, List<string> PlaceTypes, Da
 public record CreateScheduleRequest(Guid ListingId, DateTime ScheduledAt);
 
 public record ScheduleResponse(
-    Guid ListingId, string ListingName, string ListingAddress,
-    Guid TenantId, string TenantName,
-    DateTime ScheduledAt, ScheduleStatus Status, string? Reason);
+    Guid Id,
+    Guid ListingId,
+    string ListingName,
+    string ListingAddress,
+    Guid TenantId,
+    string TenantName,
+    DateTime ScheduledAt,
+    ScheduleStatus Status,
+    string? Reason
+);
 
-public record UpdateScheduleStatusRequest(ScheduleStatus Status, string? Reason = null);
+public record UpdateScheduleStatusRequest(
+    ScheduleStatus Status,
+    string? Reason = null
+);
 
 public record BookedSlotResponse(DateTime ScheduledAt, ScheduleStatus Status);
 
@@ -149,7 +168,8 @@ public record AvailabilityExceptionRequest(
     string? StartTime = null,
     string? EndTime = null,
     string? Reason = null,
-    Guid? ListingId = null
+    Guid? ListingId = null,
+    int? SlotDurationMinutes = null
 );
 
 public record AvailabilityExceptionResponse(
@@ -161,6 +181,7 @@ public record AvailabilityExceptionResponse(
     string? EndTime,
     string? Reason,
     Guid? ListingId,
+    int SlotDurationMinutes,
     DateTime CreatedAt
 );
 
@@ -276,3 +297,27 @@ public record BrowseListingResponse(
 public record AgentPublicProfileResponse(
     Guid AgentId, string FullName,
     string? LicenseNumber, string? ContactNo, decimal? Ratings);
+
+// ── Reviews ────────────────────────────────────────────────────────────────
+public record CreateReviewRequest(
+    int Rating,                      // 1-5
+    string ReviewText,
+    Guid? ViewingScheduleId = null,
+    Guid? ConversationId = null
+);
+
+public record ReviewResponse(
+    Guid Id,
+    Guid AgentId,
+    string AgentName,               // or TenantName, depending on context
+    int Rating,
+    string ReviewText,
+    DateTime CreatedAt,
+    string Source                   // "viewing" or "conversation"
+);
+
+public record AgentReviewSummary(
+    double AverageRating,
+    int TotalReviews,
+    List<ReviewResponse> Reviews
+);

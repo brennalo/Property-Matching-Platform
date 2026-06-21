@@ -159,7 +159,8 @@ public class SchedulesController(AppDbContext db, ResendEmailService _resendEmai
     [HttpPatch("{listingId}/{scheduledAt}")]
     [Authorize(Roles = "Agent")]
     public async Task<IActionResult> UpdateStatus(
-        Guid listingId, DateTime scheduledAt,
+        Guid listingId,
+        DateTime scheduledAt,
         [FromBody] UpdateScheduleStatusRequest req)
     {
         var schedule = await db.ViewingSchedules
@@ -171,11 +172,17 @@ public class SchedulesController(AppDbContext db, ResendEmailService _resendEmai
 
         if (schedule == null) return NotFound();
 
+        // Require a reason for cancellation
+        if (req.Status == ScheduleStatus.Cancelled && string.IsNullOrWhiteSpace(req.Reason))
+            return BadRequest(new { message = "A reason is required for cancellation." });
+
         schedule.Status = req.Status;
-        if (req.Reason != null) schedule.Reason = req.Reason;
+        if (!string.IsNullOrWhiteSpace(req.Reason))
+            schedule.Reason = req.Reason;
+
         await db.SaveChangesAsync();
 
-        // Email tenant: confirmed
+        // Send email notifications
         if (req.Status == ScheduleStatus.Confirmed)
         {
             _ = _resendEmailService.SendViewingConfirmedToTenantAsync(
@@ -188,9 +195,7 @@ public class SchedulesController(AppDbContext db, ResendEmailService _resendEmai
                         Console.Error.WriteLine($"[Email] Confirmation email failed: {t.Exception}");
                 });
         }
-
-        // Email tenant: cancelled/rejected
-        if (req.Status == ScheduleStatus.Cancelled)
+        else if (req.Status == ScheduleStatus.Cancelled)
         {
             _ = _resendEmailService.SendViewingRejectedToTenantAsync(
                 schedule.Tenant.Email, schedule.Tenant.FullName,
@@ -206,11 +211,16 @@ public class SchedulesController(AppDbContext db, ResendEmailService _resendEmai
     }
 
     private static ScheduleResponse MapResponse(ViewingSchedule v) => new(
-        v.ListingId, v.Listing?.Name ?? "", v.Listing?.Address ?? "",
-        v.TenantId, v.Tenant?.FullName ?? "",
-        v.ScheduledAt, v.Status, v.Reason);
+    v.Id,
+    v.ListingId,
+    v.Listing?.Name ?? "",
+    v.Listing?.Address ?? "",
+    v.TenantId,
+    v.Tenant?.FullName ?? "",
+    v.ScheduledAt,
+    v.Status,
+    v.Reason);
 }
-
 //// ── Payments ──────────────────────────────────────────────────────────────────
 //[ApiController]
 //[Route("api/payments")]
@@ -635,5 +645,29 @@ public class AgentDashboardController(AppDbContext db) : ControllerBase
             topListings,
             pendingPaymentList
         ));
+    }
+
+    [HttpGet("analytics/listings")]
+    [Authorize(Roles = "Agent")]
+    public async Task<IActionResult> GetListingAnalytics()
+    {
+        var agentId = User.GetUserId();
+
+        var analytics = await db.Listings
+            .Where(l => l.AgentId == agentId)
+            .Select(l => new
+            {
+                l.Id,
+                l.Name,
+                ViewCount = db.ViewHistory.Count(v => v.ListingId == l.Id),
+                BookingCount = db.ViewingSchedules.Count(vs => vs.ListingId == l.Id),
+                ConfirmedCount = db.ViewingSchedules.Count(vs => vs.ListingId == l.Id && vs.Status == ScheduleStatus.Confirmed),
+                PendingCount = db.ViewingSchedules.Count(vs => vs.ListingId == l.Id && vs.Status == ScheduleStatus.Pending),
+                CancelledCount = db.ViewingSchedules.Count(vs => vs.ListingId == l.Id && vs.Status == ScheduleStatus.Cancelled)
+            })
+            .OrderByDescending(l => l.ViewCount)
+            .ToListAsync();
+
+        return Ok(analytics);
     }
 }

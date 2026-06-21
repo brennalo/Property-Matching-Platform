@@ -42,6 +42,7 @@ public class User
     public ICollection<FavouriteListing> FavouriteListings { get; set; } = [];
     public ICollection<ViewHistory> ViewHistory { get; set; } = [];
     public ICollection<SearchLog> SearchLogs { get; set; } = [];
+    public ICollection<Models.Review> Reviews { get; set; } = new List<Models.Review>();
 }
 
 // ── Email Verification ───────────────────────────────────────────────────────
@@ -78,7 +79,7 @@ public class Agent
     public ICollection<AvailabilityTemplate> AvailabilityTemplates { get; set; } = new List<AvailabilityTemplate>();
     public ICollection<AvailabilityException> AvailabilityExceptions { get; set; } = new List<AvailabilityException>();
     public ICollection<Conversation> Conversations { get; set; } = [];
-    public ICollection<Reviews> Reviews { get; set; } = [];
+    public ICollection<Models.Review> Reviews { get; set; } = new List<Models.Review>();
 }
 
 // ── Listing ───────────────────────────────────────────────────────────────
@@ -172,8 +173,10 @@ public class AvailabilityException
     public string? StartTime { get; set; } // only for CustomHours
     public string? EndTime { get; set; }   // only for CustomHours
     public string? Reason { get; set; }
+    public int SlotDurationMinutes { get; set; } = 60;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+   
 
     public Agent? Agent { get; set; }
     public Listing? Listing { get; set; }
@@ -199,13 +202,17 @@ public class LifestyleTemplate
 
 public class ViewingSchedule
 {
+    public Guid Id { get; set; } 
     public Guid ListingId { get; set; }
     public DateTime ScheduledAt { get; set; }
     public Guid TenantId { get; set; }
     public ScheduleStatus Status { get; set; } = ScheduleStatus.Pending;
     public string? Reason { get; set; }
+
+    // Navigation
     public Listing Listing { get; set; } = null!;
     public User Tenant { get; set; } = null!;
+    public ICollection<Models.Review> Reviews { get; set; } = new List<Models.Review>();
 }
 
 // ── Payment ───────────────────────────────────────────────────────────
@@ -230,17 +237,23 @@ public class Payment
 }
 
 // ── Review ────────────────────────────────────────────────────────────────
-public class Reviews
+public class Review
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid Id { get; set; }
     public Guid AgentId { get; set; }
     public Guid TenantId { get; set; }
-    public decimal Ratings { get; set; }
-    public string ReviewText { get; set; } = "";
+    public int Rating { get; set; }  // 1-5
+    public string ReviewText { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    
+    public Guid? ViewingScheduleId { get; set; }
+    public Guid? ConversationId { get; set; }
 
+    // Navigation
     public Agent Agent { get; set; } = null!;
     public User Tenant { get; set; } = null!;
+    public ViewingSchedule? ViewingSchedule { get; set; }
+    public Conversation? Conversation { get; set; }
 }
 
 // ── SearchLog ─────────────────────────────────────────────────────────────
@@ -291,6 +304,7 @@ public class Conversation
     public Listing Listing { get; set; } = null!;
     public Agent Agent { get; set; } = null!;
     public ICollection<Message> Messages { get; set; } = [];
+    public ICollection<Models.Review> Reviews { get; set; } = new List<Models.Review>();
 }
 
 // ── Message ───────────────────────────────────────────────────────────────

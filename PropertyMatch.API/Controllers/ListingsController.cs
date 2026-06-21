@@ -189,7 +189,9 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
                     Address = req.Address,
                     ResidencyType = residencyType,
                     Price = req.Price,
-                    Status = ListingStatus.PendingPayment
+                    Status = ListingStatus.PendingPayment,
+                    Description = req.Description,
+                    Amenities = req.Amenities
                 };
 
                 db.Listings.Add(listing);
@@ -224,6 +226,8 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
         if (req.Address != null) listing.Address = req.Address;
         if (req.ResidencyType.HasValue) listing.ResidencyType = req.ResidencyType.Value;
         if (req.Price.HasValue) listing.Price = req.Price.Value;
+        if (req.Description != null) listing.Description = req.Description;
+        if (req.Amenities != null) listing.Amenities = req.Amenities;
 
         await db.SaveChangesAsync();
         return Ok(new { message = "Listing updated" });

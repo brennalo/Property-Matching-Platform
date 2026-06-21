@@ -59,7 +59,7 @@ export const listingsApi = {
   getById: (id: string) => api.get<Listing>(`/listings/${id}`),
 
   updateStatus: (id: string, status: ListingStatus) =>
-      api.patch(`/listings/${id}/status`, { status }),
+    api.patch(`/listings/${id}/status`, { status }),
 
   create: (data: {
     name: string;
@@ -83,6 +83,8 @@ export const listingsApi = {
       address: string;
       residencyType: string;
       price: number;
+      description: string;
+      amenities: string;
     }>,
   ) => api.put(`/listings/${id}`, data),
 
@@ -148,10 +150,15 @@ export const schedulesApi = {
 
   getAgentSchedules: () => api.get<ViewingSchedule[]>("/schedules/agent"),
 
-  updateStatus: (listingId: string, scheduledAt: string, status: string) =>
+  updateStatus: (
+    listingId: string,
+    scheduledAt: string,
+    status: string,
+    reason?: string,
+  ) =>
     api.patch(
       `/schedules/${listingId}/${encodeURIComponent(scheduledAt)}`,
-      JSON.stringify(status),
+      { status, reason },
       {
         headers: { "Content-Type": "application/json" },
       },
@@ -230,11 +237,11 @@ export const adminApi = {
     api.get(`/admin/analytics/agent-performance?top=${top}`),
   getListingStatus: () => api.get("/admin/analytics/listing-status"),
   getAvgPriceByType: () => api.get("/admin/analytics/avg-price-by-type"),
-    getConversionRate: () => api.get("/admin/analytics/conversion-rate"),
+  getConversionRate: () => api.get("/admin/analytics/conversion-rate"),
   getTenants: (status?: UserStatus) =>
-    api.get<TenantDetail[]>('/admin/tenants', { params: { status } }),
+    api.get<TenantDetail[]>("/admin/tenants", { params: { status } }),
 
-    updateTenantStatus: (id: string, status: UserStatus) =>
+  updateTenantStatus: (id: string, status: UserStatus) =>
     api.put(`/admin/tenants/${id}/status`, { status }),
 
   getAgents: (status?: UserStatus) =>
@@ -270,41 +277,91 @@ export const scheduleSlotsApi = {
 
 // ── Favourites ────────────────────────────────────────────────────────────────
 export const favouritesApi = {
-    getAll: () => api.get('/favourites'),
-    add: (listingId: string) => api.post(`/favourites/${listingId}`),
-    remove: (listingId: string) => api.delete(`/favourites/${listingId}`),
-    getStatus: (listingId: string) => api.get<{ saved: boolean }>(`/favourites/${listingId}/status`),
+  getAll: () => api.get("/favourites"),
+  add: (listingId: string) => api.post(`/favourites/${listingId}`),
+  remove: (listingId: string) => api.delete(`/favourites/${listingId}`),
+  getStatus: (listingId: string) =>
+    api.get<{ saved: boolean }>(`/favourites/${listingId}/status`),
 };
 
 // ── Search History ─────────────────────────────────────────────────────────────
 export const searchHistoryApi = {
-    getAll: () => api.get('/search-history'),
-    save: (snapshot: string) => api.post('/search-history', { snapshot }),
+  getAll: () => api.get("/search-history"),
+  save: (snapshot: string) => api.post("/search-history", { snapshot }),
 };
 
 // ── View History ───────────────────────────────────────────────────────────────
 export const viewHistoryApi = {
-    getAll: () => api.get('/view-history'),
-    track: (listingId: string) => api.post(`/view-history/${listingId}`),
+  getAll: () => api.get("/view-history"),
+  track: (listingId: string) => api.post(`/view-history/${listingId}`),
 };
 
 // ── Conversations ──────────────────────────────────────────────────────────────
 export const conversationsApi = {
-    open: (listingId: string) =>
-        api.post<{ conversationId: string }>('/conversations/open', { listingId }),
-    getAll: () => api.get('/conversations'),
-    getMessages: (conversationId: string) =>
-        api.get(`/conversations/${conversationId}/messages`),
-    sendMessage: (conversationId: string, content: string) =>
-        api.post(`/conversations/${conversationId}/messages`, { content }),
+  open: (listingId: string) =>
+    api.post<{ conversationId: string }>("/conversations/open", { listingId }),
+  getAll: () => api.get("/conversations"),
+  getMessages: (conversationId: string) =>
+    api.get(`/conversations/${conversationId}/messages`),
+  sendMessage: (conversationId: string, content: string) =>
+    api.post(`/conversations/${conversationId}/messages`, { content }),
 };
 
 // ── Browse (public landing page) ───────────────────────────────────────────────
 export const browseApi = {
-    getListings: () => api.get('/browse/listings'),
+  getListings: () => api.get("/browse/listings"),
 };
 
 // ── Agent public profile ───────────────────────────────────────────────────────
 export const agentApi = {
-    getPublicProfile: (agentId: string) => api.get(`/agents/${agentId}/public`),
+  getPublicProfile: (agentId: string) => api.get(`/agents/${agentId}/public`),
+  getListingAnalytics: () =>
+    api.get<
+      Array<{
+        id: string;
+        name: string;
+        viewCount: number;
+        bookingCount: number;
+        confirmedCount: number;
+        pendingCount: number;
+        cancelledCount: number;
+      }>
+    >("/agent/dashboard/analytics/listings"),
 };
+
+// ── Review ──────────────────────────────────────────────────────────────────────
+export const reviewsApi = {
+  create: (data: {
+    rating: number;
+    reviewText: string;
+    viewingScheduleId?: string;
+    conversationId?: string;
+  }) => api.post("/reviews", data),
+
+  getAgentReviews: () =>
+    api.get<{
+      averageRating: number;
+      totalReviews: number;
+      reviews: ReviewResponse[];
+    }>("/reviews/agent"),
+
+  getPublicReviews: (agentId: string) =>
+    api.get<{
+      averageRating: number;
+      totalReviews: number;
+      reviews: ReviewResponse[];
+    }>(`/reviews/agent/${agentId}/public`),
+
+  getMyReviews: () => api.get<ReviewResponse[]>("/reviews/tenant"),
+};
+
+// types
+export interface ReviewResponse {
+  id: string;
+  agentId: string;
+  agentName: string; // or tenantName depending on context
+  rating: number;
+  reviewText: string;
+  createdAt: string;
+  source: "viewing" | "conversation";
+}

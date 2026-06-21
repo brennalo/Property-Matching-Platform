@@ -38,11 +38,11 @@ import TokenTopUpPage from "./pages/agent/TokenTopUpPage";
 import PaymentSuccessPage from "./pages/agent/PaymentSuccessPage";
 import PaymentCancelPage from "./pages/agent/PaymentCancelPage";
 import AdminTenantsPage from "./pages/admin/TenantsPage";
-import BrowsePage from './pages/BrowsePage';
-import FavouritesPage from './pages/tenant/FavouritesPage';
-import HistoryPage from './pages/tenant/HistoryPage';
-import ConversationsPage from './pages/tenant/ConversationsPage';
-import AgentConversationsPage from './pages/agent/ConversationsPage';
+import BrowsePage from "./pages/BrowsePage";
+import FavouritesPage from "./pages/tenant/FavouritesPage";
+import HistoryPage from "./pages/tenant/HistoryPage";
+import ConversationsPage from "./pages/tenant/ConversationsPage";
+import AgentConversationsPage from "./pages/agent/ConversationsPage";
 
 import {
   Search,
@@ -57,7 +57,13 @@ import {
   Coins,
   MessageSquare,
   Clock,
+  Star,
+  CalendarCheck,
+  ClipboardCheck,
+  LayoutDashboard,
 } from "lucide-react";
+import AgentReviewsPage from "./pages/agent/ReviewsPage";
+import AgentAnalyticsPage from "./pages/agent/AgentAnalytics";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
@@ -211,34 +217,52 @@ function AppShell({ children }: { children: React.ReactNode }) {
       icon: <Heart size={16} />,
       label: "Lifestyle Templates",
     },
-      { to: "/my-schedules", icon: <Calendar size={16} />, label: "My Viewings" },
-      { to: '/favourites', icon: <Heart size={16} />, label: 'Saved Listings' },
-      { to: '/history', icon: <Clock size={16} />, label: 'History' },
-      { to: '/conversations', icon: <MessageSquare size={16} />, label: 'Messages' },
+    { to: "/my-schedules", icon: <Calendar size={16} />, label: "My Viewings" },
+    { to: "/favourites", icon: <Heart size={16} />, label: "Saved Listings" },
+    { to: "/history", icon: <Clock size={16} />, label: "History" },
+    {
+      to: "/conversations",
+      icon: <MessageSquare size={16} />,
+      label: "Messages",
+    },
   ];
   const agentLinks = [
     {
       to: "/agent/dashboard",
-      icon: <BarChart3 size={16} />,
+      icon: <LayoutDashboard size={16} />,
       label: "Dashboard",
     },
     { to: "/agent/listings", icon: <List size={16} />, label: "My Listings" },
     {
       to: "/agent/availability",
-      icon: <Calendar size={16} />,
+      icon: <CalendarCheck size={16} />,
       label: "My Availability",
     },
     {
       to: "/agent/calendar",
-      icon: <Calendar size={16} />,
+      icon: <Clock size={16} />,
       label: "Viewing Calendar",
     },
     {
       to: "/agent/topup",
       icon: <Coins size={16} />,
       label: "Top Up Tokens",
-      },
-      { to: '/agent/conversations', icon: <MessageSquare size={16} />, label: 'Messages' },
+    },
+    {
+      to: "/agent/conversations",
+      icon: <MessageSquare size={16} />,
+      label: "Messages",
+    },
+    {
+      to: "/agent/analytics",
+      icon: <BarChart3 size={16} />,
+      label: "Listing Analytics",
+    },
+    {
+      to: "/agent/reviews",
+      icon: <Star size={16} />,
+      label: "Reviews & Ratings",
+    },
   ];
   const adminLinks = [
     {
@@ -247,7 +271,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
       label: "Analytics",
     },
     { to: "/admin/agents", icon: <Users size={16} />, label: "Agents" },
-      { to: "/admin/tenants", icon: <Users size={16} />, label: "Tenants" },
+    { to: "/admin/tenants", icon: <Users size={16} />, label: "Tenants" },
   ];
 
   const links =
@@ -410,22 +434,38 @@ export default function App() {
                     <TenantSchedulesPage />
                   </AppShell>
                 </ProtectedRoute>
-            }/>
-            <Route path="/favourites" element={
-                <ProtectedRoute roles={['Tenant']} requireVerified>
-                    <AppShell><FavouritesPage /></AppShell>
+              }
+            />
+            <Route
+              path="/favourites"
+              element={
+                <ProtectedRoute roles={["Tenant"]} requireVerified>
+                  <AppShell>
+                    <FavouritesPage />
+                  </AppShell>
                 </ProtectedRoute>
-            } />
-            <Route path="/history" element={
-                <ProtectedRoute roles={['Tenant']} requireVerified>
-                    <AppShell><HistoryPage /></AppShell>
+              }
+            />
+            <Route
+              path="/history"
+              element={
+                <ProtectedRoute roles={["Tenant"]} requireVerified>
+                  <AppShell>
+                    <HistoryPage />
+                  </AppShell>
                 </ProtectedRoute>
-            } />
-            <Route path="/conversations" element={
-                <ProtectedRoute roles={['Tenant']} requireVerified>
-                    <AppShell><ConversationsPage /></AppShell>
+              }
+            />
+            <Route
+              path="/conversations"
+              element={
+                <ProtectedRoute roles={["Tenant"]} requireVerified>
+                  <AppShell>
+                    <ConversationsPage />
+                  </AppShell>
                 </ProtectedRoute>
-            } />
+              }
+            />
 
             {/* Agent — all require verified */}
             <Route
@@ -458,11 +498,16 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
-            <Route path="/agent/conversations" element={
-                <ProtectedRoute roles={['Agent']} requireVerified>
-                    <AppShell><AgentConversationsPage /></AppShell>
+            <Route
+              path="/agent/conversations"
+              element={
+                <ProtectedRoute roles={["Agent"]} requireVerified>
+                  <AppShell>
+                    <AgentConversationsPage />
+                  </AppShell>
                 </ProtectedRoute>
-            } />
+              }
+            />
             <Route
               path="/agent/calendar"
               element={
@@ -493,8 +538,29 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+
+            <Route
+              path="/agent/analytics"
+              element={
+                <ProtectedRoute roles={["Agent"]}>
+                  <AppShell>
+                    <AgentAnalyticsPage />
+                  </AppShell>
+                </ProtectedRoute>
+              }
+            />
             <Route path="/payment-success" element={<PaymentSuccessPage />} />
             <Route path="/payment-cancel" element={<PaymentCancelPage />} />
+            <Route
+              path="/agent/reviews"
+              element={
+                <ProtectedRoute roles={["Agent"]} requireVerified>
+                  <AppShell>
+                    <AgentReviewsPage />
+                  </AppShell>
+                </ProtectedRoute>
+              }
+            />
 
             {/* Admin */}
             <Route

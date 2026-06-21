@@ -3,6 +3,7 @@ using Microsoft.VisualBasic;
 using PropertyMatch.API.Models;
 using Stripe;
 using System.Reflection.Emit;
+using ReviewModel = PropertyMatch.API.Models.Review;
 
 namespace PropertyMatch.API.Data;
 
@@ -18,7 +19,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<AvailabilityTemplate> AvailabilityTemplates => Set<AvailabilityTemplate>();
     public DbSet<AvailabilityException> AvailabilityExceptions => Set<AvailabilityException>();
-    public DbSet<Reviews> Reviews => Set<Reviews>();
+    public DbSet<Models.Review> Reviews => Set<Models.Review>();
     public DbSet<SearchLog> SearchLogs => Set<SearchLog>();
     public DbSet<ViewHistory> ViewHistory => Set<ViewHistory>();
     public DbSet<FavouriteListing> FavouriteListings => Set<FavouriteListing>();
@@ -107,17 +108,24 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         .HasConversion<string>();
 
 
-        // ── ViewingSchedule composite PK ──────────────────────────────────────
-        mb.Entity<ViewingSchedule>()
-            .HasKey(v => new { v.ListingId, v.ScheduledAt });
-        mb.Entity<ViewingSchedule>()
-            .HasOne(v => v.Listing)
-            .WithMany(l => l.ViewingSchedules)
-            .HasForeignKey(v => v.ListingId);
-        mb.Entity<ViewingSchedule>()
-            .HasOne(v => v.Tenant)
-            .WithMany(u => u.ViewingSchedules)
-            .HasForeignKey(v => v.TenantId);
+        // ── ViewingSchedule ──────────────────────────────────────────────────
+    mb.Entity<ViewingSchedule>()
+        .HasKey(v => v.Id);   // Id is now the PK
+
+    mb.Entity<ViewingSchedule>()
+        .HasIndex(v => new { v.ListingId, v.ScheduledAt })
+        .IsUnique()
+        .HasDatabaseName("UQ_ViewingSchedules_ListingId_ScheduledAt");
+
+    mb.Entity<ViewingSchedule>()
+        .HasOne(v => v.Listing)
+        .WithMany(l => l.ViewingSchedules)
+        .HasForeignKey(v => v.ListingId);
+
+    mb.Entity<ViewingSchedule>()
+        .HasOne(v => v.Tenant)
+        .WithMany(u => u.ViewingSchedules)
+        .HasForeignKey(v => v.TenantId);
 
         // ── Payment FK → Agent.UserId ─────────────────────────────────────────
         mb.Entity<Payment>()
@@ -174,5 +182,53 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasForeignKey(m => m.SenderId)
             .OnDelete(DeleteBehavior.Restrict);
 
-    }
+    // ── Reviews ──────────────────────────────────────────────────────────
+mb.Entity<Models.Review>()
+    .HasOne(r => r.Agent)
+    .WithMany(a => a.Reviews)
+    .HasForeignKey(r => r.AgentId)
+    .OnDelete(DeleteBehavior.Cascade);
+
+    mb.Entity<Models.Review>()
+    .Property(r => r.Rating)
+    .HasColumnName("Ratings");
+
+mb.Entity<Models.Review>()
+    .HasOne(r => r.Tenant)
+    .WithMany(u => u.Reviews)
+    .HasForeignKey(r => r.TenantId)
+    .OnDelete(DeleteBehavior.Cascade);
+
+mb.Entity<Models.Review>()
+    .HasOne(r => r.ViewingSchedule)
+    .WithMany(vs => vs.Reviews)
+    .HasForeignKey(r => r.ViewingScheduleId)
+    .OnDelete(DeleteBehavior.SetNull);
+
+mb.Entity<Models.Review>()
+    .HasOne(r => r.Conversation)
+    .WithMany(c => c.Reviews)
+    .HasForeignKey(r => r.ConversationId)
+    .OnDelete(DeleteBehavior.SetNull);
+
+// Unique constraints
+mb.Entity<Models.Review>()
+    .HasIndex(r => new { r.TenantId, r.ViewingScheduleId })
+    .IsUnique()
+    .HasFilter("\"ViewingScheduleId\" IS NOT NULL")
+    .HasDatabaseName("UQ_Reviews_Tenant_ViewingSchedule");
+
+mb.Entity<Models.Review>()
+    .HasIndex(r => new { r.TenantId, r.ConversationId })
+    .IsUnique()
+    .HasFilter("\"ConversationId\" IS NOT NULL")
+    .HasDatabaseName("UQ_Reviews_Tenant_Conversation");
+
+// Check constraint
+mb.Entity<Models.Review>()
+    .ToTable(t => t.HasCheckConstraint(
+        "CK_Reviews_Source",
+        "(\"ViewingScheduleId\" IS NOT NULL AND \"ConversationId\" IS NULL) OR " +
+        "(\"ViewingScheduleId\" IS NULL AND \"ConversationId\" IS NOT NULL)"));
+}
 }

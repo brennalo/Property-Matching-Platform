@@ -1,7 +1,15 @@
 ﻿import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useQuery,useMutation,useQueryClient } from "@tanstack/react-query";
-import { schedulesApi, availabilityApi,favouritesApi,agentApi,conversationsApi,viewHistoryApi, listingsApi } from "../../api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  schedulesApi,
+  availabilityApi,
+  favouritesApi,
+  agentApi,
+  conversationsApi,
+  viewHistoryApi,
+  listingsApi,
+} from "../../api";
 import type {
   MatchedListing,
   ModeCommuteResult,
@@ -1276,23 +1284,20 @@ function ScheduleModal({
     return d;
   });
 
-  // Compute first and last day of the viewed month
   const fromDate = useMemo(() => {
-    const d = new Date(viewDate);
-    d.setDate(1);
-    d.setHours(0, 0, 0, 0);
-    return d;
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+    return new Date(Date.UTC(year, month, 1));
   }, [viewDate]);
 
   const toDate = useMemo(() => {
-    const d = new Date(viewDate);
-    d.setMonth(d.getMonth() + 1);
-    d.setDate(0); // last day of month
-    d.setHours(23, 59, 59, 999);
-    return d;
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+    // Last day of month
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    return new Date(Date.UTC(year, month, lastDay, 23, 59, 59, 999));
   }, [viewDate]);
 
-  // Fetch available slots for the month
   const { data: slots = [], isLoading: slotsLoading } = useQuery({
     queryKey: [
       "available-slots",
@@ -1310,64 +1315,69 @@ function ScheduleModal({
     enabled: !!listingId,
   });
 
-  // Group slots by date string (YYYY-MM-DD)
   const slotsByDate = useMemo(() => {
     const map: Record<string, typeof slots> = {};
     slots.forEach((slot) => {
-      const dateKey = slot.date.split("T")[0]; // YYYY-MM-DD
+      const dateKey = slot.date.split("T")[0];
       if (!map[dateKey]) map[dateKey] = [];
       map[dateKey].push(slot);
     });
     return map;
   }, [slots]);
 
-  // Build calendar grid
+  const now = new Date();
+  const todayStr = new Date(
+    Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()),
+  )
+    .toISOString()
+    .split("T")[0];
+
   const calendarData = useMemo(() => {
     const year = viewDate.getFullYear();
     const month = viewDate.getMonth();
-    const firstDayOfMonth = new Date(year, month, 1).getDay(); // 0=Sun
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const firstDayOfMonth = new Date(Date.UTC(year, month, 1)).getUTCDay();
+    const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
 
     const rows: Array<Array<{ day: number; dateStr: string; status: string }>> =
       [];
     let currentRow: Array<{ day: number; dateStr: string; status: string }> =
       [];
 
-    // Fill leading empty cells
     for (let i = 0; i < firstDayOfMonth; i++) {
       currentRow.push({ day: 0, dateStr: "", status: "empty" });
     }
 
     for (let day = 1; day <= daysInMonth; day++) {
-      const dateObj = new Date(year, month, day);
+      const dateObj = new Date(Date.UTC(year, month, day));
       const dateStr = dateObj.toISOString().split("T")[0];
-      const isPast = dateObj < today;
+      const isPast = dateStr < todayStr;
 
-      // Determine status
-      let status = "unavailable";
-      const daySlots = slotsByDate[dateStr] || [];
-      if (daySlots.length > 0) {
-        const bookedCount = daySlots.filter((s) => s.isBooked).length;
-        if (bookedCount === daySlots.length) {
-          status = "fully-booked";
-        } else {
-          status = "partially-booked";
-        }
+      let status: string;
+      if (isPast) {
+        status = "past";
       } else {
-        status = isPast ? "past" : "unavailable";
+        const daySlots = slotsByDate[dateStr] || [];
+        if (daySlots.length === 0) {
+          status = "unavailable";
+        } else {
+          const bookedCount = daySlots.filter((s) => s.isBooked).length;
+          if (bookedCount === daySlots.length) {
+            status = "fully-booked";
+          } else if (bookedCount === 0) {
+            status = "available";
+          } else {
+            status = "partially-booked";
+          }
+        }
       }
 
       currentRow.push({ day, dateStr, status });
-
       if (currentRow.length === 7) {
         rows.push(currentRow);
         currentRow = [];
       }
     }
 
-    // Fill trailing empty cells
     while (currentRow.length < 7 && currentRow.length > 0) {
       currentRow.push({ day: 0, dateStr: "", status: "empty" });
     }
@@ -1376,7 +1386,7 @@ function ScheduleModal({
     }
 
     return rows;
-  }, [viewDate, slotsByDate]);
+  }, [viewDate, slotsByDate, todayStr]);
 
   const goPrevMonth = () => {
     setViewDate((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1));
@@ -1420,12 +1430,12 @@ function ScheduleModal({
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case "available":
+        return "var(--teal)";
       case "partially-booked":
         return "var(--accent)";
       case "fully-booked":
         return "var(--red)";
-      case "available":
-        return "var(--teal)";
       case "past":
         return "var(--text-dim)";
       default:
@@ -1435,12 +1445,12 @@ function ScheduleModal({
 
   const getStatusLabel = (status: string) => {
     switch (status) {
+      case "available":
+        return "Available";
       case "partially-booked":
         return "Partially booked";
       case "fully-booked":
         return "Fully booked";
-      case "available":
-        return "Available";
       case "past":
         return "Past";
       default:
@@ -1578,9 +1588,8 @@ function ScheduleModal({
                     }
                     const isSelected = selectedDate === cell.dateStr;
                     const canClick =
-                      cell.status !== "unavailable" &&
-                      cell.status !== "past" &&
-                      cell.status !== "fully-booked";
+                      cell.status === "available" ||
+                      cell.status === "partially-booked";
                     return (
                       <div
                         key={colIdx}
@@ -1694,9 +1703,21 @@ function ScheduleModal({
                 />
                 Unavailable
               </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background: "var(--text-dim)",
+                    display: "inline-block",
+                  }}
+                />
+                Past
+              </span>
             </div>
 
-            {/* Time slot picker (only if a date with free slots is selected) */}
+            {/* Time slots */}
             {selectedDate && (
               <div style={{ marginBottom: 16 }}>
                 <label
@@ -1779,86 +1800,89 @@ function ScheduleModal({
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function ListingDetailPage() {
-    const navigate = useNavigate();
-    const { id } = useParams<{ id: string }>();
-    const qc = useQueryClient();
-    const [result, setResult] = useState<MatchedListing | null>(null);
-    const [workplaceLat, setWorkplaceLat] = useState<number | null>(null);
-    const [workplaceLng, setWorkplaceLng] = useState<number | null>(null);
-    const [showSchedule, setShowSchedule] = useState(false);
-    const mapsReady = useGoogleMaps();
+  const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const qc = useQueryClient();
+  const [result, setResult] = useState<MatchedListing | null>(null);
+  const [workplaceLat, setWorkplaceLat] = useState<number | null>(null);
+  const [workplaceLng, setWorkplaceLng] = useState<number | null>(null);
+  const [showSchedule, setShowSchedule] = useState(false);
+  const mapsReady = useGoogleMaps();
 
-    useEffect(() => {
-        const raw = sessionStorage.getItem("matchResults");
-        const reqRaw = sessionStorage.getItem("matchReq");
-        if (raw && id) {
-            const results: MatchedListing[] = JSON.parse(raw);
-            const found = results.find((r) => r.listing.id === id);
-            if (found) {
-                setResult(found);
-                if (reqRaw) {
-                    const req = JSON.parse(reqRaw);
-                    setWorkplaceLat(req.workplaceLat ?? null);
-                    setWorkplaceLng(req.workplaceLng ?? null);
-                }
-                return;
-            }
+  useEffect(() => {
+    const raw = sessionStorage.getItem("matchResults");
+    const reqRaw = sessionStorage.getItem("matchReq");
+    if (raw && id) {
+      const results: MatchedListing[] = JSON.parse(raw);
+      const found = results.find((r) => r.listing.id === id);
+      if (found) {
+        setResult(found);
+        if (reqRaw) {
+          const req = JSON.parse(reqRaw);
+          setWorkplaceLat(req.workplaceLat ?? null);
+          setWorkplaceLng(req.workplaceLng ?? null);
         }
-        if (id) {
-            listingsApi.getById(id).then(res => {
-                setResult({
-                    listing: res.data,
-                    totalScore: 0,
-                    numericScore: 0,
-                    commuteScore: 0,
-                    lifestyleScore: 0,
-                    commuteMinutes: null,
-                    commuteRoutes: [],
-                    lifestylePlaces: {},
-                });
-            }).catch(() => navigate("/search"));
-        }
-    }, [id, navigate]);
+        return;
+      }
+    }
+    if (id) {
+      listingsApi
+        .getById(id)
+        .then((res) => {
+          setResult({
+            listing: res.data,
+            totalScore: 0,
+            numericScore: 0,
+            commuteScore: 0,
+            lifestyleScore: 0,
+            commuteMinutes: null,
+            commuteRoutes: [],
+            lifestylePlaces: {},
+          });
+        })
+        .catch(() => navigate("/search"));
+    }
+  }, [id, navigate]);
 
+  // ── ALL hooks must be here, before any early return ──
+  const listingId = result?.listing?.id;
+  const agentId = result?.listing?.agentId;
 
-    // ── ALL hooks must be here, before any early return ──
-    const listingId = result?.listing?.id;
-    const agentId = result?.listing?.agentId;
+  useEffect(() => {
+    if (listingId) {
+      viewHistoryApi.track(listingId);
+    }
+  }, [listingId]);
 
-    useEffect(() => {
-        if (listingId) {
-            viewHistoryApi.track(listingId);
-        }
-    }, [listingId]);
+  const { data: favStatus } = useQuery({
+    queryKey: ["fav-status", listingId],
+    queryFn: () => favouritesApi.getStatus(listingId!).then((r) => r.data),
+    enabled: !!listingId,
+  });
+  const toggleFav = useMutation({
+    mutationFn: () =>
+      favStatus?.saved
+        ? favouritesApi.remove(listingId!)
+        : favouritesApi.add(listingId!),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ["fav-status", listingId] }),
+  });
+  const enquireMut = useMutation({
+    mutationFn: () => conversationsApi.open(listingId!),
+    onSuccess: () => navigate("/conversations"),
+  });
+  const { data: agentProfile } = useQuery({
+    queryKey: ["agent-public", agentId],
+    queryFn: () => agentApi.getPublicProfile(agentId!).then((r) => r.data),
+    enabled: !!agentId,
+  });
 
-    const { data: favStatus } = useQuery({
-        queryKey: ['fav-status', listingId],
-        queryFn: () => favouritesApi.getStatus(listingId!).then(r => r.data),
-        enabled: !!listingId,
-    });
-    const toggleFav = useMutation({
-        mutationFn: () =>
-            favStatus?.saved
-                ? favouritesApi.remove(listingId!)
-                : favouritesApi.add(listingId!),
-        onSuccess: () => qc.invalidateQueries({ queryKey: ['fav-status', listingId] }),
-    });
-    const enquireMut = useMutation({
-        mutationFn: () => conversationsApi.open(listingId!),
-        onSuccess: () => navigate('/conversations'),
-    });
-    const { data: agentProfile } = useQuery({
-        queryKey: ['agent-public', agentId],
-        queryFn: () => agentApi.getPublicProfile(agentId!).then(r => r.data),
-        enabled: !!agentId,
-    });
+  // ── early return AFTER all hooks ──
+  if (!result) return null;
 
-    // ── early return AFTER all hooks ──
-    if (!result) return null;
-
-    const { listing } = result;
-    const hasRoutes = result.commuteRoutes.length > 0 && workplaceLat && workplaceLng;
-
+  const { listing } = result;
+  const hasRoutes =
+    result.commuteRoutes.length > 0 && workplaceLat && workplaceLng;
 
   return (
     <div style={{ maxWidth: 920, margin: "0 auto" }}>
@@ -2025,54 +2049,90 @@ export default function ListingDetailPage() {
             <h3 style={{ fontSize: "0.95rem", fontWeight: 600 }}>
               Interested?
             </h3>
-              <>
-                <p style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>
-                  Book a viewing with the agent.
-                </p>
-                <button
-                  className="btn btn-primary w-full"
-                  style={{ justifyContent: "center" }}
-                  onClick={() => setShowSchedule(true)}
-                >
-                  <CalendarPlus size={14} /> Schedule a Viewing
-                </button>
-                </>
+            <>
+              <p style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>
+                Book a viewing with the agent.
+              </p>
+              <button
+                className="btn btn-primary w-full"
+                style={{ justifyContent: "center" }}
+                onClick={() => setShowSchedule(true)}
+              >
+                <CalendarPlus size={14} /> Schedule a Viewing
+              </button>
+            </>
 
             <div className="card" style={{ padding: 20, marginTop: 24 }}>
-                <div style={{ fontWeight: 700, marginBottom: 12, fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-                    LISTED BY
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                        <div style={{ fontWeight: 600, fontSize: '1rem' }}>{agentProfile?.fullName}</div>
-                        {agentProfile?.licenseNumber && (
-                            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                                License: {agentProfile.licenseNumber}
-                            </div>
-                        )}
-                        {agentProfile?.contactNo && (
-                            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                                Contact: {agentProfile.contactNo}
-                            </div>
-                        )}
+              <div
+                style={{
+                  fontWeight: 700,
+                  marginBottom: 12,
+                  fontSize: "0.9rem",
+                  color: "var(--text-muted)",
+                }}
+              >
+                LISTED BY
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: "1rem" }}>
+                    {agentProfile?.fullName}
+                  </div>
+                  {agentProfile?.licenseNumber && (
+                    <div
+                      style={{
+                        fontSize: "0.82rem",
+                        color: "var(--text-muted)",
+                        marginTop: 2,
+                      }}
+                    >
+                      License: {agentProfile.licenseNumber}
                     </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                        <button
-                            className={`btn ${favStatus?.saved ? 'btn-primary' : 'btn-outline'}`}
-                            onClick={() => toggleFav.mutate()}
-                            title={favStatus?.saved ? 'Remove from saved' : 'Save listing'}
-                        >
-                            <Heart size={15} fill={favStatus?.saved ? 'currentColor' : 'none'} />
-                        </button>
-                        <button
-                            className="btn btn-primary"
-                            onClick={() => enquireMut.mutate()}
-                            disabled={enquireMut.isPending}
-                        >
-                            {enquireMut.isPending ? <span className="spinner" /> : 'Enquire More'}
-                        </button>
+                  )}
+                  {agentProfile?.contactNo && (
+                    <div
+                      style={{
+                        fontSize: "0.82rem",
+                        color: "var(--text-muted)",
+                        marginTop: 2,
+                      }}
+                    >
+                      Contact: {agentProfile.contactNo}
                     </div>
+                  )}
                 </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    className={`btn ${favStatus?.saved ? "btn-primary" : "btn-outline"}`}
+                    onClick={() => toggleFav.mutate()}
+                    title={
+                      favStatus?.saved ? "Remove from saved" : "Save listing"
+                    }
+                  >
+                    <Heart
+                      size={15}
+                      fill={favStatus?.saved ? "currentColor" : "none"}
+                    />
+                  </button>
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => enquireMut.mutate()}
+                    disabled={enquireMut.isPending}
+                  >
+                    {enquireMut.isPending ? (
+                      <span className="spinner" />
+                    ) : (
+                      "Enquire More"
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="divider" />
