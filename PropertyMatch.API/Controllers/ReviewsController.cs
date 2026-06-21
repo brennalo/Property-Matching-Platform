@@ -101,6 +101,8 @@ public class ReviewsController(AppDbContext db) : ControllerBase
         var agentId = User.GetUserId();
         var reviews = await db.Reviews
             .Include(r => r.Tenant)
+            .Include(r => r.ViewingSchedule).ThenInclude(vs => vs.Listing)
+            .Include(r => r.Conversation).ThenInclude(c => c.Listing)
             .Where(r => r.AgentId == agentId)
             .OrderByDescending(r => r.CreatedAt)
             .Select(r => new ReviewResponse(
@@ -110,7 +112,10 @@ public class ReviewsController(AppDbContext db) : ControllerBase
                 r.Rating,
                 r.ReviewText,
                 r.CreatedAt,
-                r.ViewingScheduleId != null ? "viewing" : "conversation"
+                r.ViewingScheduleId != null ? "Viewing" : "Conversation",
+                r.ViewingScheduleId != null
+                    ? r.ViewingSchedule.Listing.Name
+                    : r.Conversation.Listing.Name
             ))
             .ToListAsync();
 
@@ -126,6 +131,8 @@ public class ReviewsController(AppDbContext db) : ControllerBase
     {
         var reviews = await db.Reviews
             .Include(r => r.Tenant)
+            .Include(r => r.ViewingSchedule).ThenInclude(vs => vs.Listing)
+            .Include(r => r.Conversation).ThenInclude(c => c.Listing)
             .Where(r => r.AgentId == agentId)
             .OrderByDescending(r => r.CreatedAt)
             .Select(r => new ReviewResponse(
@@ -135,7 +142,10 @@ public class ReviewsController(AppDbContext db) : ControllerBase
                 r.Rating,
                 r.ReviewText,
                 r.CreatedAt,
-                r.ViewingScheduleId != null ? "viewing" : "conversation"
+                r.ViewingScheduleId != null ? "Viewing" : "Conversation",
+                r.ViewingScheduleId != null
+                    ? r.ViewingSchedule.Listing.Name
+                    : r.Conversation.Listing.Name
             ))
             .ToListAsync();
 
@@ -150,8 +160,9 @@ public class ReviewsController(AppDbContext db) : ControllerBase
     {
         var tenantId = User.GetUserId();
         var reviews = await db.Reviews
-            .Include(r => r.Agent)
-            .ThenInclude(a => a.User)
+            .Include(r => r.Agent).ThenInclude(a => a.User)
+            .Include(r => r.ViewingSchedule).ThenInclude(vs => vs.Listing)
+            .Include(r => r.Conversation).ThenInclude(c => c.Listing)
             .Where(r => r.TenantId == tenantId)
             .OrderByDescending(r => r.CreatedAt)
             .Select(r => new ReviewResponse(
@@ -161,9 +172,76 @@ public class ReviewsController(AppDbContext db) : ControllerBase
                 r.Rating,
                 r.ReviewText,
                 r.CreatedAt,
-                r.ViewingScheduleId != null ? "viewing" : "conversation"
+                r.ViewingScheduleId != null ? "Viewing" : "Conversation",
+                r.ViewingScheduleId != null
+                    ? r.ViewingSchedule.Listing.Name
+                    : r.Conversation.Listing.Name
             ))
             .ToListAsync();
         return Ok(reviews);
+    }
+
+    // GET /api/reviews/tenant/by-source – get a specific review by source for editing
+    [HttpGet("tenant/by-source")]
+    [Authorize(Roles = "Tenant")]
+    public async Task<IActionResult> GetReviewBySource(
+        [FromQuery] Guid? viewingScheduleId,
+        [FromQuery] Guid? conversationId)
+    {
+        if (viewingScheduleId == null && conversationId == null)
+            return BadRequest(new { message = "Must provide either viewingScheduleId or conversationId." });
+
+        var tenantId = User.GetUserId();
+        Review? review = null;
+        string listingName = "";
+        if (viewingScheduleId.HasValue)
+        {
+            review = await db.Reviews
+                .Include(r => r.ViewingSchedule).ThenInclude(vs => vs.Listing)
+                .FirstOrDefaultAsync(r => r.TenantId == tenantId && r.ViewingScheduleId == viewingScheduleId);
+            if (review?.ViewingSchedule != null)
+                listingName = review.ViewingSchedule.Listing.Name;
+        }
+        else if (conversationId.HasValue)
+        {
+            review = await db.Reviews
+                .Include(r => r.Conversation).ThenInclude(c => c.Listing)
+                .FirstOrDefaultAsync(r => r.TenantId == tenantId && r.ConversationId == conversationId);
+            if (review?.Conversation != null)
+                listingName = review.Conversation.Listing.Name;
+        }
+
+        if (review == null)
+            return NotFound();
+
+        return Ok(new ReviewResponse(
+            review.Id,
+            review.AgentId,
+            "",  // not needed for editing
+            review.Rating,
+            review.ReviewText,
+            review.CreatedAt,
+            review.ViewingScheduleId != null ? "Viewing" : "Conversation",
+            listingName
+        ));
+    }
+
+    // PUT /api/reviews/{id} – update an existing review
+    [HttpPut("{id}")]
+    [Authorize(Roles = "Tenant")]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateReviewRequest req)
+    {
+        var tenantId = User.GetUserId();
+        var review = await db.Reviews
+            .FirstOrDefaultAsync(r => r.Id == id && r.TenantId == tenantId);
+
+        if (review == null)
+            return NotFound();
+
+        review.Rating = req.Rating;
+        review.ReviewText = req.ReviewText;
+        await db.SaveChangesAsync();
+
+        return Ok(new { message = "Review updated successfully." });
     }
 }

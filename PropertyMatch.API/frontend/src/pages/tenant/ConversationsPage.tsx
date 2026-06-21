@@ -50,32 +50,6 @@ export default function ConversationsPage() {
     },
   });
 
-  const submitReview = useMutation({
-    mutationFn: ({
-      rating,
-      reviewText,
-      conversationId,
-    }: {
-      rating: number;
-      reviewText: string;
-      conversationId: string;
-    }) => reviewsApi.create({ rating, reviewText, conversationId }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["conversations"] });
-      setShowReviewModal(false);
-      setReviewLoading(false);
-      showToast("Review submitted successfully!", "success");
-    },
-    onError: (error: any) => {
-      setReviewLoading(false);
-      const message =
-        error?.response?.data?.message ||
-        error?.message ||
-        "Failed to submit review";
-      showToast(message, "error");
-    },
-  });
-
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -301,17 +275,13 @@ export default function ConversationsPage() {
       {/* Review Modal */}
       {showReviewModal && selectedId && (
         <ReviewModal
+          conversationId={selectedId}
           title="Rate Agent for this conversation"
           onClose={() => setShowReviewModal(false)}
-          onSubmit={(rating, reviewText) => {
-            setReviewLoading(true);
-            submitReview.mutate({
-              rating,
-              reviewText,
-              conversationId: selectedId,
-            });
+          onSuccess={() => {
+            qc.invalidateQueries({ queryKey: ["conversations"] });
+            showToast("Review submitted successfully!", "success");
           }}
-          loading={reviewLoading}
         />
       )}
       {toast && <div className={`toast toast-${toast.type}`}>{toast.msg}</div>}

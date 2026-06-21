@@ -309,15 +309,21 @@ public record CreateReviewRequest(
 public record ReviewResponse(
     Guid Id,
     Guid AgentId,
-    string AgentName,               // or TenantName, depending on context
+    string AgentName,
     int Rating,
     string ReviewText,
     DateTime CreatedAt,
-    string Source                   // "viewing" or "conversation"
+    string Source,
+    string ListingName
 );
 
 public record AgentReviewSummary(
     double AverageRating,
     int TotalReviews,
     List<ReviewResponse> Reviews
+);
+
+public record UpdateReviewRequest(
+    int Rating,
+    string ReviewText
 );

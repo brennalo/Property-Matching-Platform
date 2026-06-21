@@ -355,6 +355,14 @@ export const reviewsApi = {
     }>(`/reviews/agent/${agentId}/public`),
 
   getMyReviews: () => api.get<ReviewResponse[]>("/reviews/tenant"),
+
+  getBySource: (params: {
+    viewingScheduleId?: string;
+    conversationId?: string;
+  }) => api.get<ReviewResponse>("/reviews/tenant/by-source", { params }),
+
+  update: (id: string, data: { rating: number; reviewText: string }) =>
+    api.put(`/reviews/${id}`, data),
 };
 
 // types
@@ -365,7 +373,8 @@ export interface ReviewResponse {
   rating: number;
   reviewText: string;
   createdAt: string;
-  source: "viewing" | "conversation";
+  source: "Viewing" | "Conversation";
+  listingName: string;
 }
 
 export const scoringConfigApi = {

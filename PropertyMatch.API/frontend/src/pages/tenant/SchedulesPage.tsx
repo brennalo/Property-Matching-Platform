@@ -34,32 +34,6 @@ export default function TenantSchedulesPage() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const submitReview = useMutation({
-    mutationFn: ({
-      rating,
-      reviewText,
-      viewingScheduleId,
-    }: {
-      rating: number;
-      reviewText: string;
-      viewingScheduleId: string;
-    }) => reviewsApi.create({ rating, reviewText, viewingScheduleId }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["my-schedules"] });
-      setReviewTarget(null);
-      setReviewLoading(false);
-      showToast("Review submitted successfully!", "success");
-    },
-    onError: (error: any) => {
-      setReviewLoading(false);
-      const message =
-        error?.response?.data?.message ||
-        error?.message ||
-        "Failed to submit review";
-      showToast(message, "error");
-    },
-  });
-
   const upcoming = schedules.filter(
     (s) => new Date(s.scheduledAt) >= new Date(),
   );
@@ -249,17 +223,13 @@ export default function TenantSchedulesPage() {
 
       {reviewTarget && (
         <ReviewModal
+          viewingScheduleId={reviewTarget.id}
           title={`Rate Agent for ${reviewTarget.name}`}
           onClose={() => setReviewTarget(null)}
-          onSubmit={(rating, reviewText) => {
-            setReviewLoading(true);
-            submitReview.mutate({
-              rating,
-              reviewText,
-              viewingScheduleId: reviewTarget.id,
-            });
+          onSuccess={() => {
+            qc.invalidateQueries({ queryKey: ["my-schedules"] });
+            showToast("Review submitted successfully!", "success");
           }}
-          loading={reviewLoading}
         />
       )}
       {toast && <div className={`toast toast-${toast.type}`}>{toast.msg}</div>}

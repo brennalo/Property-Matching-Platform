@@ -324,11 +324,12 @@ export interface AgentPublicProfile {
 export interface ReviewResponse {
   id: string;
   agentId: string;
-  reviewerName: string;
+  agentName: string;
   rating: number;
   reviewText: string;
   createdAt: string;
-  source: "viewing" | "conversation";
+  source: "Viewing" | "Conversation";
+  listingName: string;
 }
 
 export interface AgentReviewSummary {

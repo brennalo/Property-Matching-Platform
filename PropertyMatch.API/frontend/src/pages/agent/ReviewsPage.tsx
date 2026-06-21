@@ -2,6 +2,7 @@ import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { reviewsApi } from "../../api";
 import { Star } from "lucide-react";
+import type { ReviewResponse } from "../../types";
 
 export default function AgentReviewsPage() {
   const { data, isLoading } = useQuery({
@@ -58,7 +59,7 @@ export default function AgentReviewsPage() {
         <div className="empty-state">No reviews yet.</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {data.reviews.map((r) => (
+          {data.reviews.map((r: ReviewResponse) => (
             <div key={r.id} className="card">
               <div
                 style={{
@@ -68,7 +69,12 @@ export default function AgentReviewsPage() {
                 }}
               >
                 <div>
-                  <div style={{ fontWeight: 600 }}>{r.agentName} (tenant)</div>
+                  <div style={{ fontWeight: 600 }}>{r.listingName}</div>
+                  <div
+                    style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}
+                  >
+                    by {r.agentName} (tenant)
+                  </div>
                   <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
                     {[1, 2, 3, 4, 5].map((i) => (
                       <Star

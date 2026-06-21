@@ -1,20 +1,95 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Star } from "lucide-react";
+import { reviewsApi } from "../api";
+
+interface ReviewModalProps {
+  viewingScheduleId?: string;
+  conversationId?: string;
+  title: string;
+  onClose: () => void;
+  onSuccess?: () => void;
+}
 
 export default function ReviewModal({
+  viewingScheduleId,
+  conversationId,
+  title,
   onClose,
-  onSubmit,
-  loading,
-  title = "Rate Your Experience",
-}: {
-  onClose: () => void;
-  onSubmit: (rating: number, reviewText: string) => void;
-  loading: boolean;
-  title?: string;
-}) {
+  onSuccess,
+}: ReviewModalProps) {
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [reviewText, setReviewText] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [existingReview, setExistingReview] = useState<any>(null);
+  const [isLoadingExisting, setIsLoadingExisting] = useState(true);
+
+  // Fetch existing review when modal opens
+  useEffect(() => {
+    const fetchReview = async () => {
+      if (!viewingScheduleId && !conversationId) return;
+      try {
+        const params: any = {};
+        if (viewingScheduleId) params.viewingScheduleId = viewingScheduleId;
+        if (conversationId) params.conversationId = conversationId;
+        const res = await reviewsApi.getBySource(params);
+        setExistingReview(res.data);
+        setRating(res.data.rating);
+        setReviewText(res.data.reviewText || "");
+      } catch (e: any) {
+        // 404 means no review yet – that's fine
+        if (e.response?.status !== 404) {
+          setError("Failed to load existing review.");
+        }
+      } finally {
+        setIsLoadingExisting(false);
+      }
+    };
+    fetchReview();
+  }, [viewingScheduleId, conversationId]);
+
+  const handleSubmit = async () => {
+    if (rating === 0) {
+      setError("Please select a rating.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      if (existingReview) {
+        // Update existing review
+        await reviewsApi.update(existingReview.id, { rating, reviewText });
+      } else {
+        // Create new review
+        await reviewsApi.create({
+          rating,
+          reviewText,
+          viewingScheduleId,
+          conversationId,
+        });
+      }
+      onSuccess?.();
+      onClose();
+    } catch (e: any) {
+      setError(e.response?.data?.message || "Failed to submit review.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (isLoadingExisting) {
+    return (
+      <div className="modal-overlay" onClick={onClose}>
+        <div
+          className="modal"
+          style={{ maxWidth: 450, textAlign: "center", padding: 30 }}
+        >
+          <span className="spinner" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -31,7 +106,9 @@ export default function ReviewModal({
             marginBottom: 16,
           }}
         >
-          Share your experience with the agent.
+          {existingReview
+            ? "Update your rating and review."
+            : "Share your experience with the agent."}
         </p>
 
         <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
@@ -67,6 +144,18 @@ export default function ReviewModal({
           style={{ width: "100%", marginBottom: 12 }}
         />
 
+        {error && (
+          <p
+            style={{
+              color: "var(--red)",
+              fontSize: "0.85rem",
+              marginBottom: 12,
+            }}
+          >
+            {error}
+          </p>
+        )}
+
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
           <button className="btn btn-outline" onClick={onClose}>
             Cancel
@@ -74,9 +163,15 @@ export default function ReviewModal({
           <button
             className="btn btn-primary"
             disabled={rating === 0 || loading}
-            onClick={() => onSubmit(rating, reviewText)}
+            onClick={handleSubmit}
           >
-            {loading ? <span className="spinner" /> : "Submit Review"}
+            {loading ? (
+              <span className="spinner" />
+            ) : existingReview ? (
+              "Update Review"
+            ) : (
+              "Submit Review"
+            )}
           </button>
         </div>
       </div>
