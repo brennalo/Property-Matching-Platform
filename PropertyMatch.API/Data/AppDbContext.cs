@@ -27,7 +27,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<Feedback> Feedbacks => Set<Feedback>();
     public DbSet<Report> Reports => Set<Report>();
-
+    public DbSet<ScoringConfig> ScoringConfig => Set<ScoringConfig>();
     protected override void OnModelCreating(ModelBuilder mb)
     {
         // ── Enum → string conversions ─────────────────────────────────────────
@@ -230,5 +230,9 @@ mb.Entity<Models.Review>()
         "CK_Reviews_Source",
         "(\"ViewingScheduleId\" IS NOT NULL AND \"ConversationId\" IS NULL) OR " +
         "(\"ViewingScheduleId\" IS NULL AND \"ConversationId\" IS NOT NULL)"));
-}
+        mb.Entity<ScoringConfig>().HasData(
+            new ScoringConfig { Id = 1 }
+);
+
+    }
 }

@@ -347,3 +347,12 @@ public class Report
 
     public User Tenant { get; set; } = null!;
 }
+
+public class ScoringConfig
+{
+    public int Id { get; set; } = 1; // singleton row
+    public double WeightNumeric { get; set; } = 0.40;
+    public double WeightCommute { get; set; } = 0.30;
+    public double WeightLifestyle { get; set; } = 0.30;
+    public int LifestyleRadiusMeters { get; set; } = 800;
+}

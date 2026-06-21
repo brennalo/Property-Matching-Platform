@@ -18,6 +18,8 @@ import type {
   BatchListingRow,
   ListingStatus,
   ImageDto,
+  ScoringConfigRequest,
+  ScoringConfig,
 } from "../types";
 
 const api = axios.create({
@@ -359,9 +361,14 @@ export const reviewsApi = {
 export interface ReviewResponse {
   id: string;
   agentId: string;
-  agentName: string; // or tenantName depending on context
+  agentName: string;
   rating: number;
   reviewText: string;
   createdAt: string;
   source: "viewing" | "conversation";
 }
+
+export const scoringConfigApi = {
+  get: () => api.get<ScoringConfig>("/admin/scoring-config"),
+  update: (req: ScoringConfigRequest) => api.put("/admin/scoring-config", req),
+};
