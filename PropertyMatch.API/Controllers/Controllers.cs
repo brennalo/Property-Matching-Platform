@@ -13,12 +13,22 @@ namespace PropertyMatch.API.Controllers;
 [ApiController]
 [Route("api/match")]
 [Authorize(Roles = "Tenant")]
-public class MatchController(MatchingService matching) : ControllerBase
+public class MatchController(MatchingService matching, AppDbContext db) : ControllerBase
 {
     [HttpPost]
     public async Task<IActionResult> Match([FromBody] MatchRequest req)
     {
         var tenantId = User.GetUserId();
+
+        db.SearchLogs.Add(new SearchLog
+        {
+            TenantId = tenantId,
+            SearchedAt = DateTime.UtcNow,
+            Snapshot = System.Text.Json.JsonSerializer.Serialize(req)
+        });
+
+        await db.SaveChangesAsync();
+
         var results = await matching.MatchAsync(req, tenantId);
         return Ok(results);
     }
@@ -507,6 +517,67 @@ public class AdminController(AppDbContext db) : ControllerBase
         int paidListings = await db.Listings.CountAsync(l => l.Status == ListingStatus.Active);
         double conversionRate = totalListings == 0 ? 0 : (double)paidListings / totalListings * 100;
         return Ok(new { totalListings, paidListings, conversionRate });
+    }
+
+    [HttpGet("analytics/search-to-schedule-rate")]
+    public async Task<IActionResult> GetSearchToScheduleRate()
+    {
+        var totalSearches = await db.SearchLogs.CountAsync();
+        var totalSchedules = await db.ViewingSchedules.CountAsync();
+
+        var rate = totalSearches == 0
+            ? 0
+            : (double)totalSchedules / totalSearches * 100;
+
+        return Ok(new
+        {
+            totalSearches,
+            totalSchedules,
+            rate
+        });
+    }
+
+    [HttpGet("analytics/token-buying")]
+    public async Task<IActionResult> GetTokenBuying()
+    {
+        var succeeded = db.Payments.Where(p => p.Status == "succeeded");
+
+        var totalPurchases = await succeeded.CountAsync();
+        var totalTokensSold = await succeeded.SumAsync(p => p.TokensPurchased);
+        var totalRevenue = await succeeded.SumAsync(p => p.Amount);
+
+        return Ok(new
+        {
+            totalPurchases,
+            totalTokensSold,
+            totalRevenue,
+            averageTokensPerPurchase = totalPurchases == 0
+                ? 0
+                : (double)totalTokensSold / totalPurchases
+        });
+    }
+
+    [HttpGet("analytics/demand-locations")]
+    public async Task<IActionResult> GetDemandLocations()
+    {
+        var data = await db.Listings
+            .Where(l => l.ViewingSchedules.Any())
+            .Select(l => new
+            {
+                listingId = l.Id,
+                listingName = l.Name,
+                address = l.Address,
+                lat = l.Lat,
+                lng = l.Lng,
+                scheduleCount = l.ViewingSchedules.Count,
+                confirmedCount = l.ViewingSchedules.Count(v => v.Status == ScheduleStatus.Confirmed),
+                isBooked = l.Status == ListingStatus.Booked
+            })
+            .OrderByDescending(x => x.scheduleCount)
+            .Take(20)
+            .ToListAsync();
+
+        return Ok(data);
     }
 }
 

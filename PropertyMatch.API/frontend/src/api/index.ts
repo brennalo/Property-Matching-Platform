@@ -248,6 +248,15 @@ export const adminApi = {
     api.put(`/admin/agents/${agentId}/status`, { status }),
 
   getAllListings: () => api.get("/admin/listings"),
+
+  getSearchToScheduleRate: () =>
+    api.get("/admin/analytics/search-to-schedule-rate"),
+
+  getTokenBuying: () =>
+    api.get("/admin/analytics/token-buying"),
+
+  getDemandLocations: () =>
+    api.get("/admin/analytics/demand-locations"),
 };
 
 export default api;

@@ -333,3 +333,27 @@ export interface Feedback {
     status: string;
     createdAt: string;
 }
+
+export interface SearchToScheduleRate {
+    totalSearches: number;
+    totalSchedules: number;
+    rate: number;
+}
+
+export interface TokenBuyingAnalytics {
+    totalPurchases: number;
+    totalTokensSold: number;
+    totalRevenue: number;
+    averageTokensPerPurchase: number;
+}
+
+export interface DemandLocation {
+    listingId: string;
+    listingName: string;
+    address: string;
+    lat: number;
+    lng: number;
+    scheduleCount: number;
+    confirmedCount: number;
+    isBooked: boolean;
+}
