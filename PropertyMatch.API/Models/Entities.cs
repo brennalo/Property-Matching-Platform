@@ -42,6 +42,7 @@ public class User
     public ICollection<FavouriteListing> FavouriteListings { get; set; } = [];
     public ICollection<ViewHistory> ViewHistory { get; set; } = [];
     public ICollection<SearchLog> SearchLogs { get; set; } = [];
+    public ICollection<Feedback> Feedbacks { get; set; } = [];
 }
 
 // ── Email Verification ───────────────────────────────────────────────────────

@@ -175,8 +175,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .OnDelete(DeleteBehavior.Restrict);
 
         mb.Entity<ScoringConfig>().HasData(
-            new ScoringConfig { Id = 1 }
-);
+            new ScoringConfig { Id = 1 });
+
+        // Feedback
+        mb.Entity<Feedback>()
+            .HasOne(f => f.Tenant)
+            .WithMany(u => u.Feedbacks)
+            .HasForeignKey(f => f.TenantId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        mb.Entity<Feedback>()
+            .HasIndex(f => f.CreatedAt);
 
     }
 }

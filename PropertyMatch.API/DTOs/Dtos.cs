@@ -276,3 +276,20 @@ public record BrowseListingResponse(
 public record AgentPublicProfileResponse(
     Guid AgentId, string FullName,
     string? LicenseNumber, string? ContactNo, decimal? Ratings);
+
+// ── Feedback ────────────────────────────
+public record CreateFeedbackRequest(
+    string Description
+);
+
+public record FeedbackResponse(
+    Guid Id,
+    Guid TenantId,
+    string TenantName,
+    string TenantEmail,
+    string Description,
+    string Status,
+    DateTime CreatedAt
+);
+
+public record UpdateFeedbackStatusRequest(string Status);

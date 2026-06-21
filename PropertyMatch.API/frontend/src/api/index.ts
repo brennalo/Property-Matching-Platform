@@ -315,3 +315,18 @@ export const scoringConfigApi = {
     get: () => api.get<ScoringConfig>('/admin/scoring-config'),
     update: (req: ScoringConfigRequest) => api.put('/admin/scoring-config', req),
 }
+
+//── Feedback ───────────────────────────────────────────────────────
+export const feedbackApi = {
+    submit: (description: string) =>
+        api.post("/feedback", { description }),
+
+    getMine: () =>
+        api.get("/feedback/mine"),
+
+    getAll: () =>
+        api.get("/feedback/admin"),
+
+    updateStatus: (id: string, status: string) =>
+        api.patch(`/feedback/${id}/status`, { status }),
+};

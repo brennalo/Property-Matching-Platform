@@ -323,3 +323,13 @@ export interface ScoringConfigRequest {
     weightLifestyle: number
     lifestyleRadiusMeters: number
 }
+
+export interface Feedback {
+    id: string;
+    tenantId: string;
+    tenantName: string;
+    tenantEmail: string;
+    description: string;
+    status: string;
+    createdAt: string;
+}

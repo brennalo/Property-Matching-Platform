@@ -44,6 +44,8 @@ import HistoryPage from './pages/tenant/HistoryPage';
 import ConversationsPage from './pages/tenant/ConversationsPage';
 import AgentConversationsPage from './pages/agent/ConversationsPage';
 import ScoringConfigPage from './pages/admin/ScoringConfigPage';
+import TenantFeedbackPage from "./pages/tenant/FeedbackPage";
+import AdminFeedbackPage from "./pages/admin/FeedbackPage";
 import {
   Search,
   Heart,
@@ -218,6 +220,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
       { to: '/favourites', icon: <Heart size={16} />, label: 'Saved Listings' },
       { to: '/history', icon: <Clock size={16} />, label: 'History' },
       { to: '/conversations', icon: <MessageSquare size={16} />, label: 'Messages' },
+      { to: "/feedback", icon: <MessageSquare size={16} />, label: "Feedback" },
   ];
   const agentLinks = [
     {
@@ -244,14 +247,11 @@ function AppShell({ children }: { children: React.ReactNode }) {
       { to: '/agent/conversations', icon: <MessageSquare size={16} />, label: 'Messages' },
   ];
   const adminLinks = [
-    {
-      to: "/admin/dashboard",
-      icon: <BarChart3 size={16} />,
-      label: "Analytics",
-    },
+    { to: "/admin/dashboard", icon: <BarChart3 size={16} />, label: "Analytics" },
     { to: "/admin/agents", icon: <Users size={16} />, label: "Agents" },
-      { to: "/admin/tenants", icon: <Users size={16} />, label: "Tenants" },
-      { to: "/admin/scoring-config", icon: <Settings size={16} />, label: "Scoring Config" },
+    { to: "/admin/tenants", icon: <Users size={16} />, label: "Tenants" },
+    { to: "/admin/scoring-config", icon: <Settings size={16} />, label: "Scoring Config" },
+    { to: "/admin/feedback", icon: <MessageSquare size={16} />, label: "Feedback" },
   ];
 
   const links =
@@ -434,6 +434,11 @@ export default function App() {
                     <AppShell><ConversationsPage /></AppShell>
                 </ProtectedRoute>
             } />
+            <Route path="/feedback" element={
+                <ProtectedRoute roles={['Tenant']} requireVerified>
+                    <AppShell><TenantFeedbackPage /></AppShell>
+                </ProtectedRoute>
+            } />
 
             {/* Agent — all require verified */}
             <Route
@@ -538,6 +543,11 @@ export default function App() {
             <Route path="/admin/scoring-config" element={
                 <ProtectedRoute roles={["Admin"]}>
                     <AppShell><ScoringConfigPage /></AppShell>
+                </ProtectedRoute>
+            } />
+            <Route path="/admin/feedback" element={
+                <ProtectedRoute roles={["Admin"]}>
+                    <AppShell><AdminFeedbackPage /></AppShell>
                 </ProtectedRoute>
             } />
           </Routes>

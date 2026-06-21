@@ -637,3 +637,96 @@ public class AgentDashboardController(AppDbContext db) : ControllerBase
         ));
     }
 }
+
+// ── Feedback ─────────────────────────────────────────────────────────
+[ApiController]
+[Route("api/feedback")]
+[Authorize]
+public class FeedbackController(AppDbContext db) : ControllerBase
+{
+    [HttpPost]
+    [Authorize(Roles = "Tenant")]
+    public async Task<IActionResult> SubmitFeedback([FromBody] CreateFeedbackRequest req)
+    {
+        var tenantId = User.GetUserId();
+
+        if (string.IsNullOrWhiteSpace(req.Description))
+            return BadRequest(new { message = "Feedback description is required." });
+
+        var feedback = new Feedback
+        {
+            TenantId = tenantId,
+            Description = req.Description.Trim(),
+            Status = "Open",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        db.Feedbacks.Add(feedback);
+        await db.SaveChangesAsync();
+
+        return Ok(new { message = "Feedback submitted successfully." });
+    }
+
+    [HttpGet("mine")]
+    [Authorize(Roles = "Tenant")]
+    public async Task<IActionResult> GetMyFeedback()
+    {
+        var tenantId = User.GetUserId();
+
+        var feedbacks = await db.Feedbacks
+            .Include(f => f.Tenant)
+            .Where(f => f.TenantId == tenantId)
+            .OrderByDescending(f => f.CreatedAt)
+            .Select(f => new FeedbackResponse(
+                f.Id,
+                f.TenantId,
+                f.Tenant.FullName,
+                f.Tenant.Email,
+                f.Description,
+                f.Status,
+                f.CreatedAt
+            ))
+            .ToListAsync();
+
+        return Ok(feedbacks);
+    }
+
+    [HttpGet("admin")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GetAllFeedback()
+    {
+        var feedbacks = await db.Feedbacks
+            .Include(f => f.Tenant)
+            .OrderByDescending(f => f.CreatedAt)
+            .Select(f => new FeedbackResponse(
+                f.Id,
+                f.TenantId,
+                f.Tenant.FullName,
+                f.Tenant.Email,
+                f.Description,
+                f.Status,
+                f.CreatedAt
+            ))
+            .ToListAsync();
+
+        return Ok(feedbacks);
+    }
+
+    [HttpPatch("{id}/status")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> UpdateFeedbackStatus(Guid id, [FromBody] UpdateFeedbackStatusRequest req)
+    {
+        var feedback = await db.Feedbacks.FindAsync(id);
+        if (feedback == null) return NotFound(new { message = "Feedback not found." });
+
+        var allowedStatuses = new[] { "Open", "Reviewed" };
+
+        if (!allowedStatuses.Contains(req.Status))
+            return BadRequest(new { message = "Invalid feedback status." });
+
+        feedback.Status = req.Status;
+        await db.SaveChangesAsync();
+
+        return Ok(new { message = $"Feedback marked as {req.Status}." });
+    }
+}
