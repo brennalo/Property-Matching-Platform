@@ -44,6 +44,8 @@ import HistoryPage from "./pages/tenant/HistoryPage";
 import ConversationsPage from "./pages/tenant/ConversationsPage";
 import AgentConversationsPage from "./pages/agent/ConversationsPage";
 import ScoringConfigPage from "./pages/admin/ScoringConfigPage";
+import TenantFeedbackPage from "./pages/tenant/FeedbackPage";
+import AdminFeedbackPage from "./pages/admin/FeedbackPage";
 import {
   Search,
   Heart,
@@ -228,6 +230,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
       icon: <MessageSquare size={16} />,
       label: "Messages",
     },
+    { to: "/feedback", icon: <MessageSquare size={16} />, label: "Feedback" },
   ];
   const agentLinks = [
     {
@@ -279,6 +282,11 @@ function AppShell({ children }: { children: React.ReactNode }) {
       to: "/admin/scoring-config",
       icon: <Settings size={16} />,
       label: "Scoring Config",
+    },
+    {
+      to: "/admin/feedback",
+      icon: <MessageSquare size={16} />,
+      label: "Feedback",
     },
   ];
 
@@ -483,6 +491,16 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/feedback"
+              element={
+                <ProtectedRoute roles={["Tenant"]} requireVerified>
+                  <AppShell>
+                    <TenantFeedbackPage />
+                  </AppShell>
+                </ProtectedRoute>
+              }
+            />
 
             {/* Agent — all require verified */}
             <Route
@@ -616,6 +634,16 @@ export default function App() {
                 <ProtectedRoute roles={["Admin"]}>
                   <AppShell>
                     <ScoringConfigPage />
+                  </AppShell>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/feedback"
+              element={
+                <ProtectedRoute roles={["Admin"]}>
+                  <AppShell>
+                    <AdminFeedbackPage />
                   </AppShell>
                 </ProtectedRoute>
               }

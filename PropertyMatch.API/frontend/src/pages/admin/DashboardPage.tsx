@@ -24,6 +24,7 @@ import {
   UserCheck,
   DollarSign,
   TrendingUp,
+  Coins,
 } from "lucide-react";
 
 // Types for analytics data
@@ -237,6 +238,21 @@ export default function AdminDashboardPage() {
     queryFn: () => adminApi.getConversionRate().then((r) => r.data),
   });
 
+  const { data: searchRate } = useQuery({
+    queryKey: ["searchToScheduleRate"],
+    queryFn: () => adminApi.getSearchToScheduleRate().then(r => r.data),
+  });
+
+  const { data: tokenBuying } = useQuery({
+    queryKey: ["tokenBuying"],
+    queryFn: () => adminApi.getTokenBuying().then(r => r.data),
+  });
+
+  const { data: demandLocations = [] } = useQuery({
+    queryKey: ["demandLocations"],
+    queryFn: () => adminApi.getDemandLocations().then(r => r.data),
+  });
+
   if (statsLoading)
     return (
       <div style={{ textAlign: "center", padding: 80 }}>
@@ -308,6 +324,29 @@ export default function AdminDashboardPage() {
           value={stats.blockedAgents}
           icon={<UserX size={20} />}
           color="#e05c5c"
+        />
+        <StatCard
+          label="Search-to-Schedule Rate"
+                  value={`${Number(searchRate?.rate ?? 0).toFixed(1)}%`}
+          icon={<TrendingUp size={20} />}
+          color="#60a5fa"
+          sub={`${searchRate?.totalSchedules ?? 0} schedules / ${searchRate?.totalSearches ?? 0} searches`}
+        />
+
+        <StatCard
+          label="Tokens Sold"
+          value={tokenBuying?.totalTokensSold ?? 0}
+          icon={<Coins size={20} />}
+          color="#e8a045"
+          sub={`${tokenBuying?.totalPurchases ?? 0} purchases`}
+        />
+
+        <StatCard
+          label="Token Revenue"
+          value={tokenBuying?.totalRevenue ?? 0}
+          icon={<CreditCard size={20} />}
+          color="#34d399"
+          sub="RM from token top-ups"
         />
       </div>
 
@@ -453,7 +492,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Agent Performance Table */}
-      <div className="card">
+      <div className="card mb-6">
         <h3>Top Performing Agents</h3>
         {agents?.length ? (
           <div style={{ overflowX: "auto" }}>
@@ -495,6 +534,40 @@ export default function AdminDashboardPage() {
           </div>
         ) : (
           <p>No agent data yet</p>
+        )}
+      </div>
+
+      {/* High Demand Locations Table */}
+      <div className="card">
+        <h3>High Demand Locations</h3>
+
+        {demandLocations.length === 0 ? (
+            <p>No booking demand data yet</p>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ borderBottom: "2px solid var(--border)" }}>
+                <th style={{ textAlign: "left", padding: 8 }}>Property</th>
+                <th style={{ textAlign: "left", padding: 8 }}>Address</th>
+                <th style={{ textAlign: "right", padding: 8 }}>Schedules</th>
+                <th style={{ textAlign: "right", padding: 8 }}>Confirmed</th>
+                <th style={{ textAlign: "right", padding: 8 }}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {demandLocations.map((x: any) => (
+                  <tr key={x.listingId} style={{ borderBottom: "1px solid var(--border)" }}>
+                  <td style={{ padding: 8 }}>{x.listingName}</td>
+                  <td style={{ padding: 8 }}>{x.address}</td>
+                  <td style={{ padding: 8, textAlign: "right" }}>{x.scheduleCount}</td>
+                  <td style={{ padding: 8, textAlign: "right" }}>{x.confirmedCount}</td>
+                  <td style={{ padding: 8, textAlign: "right" }}>
+                      {x.isBooked ? "Booked" : "Available"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </div>

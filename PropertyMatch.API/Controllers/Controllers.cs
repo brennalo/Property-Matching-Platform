@@ -13,12 +13,22 @@ namespace PropertyMatch.API.Controllers;
 [ApiController]
 [Route("api/match")]
 [Authorize(Roles = "Tenant")]
-public class MatchController(MatchingService matching) : ControllerBase
+public class MatchController(MatchingService matching, AppDbContext db) : ControllerBase
 {
     [HttpPost]
     public async Task<IActionResult> Match([FromBody] MatchRequest req)
     {
         var tenantId = User.GetUserId();
+
+        db.SearchLogs.Add(new SearchLog
+        {
+            TenantId = tenantId,
+            SearchedAt = DateTime.UtcNow,
+            Snapshot = System.Text.Json.JsonSerializer.Serialize(req)
+        });
+
+        await db.SaveChangesAsync();
+
         var results = await matching.MatchAsync(req, tenantId);
         return Ok(results);
     }
@@ -518,6 +528,67 @@ public class AdminController(AppDbContext db) : ControllerBase
         double conversionRate = totalListings == 0 ? 0 : (double)paidListings / totalListings * 100;
         return Ok(new { totalListings, paidListings, conversionRate });
     }
+
+    [HttpGet("analytics/search-to-schedule-rate")]
+    public async Task<IActionResult> GetSearchToScheduleRate()
+    {
+        var totalSearches = await db.SearchLogs.CountAsync();
+        var totalSchedules = await db.ViewingSchedules.CountAsync();
+
+        var rate = totalSearches == 0
+            ? 0
+            : (double)totalSchedules / totalSearches * 100;
+
+        return Ok(new
+        {
+            totalSearches,
+            totalSchedules,
+            rate
+        });
+    }
+
+    [HttpGet("analytics/token-buying")]
+    public async Task<IActionResult> GetTokenBuying()
+    {
+        var succeeded = db.Payments.Where(p => p.Status == "succeeded");
+
+        var totalPurchases = await succeeded.CountAsync();
+        var totalTokensSold = await succeeded.SumAsync(p => p.TokensPurchased);
+        var totalRevenue = await succeeded.SumAsync(p => p.Amount);
+
+        return Ok(new
+        {
+            totalPurchases,
+            totalTokensSold,
+            totalRevenue,
+            averageTokensPerPurchase = totalPurchases == 0
+                ? 0
+                : (double)totalTokensSold / totalPurchases
+        });
+    }
+
+    [HttpGet("analytics/demand-locations")]
+    public async Task<IActionResult> GetDemandLocations()
+    {
+        var data = await db.Listings
+            .Where(l => l.ViewingSchedules.Any())
+            .Select(l => new
+            {
+                listingId = l.Id,
+                listingName = l.Name,
+                address = l.Address,
+                lat = l.Lat,
+                lng = l.Lng,
+                scheduleCount = l.ViewingSchedules.Count,
+                confirmedCount = l.ViewingSchedules.Count(v => v.Status == ScheduleStatus.Confirmed),
+                isBooked = l.Status == ListingStatus.Booked
+            })
+            .OrderByDescending(x => x.scheduleCount)
+            .Take(20)
+            .ToListAsync();
+
+        return Ok(data);
+    }
 }
 
 // ── Config (public — serves Google Maps key to frontend) ──────────────────────
@@ -669,5 +740,97 @@ public class AgentDashboardController(AppDbContext db) : ControllerBase
             .ToListAsync();
 
         return Ok(analytics);
+}
+
+// ── Feedback ─────────────────────────────────────────────────────────
+[ApiController]
+[Route("api/feedback")]
+[Authorize]
+public class FeedbackController(AppDbContext db) : ControllerBase
+{
+    [HttpPost]
+    [Authorize(Roles = "Tenant")]
+    public async Task<IActionResult> SubmitFeedback([FromBody] CreateFeedbackRequest req)
+    {
+        var tenantId = User.GetUserId();
+
+        if (string.IsNullOrWhiteSpace(req.Description))
+            return BadRequest(new { message = "Feedback description is required." });
+
+        var feedback = new Feedback
+        {
+            TenantId = tenantId,
+            Description = req.Description.Trim(),
+            Status = "Open",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        db.Feedbacks.Add(feedback);
+        await db.SaveChangesAsync();
+
+        return Ok(new { message = "Feedback submitted successfully." });
+    }
+
+    [HttpGet("mine")]
+    [Authorize(Roles = "Tenant")]
+    public async Task<IActionResult> GetMyFeedback()
+    {
+        var tenantId = User.GetUserId();
+
+        var feedbacks = await db.Feedbacks
+            .Include(f => f.Tenant)
+            .Where(f => f.TenantId == tenantId)
+            .OrderByDescending(f => f.CreatedAt)
+            .Select(f => new FeedbackResponse(
+                f.Id,
+                f.TenantId,
+                f.Tenant.FullName,
+                f.Tenant.Email,
+                f.Description,
+                f.Status,
+                f.CreatedAt
+            ))
+            .ToListAsync();
+
+        return Ok(feedbacks);
+    }
+
+    [HttpGet("admin")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GetAllFeedback()
+    {
+        var feedbacks = await db.Feedbacks
+            .Include(f => f.Tenant)
+            .OrderByDescending(f => f.CreatedAt)
+            .Select(f => new FeedbackResponse(
+                f.Id,
+                f.TenantId,
+                f.Tenant.FullName,
+                f.Tenant.Email,
+                f.Description,
+                f.Status,
+                f.CreatedAt
+            ))
+            .ToListAsync();
+
+        return Ok(feedbacks);
+    }
+
+    [HttpPatch("{id}/status")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> UpdateFeedbackStatus(Guid id, [FromBody] UpdateFeedbackStatusRequest req)
+    {
+        var feedback = await db.Feedbacks.FindAsync(id);
+        if (feedback == null) return NotFound(new { message = "Feedback not found." });
+
+        var allowedStatuses = new[] { "Open", "Reviewed" };
+
+        if (!allowedStatuses.Contains(req.Status))
+            return BadRequest(new { message = "Invalid feedback status." });
+
+        feedback.Status = req.Status;
+        await db.SaveChangesAsync();
+
+        return Ok(new { message = $"Feedback marked as {req.Status}." });
     }
 }

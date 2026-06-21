@@ -327,3 +327,19 @@ public record UpdateReviewRequest(
     int Rating,
     string ReviewText
 );
+// ── Feedback ────────────────────────────
+public record CreateFeedbackRequest(
+    string Description
+);
+
+public record FeedbackResponse(
+    Guid Id,
+    Guid TenantId,
+    string TenantName,
+    string TenantEmail,
+    string Description,
+    string Status,
+    DateTime CreatedAt
+);
+
+public record UpdateFeedbackStatusRequest(string Status);

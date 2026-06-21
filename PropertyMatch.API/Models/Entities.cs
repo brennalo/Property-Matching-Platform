@@ -43,6 +43,7 @@ public class User
     public ICollection<ViewHistory> ViewHistory { get; set; } = [];
     public ICollection<SearchLog> SearchLogs { get; set; } = [];
     public ICollection<Models.Review> Reviews { get; set; } = new List<Models.Review>();
+    public ICollection<Feedback> Feedbacks { get; set; } = [];
 }
 
 // ── Email Verification ───────────────────────────────────────────────────────

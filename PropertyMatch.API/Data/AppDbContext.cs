@@ -231,8 +231,17 @@ mb.Entity<Models.Review>()
         "(\"ViewingScheduleId\" IS NOT NULL AND \"ConversationId\" IS NULL) OR " +
         "(\"ViewingScheduleId\" IS NULL AND \"ConversationId\" IS NOT NULL)"));
         mb.Entity<ScoringConfig>().HasData(
-            new ScoringConfig { Id = 1 }
-);
+            new ScoringConfig { Id = 1 });
+
+        // Feedback
+        mb.Entity<Feedback>()
+            .HasOne(f => f.Tenant)
+            .WithMany(u => u.Feedbacks)
+            .HasForeignKey(f => f.TenantId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        mb.Entity<Feedback>()
+            .HasIndex(f => f.CreatedAt);
 
     }
 }

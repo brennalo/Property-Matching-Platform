@@ -372,3 +372,37 @@ export interface ScoringConfigRequest {
   weightLifestyle: number;
   lifestyleRadiusMeters: number;
 }
+
+export interface Feedback {
+  id: string;
+  tenantId: string;
+  tenantName: string;
+  tenantEmail: string;
+  description: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface SearchToScheduleRate {
+  totalSearches: number;
+  totalSchedules: number;
+  rate: number;
+}
+
+export interface TokenBuyingAnalytics {
+  totalPurchases: number;
+  totalTokensSold: number;
+  totalRevenue: number;
+  averageTokensPerPurchase: number;
+}
+
+export interface DemandLocation {
+  listingId: string;
+  listingName: string;
+  address: string;
+  lat: number;
+  lng: number;
+  scheduleCount: number;
+  confirmedCount: number;
+  isBooked: boolean;
+}
