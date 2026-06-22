@@ -326,11 +326,11 @@ public class Message
 // ── Feedback ──────────────────────────────────────────────────────────────
 public class Feedback
 {
-    public Guid Id { get; set; }
+    public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TenantId { get; set; }
-    public string Description { get; set; } = string.Empty;
+    public string Description { get; set; } = "";
     public string Status { get; set; } = "Open";
-    public DateTime CreatedAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public User Tenant { get; set; } = null!;
 }
