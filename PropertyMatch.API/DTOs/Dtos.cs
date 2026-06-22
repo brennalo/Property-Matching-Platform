@@ -337,10 +337,7 @@ public record UpdateReviewRequest(
     string ReviewText
 );
 // ── Feedback ────────────────────────────
-public record CreateFeedbackRequest(
-    string Description
-);
-
+public record CreateFeedbackRequest(string Description);
 public record FeedbackResponse(
     Guid Id,
     Guid TenantId,
@@ -350,5 +347,4 @@ public record FeedbackResponse(
     string Status,
     DateTime CreatedAt
 );
-
 public record UpdateFeedbackStatusRequest(string Status);

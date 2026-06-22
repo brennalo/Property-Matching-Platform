@@ -768,6 +768,7 @@ public class AgentDashboardController(AppDbContext db) : ControllerBase
 
         return Ok(analytics);
     }
+}
 
     // ── Feedback ─────────────────────────────────────────────────────────
     [ApiController]
@@ -861,4 +862,3 @@ public class AgentDashboardController(AppDbContext db) : ControllerBase
             return Ok(new { message = $"Feedback marked as {req.Status}." });
         }
     }
-}
