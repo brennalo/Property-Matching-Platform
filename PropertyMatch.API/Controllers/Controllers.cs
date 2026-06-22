@@ -138,15 +138,17 @@ public class SchedulesController(AppDbContext db, ResendEmailService _resendEmai
         await db.SaveChangesAsync();
 
         // Email agent: new viewing request (fire-and-forget)
-        _ = _resendEmailService.SendViewingRequestToAgentAsync(
-            listing.Agent.User.Email, listing.Agent.User.FullName,
-            tenant.FullName, tenant.Email,
-            listing.Name, listing.Address, schedule.ScheduledAt)
-            .ContinueWith(t =>
-            {
-                if (t.IsFaulted)
-                    Console.Error.WriteLine($"[Email] Agent notification failed: {t.Exception}");
-            });
+        try
+        {
+            await _resendEmailService.SendViewingRequestToAgentAsync(
+                listing.Agent.User.Email, listing.Agent.User.FullName,
+                tenant.FullName, tenant.Email,
+                listing.Name, listing.Address, schedule.ScheduledAt);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[Email] Agent notification failed: {ex}");
+        }
 
         return Ok(new { message = "Viewing scheduled successfully" });
     }
@@ -216,26 +218,30 @@ public class SchedulesController(AppDbContext db, ResendEmailService _resendEmai
         // Send email notifications
         if (req.Status == ScheduleStatus.Confirmed)
         {
-            _ = _resendEmailService.SendViewingConfirmedToTenantAsync(
-                schedule.Tenant.Email, schedule.Tenant.FullName,
-                schedule.Listing.Name, schedule.Listing.Address,
-                schedule.ScheduledAt)
-                .ContinueWith(t =>
-                {
-                    if (t.IsFaulted)
-                        Console.Error.WriteLine($"[Email] Confirmation email failed: {t.Exception}");
-                });
+            try
+            {
+                await _resendEmailService.SendViewingConfirmedToTenantAsync(
+                    schedule.Tenant.Email, schedule.Tenant.FullName,
+                    schedule.Listing.Name, schedule.Listing.Address,
+                    schedule.ScheduledAt);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[Email] Confirmation email failed: {ex}");
+            }
         }
         else if (req.Status == ScheduleStatus.Cancelled)
         {
-            _ = _resendEmailService.SendViewingRejectedToTenantAsync(
-                schedule.Tenant.Email, schedule.Tenant.FullName,
-                schedule.Listing.Name, schedule.ScheduledAt, req.Reason)
-                .ContinueWith(t =>
-                {
-                    if (t.IsFaulted)
-                        Console.Error.WriteLine($"[Email] Rejection email failed: {t.Exception}");
-                });
+            try
+            {
+                await _resendEmailService.SendViewingRejectedToTenantAsync(
+                    schedule.Tenant.Email, schedule.Tenant.FullName,
+                    schedule.Listing.Name, schedule.ScheduledAt, req.Reason);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[Email] Rejection email failed: {ex}");
+            }
         }
 
         return Ok(new { message = "Schedule updated" });
