@@ -222,9 +222,9 @@ public class ResendEmailService(HttpClient http, IConfiguration config)
         <body style="font-family: Arial, sans-serif; background: #0f0f0e; color: #e8e4de; padding: 40px;">
           <div style="max-width: 520px; margin: 0 auto; background: #1c1b19; border-radius: 12px; padding: 36px; border: 1px solid #2e2d2b;">
             <h1 style="font-size: 1.6rem; color: #e8a045; margin-bottom: 8px;">PropertyMatch</h1>
-            <div style="background:#3a1a1a; border:1px solid #6b2b2b; border-radius:8px; padding:12px 16px; margin-bottom:20px;">
-              <span style="color:#e85555; font-weight:700;">✗ Viewing Declined</span>
-            </div>
+                <div style="background:#1a2a1a; border:1px solid #2b6b2b; border-radius:8px; padding:12px 16px; margin-bottom:20px;">
+                  <span style="color:#4caf50; font-weight:700;">✓ Viewing Confirmed</span>
+                </div>
             <p style="color:#b0aa9f; margin-bottom:24px;">
               Hi {tenantName}, the agent has confirmed your viewing request for <strong style="color:#e8e4de;">{listingName}</strong> at {address}
               scheduled for {malaysiaTime:d MMMM yyyy} at {malaysiaTime:h:mm tt} MYT.

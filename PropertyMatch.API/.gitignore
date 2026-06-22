@@ -26,3 +26,5 @@ dist/
 # IDE
 .idea/
 .vscode/settings.json
+
+wwwroot/assets
