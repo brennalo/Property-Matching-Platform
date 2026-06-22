@@ -63,17 +63,18 @@ export const listingsApi = {
   updateStatus: (id: string, status: ListingStatus) =>
     api.patch(`/listings/${id}/status`, { status }),
 
-  create: (data: {
-    name: string;
-    rooms: number;
-    toilets: number;
-    lat: number;
-    lng: number;
-    address: string;
-    residencyType: string;
-    price: number;
-    description: string;
-  }) => api.post<{ id: string; message: string }>("/listings", data),
+    create: (data: {
+        name: string;
+        rooms: number;
+        toilets: number;
+        lat: number;
+        lng: number;
+        address: string;
+        residencyType: string;
+        price: number;
+        description: string;
+        amenities?: string;
+    }) => api.post<{ id: string; message: string }>("/listings", data),
 
     generateDescription: (data: {
         name: string;

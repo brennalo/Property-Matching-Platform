@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -68,6 +68,7 @@ interface ListingFormData {
     residencyType: ResidencyType
     price: string
     description: string
+    amenities: string
 }
 
 function ListingFormModal({
@@ -91,9 +92,54 @@ function ListingFormModal({
         residencyType: initial?.residencyType ?? 'Condo',
         price: initial?.price?.toString() ?? '',
         description: initial?.description ?? '',
+        amenities: initial?.amenities ?? '',
     })
     const [generating, setGenerating] = useState(false)
     const [genError, setGenError] = useState('')
+
+    const COMMON_AMENITIES = [
+        'Air Conditioner', 'Bed', 'Fridge', 'Water Heater',
+        'Washing Machine', 'WiFi', 'TV', 'Microwave', 'Wardrobe', 'Sofa'
+    ]
+
+    const initialAmenities = form.amenities
+        ? form.amenities.split(',').map(a => a.trim()).filter(Boolean)
+        : []
+
+    const [selectedAmenities, setSelectedAmenities] = useState<string[]>(
+        initialAmenities.filter(a => COMMON_AMENITIES.includes(a))
+    )
+    const [customAmenities, setCustomAmenities] = useState<string[]>(
+        initialAmenities.filter(a => !COMMON_AMENITIES.includes(a))
+    )
+    const [customInput, setCustomInput] = useState('')
+
+    const toggleAmenity = (item: string) => {
+        setSelectedAmenities(prev =>
+            prev.includes(item) ? prev.filter(a => a !== item) : [...prev, item]
+        )
+    }
+
+    const addCustomAmenity = () => {
+        const trimmed = customInput.trim()
+        if (trimmed && !customAmenities.includes(trimmed)) {
+            setCustomAmenities(prev => [...prev, trimmed])
+            setCustomInput('')
+        }
+    }
+
+    const removeCustomAmenity = (item: string) => {
+        setCustomAmenities(prev => prev.filter(a => a !== item))
+    }
+    useEffect(() => {
+        syncAmenities(selectedAmenities, customAmenities)
+    }, [selectedAmenities, customAmenities])
+
+    // Keep form.amenities in sync whenever selections change
+    const syncAmenities = (selected: string[], custom: string[]) => {
+        const combined = [...selected, ...custom].join(', ')
+        upd('amenities', combined)
+    }
 
     const handleGenerateDescription = async () => {
         if (!form.name || !form.address || !form.price) {
@@ -221,6 +267,77 @@ function ListingFormModal({
                               </option>
                           ))}
                       </select>
+                  </div>
+
+                  <div className="form-group">
+                      <label className="form-label">Amenities</label>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+                          {COMMON_AMENITIES.map(item => (
+                              <label
+                                  key={item}
+                                  style={{
+                                      display: 'flex', alignItems: 'center', gap: 6,
+                                      padding: '6px 10px', borderRadius: 8,
+                                      border: '1px solid', cursor: 'pointer',
+                                      fontSize: '0.8rem',
+                                      borderColor: selectedAmenities.includes(item) ? 'var(--accent)' : 'var(--border)',
+                                      background: selectedAmenities.includes(item) ? 'var(--accent-dim)' : 'var(--bg-input)',
+                                      color: selectedAmenities.includes(item) ? 'var(--accent)' : 'var(--text-muted)',
+                                  }}>
+                                  <input
+                                      type="checkbox"
+                                      checked={selectedAmenities.includes(item)}
+                                      onChange={() => toggleAmenity(item)}
+                                      style={{ display: 'none' }}
+                                  />
+                                  {item}
+                              </label>
+                          ))}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: 8 }}>
+                          <input
+                              className="input"
+                              value={customInput}
+                              onChange={e => setCustomInput(e.target.value)}
+                              onKeyDown={e => {
+                                  if (e.key === 'Enter') {
+                                      e.preventDefault()
+                                      addCustomAmenity()
+                                  }
+                              }}
+                              placeholder="Add custom amenity (e.g. Balcony) and press Enter"
+                          />
+                          <button
+                              type="button"
+                              className="btn btn-outline btn-sm"
+                              onClick={addCustomAmenity}
+                          >
+                              Add
+                          </button>
+                      </div>
+
+                      {customAmenities.length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                              {customAmenities.map(item => (
+                                  <span
+                                      key={item}
+                                      style={{
+                                          display: 'flex', alignItems: 'center', gap: 6,
+                                          padding: '4px 10px', borderRadius: 99,
+                                          background: 'var(--accent-dim)', color: 'var(--accent)',
+                                          fontSize: '0.78rem',
+                                      }}>
+                                      {item}
+                                      <span
+                                          onClick={() => removeCustomAmenity(item)}
+                                          style={{ cursor: 'pointer', fontWeight: 700 }}>
+                                          ×
+                                      </span>
+                                  </span>
+                              ))}
+                          </div>
+                      )}
                   </div>
 
                   <div className="form-group">
@@ -720,6 +837,7 @@ export default function AgentListingsPage() {
             residencyType: data.residencyType,
             price: parseFloat(data.price),
             description: data.description,
+            amenities: data.amenities || undefined,
         }),
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ["my-listings"] });
@@ -745,6 +863,7 @@ export default function AgentListingsPage() {
                 residencyType: data.residencyType,
                 price: parseFloat(data.price),
                 description: data.description || undefined,
+                amenities: data.amenities || undefined,
             }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["my-listings"] });
@@ -984,64 +1103,49 @@ export default function AgentListingsPage() {
                   }}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {l.status === "PendingPayment" && (
-                    <button
-                      className="btn btn-primary btn-sm"
-                      onClick={() => handlePayment(l.id)}
-                      disabled={payLoading === l.id}
-                    >
-                      {payLoading === l.id ? (
-                        <span className="spinner" />
-                      ) : (
-                        <>
-                          <CreditCard size={13} /> Pay to Activate
-                        </>
-                      )}
-                    </button>
-                  )}
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => {
-                      if (!canCreateListing) {
-                        showToast(getApprovalMessage(), "error");
-                        return;
-                      }
-                      setEditTarget(l);
-                      setShowForm(true);
-                    }}
-                  >
-                    <Pencil size={13} />
-                  </button>
-                  <button
-                    className="btn btn-danger btn-sm"
-                    disabled={deleteMut.isPending}
-                    onClick={() => {
-                      if (confirm(`Delete "${l.name}"?`))
-                        deleteMut.mutate(l.id);
-                    }}
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                  {l.status === "Active" && (
-                    <button
-                      className="btn btn-primary btn-sm"
-                      onClick={() =>
-                        statusMut.mutate({ id: l.id, status: "Booked" })
-                      }
-                    >
-                      Mark as Booked
-                    </button>
-                  )}
-                  {l.status === "Booked" && (
-                    <button
-                      className="btn btn-success btn-sm"
-                      onClick={() =>
-                        statusMut.mutate({ id: l.id, status: "Active" })
-                      }
-                    >
-                      Mark as Active
-                    </button>
-                  )}
+                          {l.status === "Active" && (
+                              <button
+                                  className="btn btn-primary btn-sm"
+                                  onClick={() =>
+                                      statusMut.mutate({ id: l.id, status: "Booked" })
+                                  }
+                              >
+                                  Mark as Booked
+                              </button>
+                          )}
+                          {l.status === "Booked" && (
+                              <button
+                                  className="btn btn-success btn-sm"
+                                  onClick={() =>
+                                      statusMut.mutate({ id: l.id, status: "Active" })
+                                  }
+                              >
+                                  Mark as Active
+                              </button>
+                          )}
+                          <button
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => {
+                                  if (!canCreateListing) {
+                                      showToast(getApprovalMessage(), "error");
+                                      return;
+                                  }
+                                  setEditTarget(l);
+                                  setShowForm(true);
+                              }}
+                          >
+                              <Pencil size={13} />
+                          </button>
+                          <button
+                              className="btn btn-danger btn-sm"
+                              disabled={deleteMut.isPending}
+                              onClick={() => {
+                                  if (confirm(`Delete "${l.name}"?`))
+                                      deleteMut.mutate(l.id);
+                              }}
+                          >
+                              <Trash2 size={13} />
+                          </button>
                 </div>
               </div>
             </div>

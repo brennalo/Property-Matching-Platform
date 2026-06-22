@@ -30,7 +30,8 @@ public record CreateListingRequest(
     string Name, int Rooms, int Toilets,
     double Lat, double Lng, string Address,
     ResidencyType ResidencyType, decimal Price,
-    string? Description = null);
+    string? Description = null,
+    string? Amenities = null);
 
 public record UpdateListingRequest(
     string? Name,
