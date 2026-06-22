@@ -1,11 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { availabilityApi } from "../../api";
-import type { AgentAvailability } from "../../types";
-import { DayPicker, DateRange } from "react-day-picker";
-import { format, eachDayOfInterval, isSameDay, parseISO } from "date-fns";
-import { Plus, Trash2, Save, Edit, X } from "lucide-react";
-import "react-day-picker/dist/style.css";
+import { availabilityApi, listingsApi } from "../../api";
+import type {
+  AvailabilityTemplate,
+  AvailabilityException,
+  Listing,
+} from "../../types";
+import { Plus, Trash2, Save, X } from "lucide-react";
+
+const DAYS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
 
 export default function AvailabilityPage() {
   const qc = useQueryClient();
@@ -13,277 +24,500 @@ export default function AvailabilityPage() {
     msg: string;
     type: "success" | "error";
   } | null>(null);
-  const [selectedRange, setSelectedRange] = useState<DateRange | undefined>();
-  const [startTime, setStartTime] = useState("09:00");
-  const [endTime, setEndTime] = useState("17:00");
-  const [reason, setReason] = useState("");
-  const [editingSlot, setEditingSlot] = useState<AgentAvailability | null>(
+  const [templates, setTemplates] = useState<AvailabilityTemplate[]>([]);
+  const [exceptions, setExceptions] = useState<AvailabilityException[]>([]);
+  const [newException, setNewException] = useState<{
+    from: string;
+    to: string;
+    type: "blocked" | "custom_hours";
+    startTime: string;
+    endTime: string;
+    reason: string;
+    listingId: string | null;
+    slotDurationMinutes: number;
+  }>({
+    from: "",
+    to: "",
+    type: "blocked",
+    startTime: "09:00",
+    endTime: "17:00",
+    reason: "",
+    listingId: null,
+    slotDurationMinutes: 60,
+  });
+  const [slotDuration, setSlotDuration] = useState(60);
+  const [editingTemplateDay, setEditingTemplateDay] = useState<number | null>(
     null,
   );
+  const [tempStart, setTempStart] = useState("09:00");
+  const [tempEnd, setTempEnd] = useState("17:00");
 
   const showToast = (msg: string, type: "success" | "error" = "success") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
   };
 
-  const { data: slots = [], isLoading } = useQuery({
-    queryKey: ["my-availability"],
-    queryFn: () =>
-      availabilityApi.getMine().then((r) => r.data?.availabilities || []),
+  const { data: summary, isLoading } = useQuery({
+    queryKey: ["availability-summary"],
+    queryFn: () => availabilityApi.getSummary().then((r) => r.data),
   });
 
-  const saveMut = useMutation({
-    mutationFn: (payload: any[]) => availabilityApi.batchCreate(payload),
+  const { data: listings } = useQuery({
+    queryKey: ["my-listings"],
+    queryFn: () => listingsApi.getMine().then((r) => r.data),
+  });
+
+  useEffect(() => {
+    if (summary) {
+      setTemplates(summary.templates);
+      setExceptions(summary.exceptions);
+      // Set global slot duration from first template (assuming all templates share the same)
+      if (summary.templates.length > 0) {
+        setSlotDuration(summary.templates[0].slotDurationMinutes);
+      }
+    }
+  }, [summary]);
+
+  const addTemplatesMut = useMutation({
+    mutationFn: (reqs: any[]) => availabilityApi.addTemplates(reqs),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["my-availability"] });
-      showToast("Availability saved!");
-      resetForm();
+      qc.invalidateQueries({ queryKey: ["availability-summary"] });
+      showToast("Templates updated");
+      setEditingTemplateDay(null);
     },
-    onError: () => showToast("Failed to save", "error"),
+    onError: () => showToast("Failed to update templates", "error"),
   });
 
-  const deleteMut = useMutation({
-    mutationFn: (id: string) => availabilityApi.delete(id),
+  const addExceptionsMut = useMutation({
+    mutationFn: (reqs: any[]) => availabilityApi.addExceptions(reqs),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["my-availability"] });
-      showToast("Slot deleted");
+      qc.invalidateQueries({ queryKey: ["availability-summary"] });
+      showToast("Exception added");
+      setNewException({
+        from: "",
+        to: "",
+        type: "blocked",
+        startTime: "09:00",
+        endTime: "17:00",
+        reason: "",
+        listingId: null,
+        slotDurationMinutes: 60,
+      });
     },
-    onError: () => showToast("Delete failed", "error"),
+    onError: () => showToast("Failed to add exception", "error"),
   });
 
-  const resetForm = () => {
-    setSelectedRange(undefined);
-    setStartTime("09:00");
-    setEndTime("17:00");
-    setReason("");
-    setEditingSlot(null);
-  };
+  const deleteTemplateMut = useMutation({
+    mutationFn: (id: string) => availabilityApi.deleteTemplate(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["availability-summary"] });
+      showToast("Template deleted");
+    },
+    onError: () => showToast("Failed to delete template", "error"),
+  });
 
-  const handleAddSlots = () => {
-    if (!selectedRange?.from) {
-      showToast("Please select a date or range", "error");
+  const deleteExceptionMut = useMutation({
+    mutationFn: (id: string) => availabilityApi.deleteException(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["availability-summary"] });
+      showToast("Exception deleted");
+    },
+    onError: () => showToast("Failed to delete exception", "error"),
+  });
+
+  const handleSaveTemplates = () => {
+    const reqs = templates
+      .filter(
+        (tpl) => tpl.startTime && tpl.endTime && tpl.startTime < tpl.endTime,
+      )
+      .map((tpl) => ({
+        dayOfWeek: tpl.dayOfWeek,
+        startTime: tpl.startTime,
+        endTime: tpl.endTime,
+        slotDurationMinutes: slotDuration,
+        validFrom: null,
+        validTo: null,
+        listingId: null,
+      }));
+
+    if (reqs.length === 0) {
+      showToast("Please set at least one active day", "error");
       return;
     }
-    if (!validateTimes()) return; // ← add this line
-    const from = selectedRange.from;
-    const to = selectedRange.to || from;
-    const dates = eachDayOfInterval({ start: from, end: to });
-    const newSlots = dates.map((date) => ({
-      startTime,
-      endTime,
-      validFromDate: format(date, "yyyy-MM-dd"),
-      validToDate: format(date, "yyyy-MM-dd"),
-      reason: reason || undefined,
-    }));
-    saveMut.mutate(newSlots);
+    addTemplatesMut.mutate(reqs);
   };
 
-  const handleEdit = (slot: AgentAvailability) => {
-    setEditingSlot(slot);
-    setStartTime(slot.startTime);
-    setEndTime(slot.endTime);
-    setReason(slot.reason || "");
-
-    // Pre‑select the date(s) in the calendar
-    const from = parseISO(slot.validFromDate);
-    const to = parseISO(slot.validToDate);
-    setSelectedRange({ from, to });
-  };
-
-  const handleUpdate = () => {
-    if (!editingSlot) return;
-    if (!selectedRange?.from) {
-      showToast("Select a new date range for the updated slot", "error");
+  const handleAddException = () => {
+    if (!newException.from || !newException.to) {
+      showToast("Select date range", "error");
       return;
     }
-
-    // Validate times FIRST
-    if (startTime >= endTime) {
-      showToast("Start time must be before end time", "error");
-      return;
-    }
-
-    if (!validateTimes()) return;
-    const from = selectedRange.from;
-    const to = selectedRange.to || from;
-    const dates = eachDayOfInterval({ start: from, end: to });
-    const updatedSlots = dates.map((date) => ({
-      startTime,
-      endTime,
-      validFromDate: format(date, "yyyy-MM-dd"),
-      validToDate: format(date, "yyyy-MM-dd"),
-      reason: reason || undefined,
-    }));
-    deleteMut.mutate(editingSlot.id!, {
-      onSuccess: () => {
-        saveMut.mutate(updatedSlots);
-        resetForm();
+    addExceptionsMut.mutate([
+      {
+        exceptionFrom: newException.from,
+        exceptionTo: newException.to,
+        type: newException.type,
+        startTime:
+          newException.type === "custom_hours" ? newException.startTime : null,
+        endTime:
+          newException.type === "custom_hours" ? newException.endTime : null,
+        reason: newException.reason || null,
+        listingId: newException.listingId || null,
+        slotDurationMinutes: newException.slotDurationMinutes,
       },
-    });
+    ]);
   };
 
-  const validateTimes = (): boolean => {
-    if (startTime >= endTime) {
-      showToast("Start time must be before end time", "error");
-      return false;
-    }
-    return true;
-  };
+  if (isLoading)
+    return (
+      <div style={{ textAlign: "center", padding: 60 }}>
+        <span className="spinner" />
+      </div>
+    );
 
   return (
-    <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-      <div style={{ marginBottom: 24 }}>
-        <h1 className="page-title">My Availability</h1>
-        <p className="page-sub">
-          Set your availability for specific dates or date ranges.
-        </p>
-      </div>
+    <div style={{ maxWidth: 900, margin: "0 auto" }}>
+      <h1 className="page-title">My Availability</h1>
+      <p className="page-sub">Set your weekly schedule and manage exceptions</p>
 
-      <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-        {/* Calendar and form */}
-        <div className="card" style={{ flex: 1, minWidth: 350 }}>
-          <h3 style={{ marginBottom: 12 }}>Add / Edit Availability</h3>
-          <DayPicker
-            mode="range"
-            selected={selectedRange}
-            onSelect={setSelectedRange}
-            style={{ marginBottom: 16 }}
-          />
-          <div style={{ marginTop: 16 }}>
-            <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-              <div className="form-group" style={{ flex: 1 }}>
-                <label className="form-label">Start Time</label>
-                <input
-                  type="time"
-                  className="input"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                />
-              </div>
-              <div className="form-group" style={{ flex: 1 }}>
-                <label className="form-label">End Time</label>
-                <input
-                  type="time"
-                  className="input"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="form-group" style={{ marginBottom: 12 }}>
-              <label className="form-label">Reason (optional)</label>
-              <input
-                className="input"
-                placeholder="e.g., Holiday, Early closing"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-              />
-            </div>
-            {editingSlot ? (
-              <div style={{ display: "flex", gap: 8 }}>
-                <button className="btn btn-outline" onClick={resetForm}>
-                  <X size={14} /> Cancel
-                </button>
-                <button className="btn btn-primary" onClick={handleUpdate}>
-                  <Save size={14} /> Update
-                </button>
-              </div>
-            ) : (
-              <button
-                className="btn btn-primary w-full"
-                onClick={handleAddSlots}
-                disabled={saveMut.isPending}
-              >
-                {saveMut.isPending ? (
-                  <span className="spinner" />
-                ) : (
+      {/* Weekly Templates (always agent-level) */}
+      <div className="card" style={{ marginBottom: 24 }}>
+        <h3 style={{ marginBottom: 12 }}>
+          Weekly Schedule (applies to all listings)
+        </h3>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "auto 1fr 1fr auto",
+            gap: 8,
+            alignItems: "center",
+          }}
+        >
+          <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>Day</div>
+          <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>Start</div>
+          <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>End</div>
+          <div></div>
+          {DAYS.map((day, idx) => {
+            const tpl = templates.find((t) => t.dayOfWeek === idx);
+            const isEditing = editingTemplateDay === idx;
+            return (
+              <Fragment key={idx}>
+                <span>{day}</span>
+                {isEditing ? (
                   <>
-                    <Plus size={14} /> Add Slot(s)
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Existing slots list */}
-        <div className="card" style={{ flex: 2, minWidth: 400 }}>
-          <h3 style={{ marginBottom: 12 }}>Current Availability Slots</h3>
-          {isLoading ? (
-            <div style={{ textAlign: "center", padding: 40 }}>
-              <span className="spinner" />
-            </div>
-          ) : slots.length === 0 ? (
-            <p
-              style={{
-                color: "var(--text-muted)",
-                padding: 20,
-                textAlign: "center",
-              }}
-            >
-              No slots set.
-            </p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {slots.map((slot) => {
-                const from = parseISO(slot.validFromDate);
-                const to = parseISO(slot.validToDate);
-                const label = isSameDay(from, to)
-                  ? format(from, "PPP")
-                  : `${format(from, "PPP")} – ${format(to, "PPP")}`;
-                return (
-                  <div
-                    key={slot.id}
-                    style={{
-                      padding: 12,
-                      background: "var(--bg-input)",
-                      borderRadius: 8,
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                    }}
-                  >
-                    <div>
-                      <strong>{label}</strong>
-                      <span style={{ marginLeft: 12, fontFamily: "monospace" }}>
-                        {slot.startTime} – {slot.endTime}
-                      </span>
-                      {slot.reason && (
-                        <span
-                          style={{
-                            marginLeft: 12,
-                            fontSize: "0.75rem",
-                            color: "var(--text-dim)",
-                          }}
-                        >
-                          ({slot.reason})
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ display: "flex", gap: 6 }}>
+                    <input
+                      type="time"
+                      value={tempStart}
+                      onChange={(e) => setTempStart(e.target.value)}
+                      style={{ padding: "4px 8px" }}
+                    />
+                    <input
+                      type="time"
+                      value={tempEnd}
+                      onChange={(e) => setTempEnd(e.target.value)}
+                      style={{ padding: "4px 8px" }}
+                    />
+                    <div style={{ display: "flex", gap: 4 }}>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={() => {
+                          const updated = templates.filter(
+                            (t) => t.dayOfWeek !== idx,
+                          );
+                          const newTpl: AvailabilityTemplate = {
+                            id: tpl?.id || "",
+                            dayOfWeek: idx,
+                            startTime: tempStart,
+                            endTime: tempEnd,
+                            slotDurationMinutes: slotDuration,
+                            isActive: true,
+                            createdAt:
+                              tpl?.createdAt || new Date().toISOString(),
+                          };
+                          setTemplates([...updated, newTpl]);
+                          setEditingTemplateDay(null);
+                        }}
+                      >
+                        <Save size={14} />
+                      </button>
                       <button
                         className="btn btn-ghost btn-sm"
-                        onClick={() => handleEdit(slot)}
+                        onClick={() => setEditingTemplateDay(null)}
                       >
-                        <Edit size={14} />
-                      </button>
-                      <button
-                        className="btn btn-danger btn-sm"
-                        onClick={() => {
-                          if (slot.id) deleteMut.mutate(slot.id);
-                        }}
-                        disabled={deleteMut.isPending}
-                      >
-                        <Trash2 size={14} />
+                        <X size={14} />
                       </button>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                  </>
+                ) : (
+                  <>
+                    <span>{tpl?.startTime || "—"}</span>
+                    <span>{tpl?.endTime || "—"}</span>
+
+                    <div style={{ display: "flex", gap: 4 }}>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => {
+                          setEditingTemplateDay(idx);
+                          setTempStart(tpl?.startTime || "09:00");
+                          setTempEnd(tpl?.endTime || "17:00");
+                        }}
+                      >
+                        ✏️
+                      </button>
+                      {tpl && (
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => {
+                            setTemplates(
+                              templates.filter((t) => t.dayOfWeek !== idx),
+                            );
+                          }}
+                        >
+                          🗑️
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </Fragment>
+            );
+          })}
+        </div>
+        <div
+          style={{
+            marginTop: 12,
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+          }}
+        >
+          <label style={{ fontSize: "0.85rem" }}>
+            Slot Duration: {slotDuration} min
+          </label>
+          <input
+            type="range"
+            min={15}
+            max={120}
+            step={15}
+            value={slotDuration}
+            onChange={(e) => setSlotDuration(Number(e.target.value))}
+            style={{ flex: 1, maxWidth: 200 }}
+          />
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={handleSaveTemplates}
+            disabled={addTemplatesMut.isPending}
+          >
+            {addTemplatesMut.isPending ? (
+              <span className="spinner" />
+            ) : (
+              "Save Schedule"
+            )}
+          </button>
         </div>
       </div>
+
+      {/* Exceptions */}
+      <div className="card" style={{ marginBottom: 24 }}>
+        <h3 style={{ marginBottom: 12 }}>
+          Exceptions (holidays, custom hours)
+        </h3>
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            flexWrap: "wrap",
+            marginBottom: 12,
+          }}
+        >
+          <input
+            type="date"
+            value={newException.from}
+            onChange={(e) =>
+              setNewException({ ...newException, from: e.target.value })
+            }
+            style={{ padding: "6px 10px" }}
+          />
+          <span>to</span>
+          <input
+            type="date"
+            value={newException.to}
+            onChange={(e) =>
+              setNewException({ ...newException, to: e.target.value })
+            }
+            style={{ padding: "6px 10px" }}
+          />
+          <select
+            value={newException.type}
+            onChange={(e) =>
+              setNewException({ ...newException, type: e.target.value as any })
+            }
+            style={{ padding: "6px 10px" }}
+          >
+            <option value="blocked">Blocked</option>
+            <option value="custom_hours">Custom Hours</option>
+          </select>
+          {newException.type === "custom_hours" && (
+            <>
+              <input
+                type="time"
+                value={newException.startTime}
+                onChange={(e) =>
+                  setNewException({
+                    ...newException,
+                    startTime: e.target.value,
+                  })
+                }
+                style={{ padding: "6px 10px" }}
+              />
+              <span>–</span>
+              <input
+                type="time"
+                value={newException.endTime}
+                onChange={(e) =>
+                  setNewException({ ...newException, endTime: e.target.value })
+                }
+                style={{ padding: "6px 10px" }}
+              />
+            </>
+          )}
+          <input
+            placeholder="Reason (optional)"
+            value={newException.reason}
+            onChange={(e) =>
+              setNewException({ ...newException, reason: e.target.value })
+            }
+            style={{ padding: "6px 10px", flex: 1 }}
+          />
+
+          <select
+            value={newException.listingId || ""}
+            onChange={(e) =>
+              setNewException({
+                ...newException,
+                listingId: e.target.value || null,
+              })
+            }
+            style={{ padding: "6px 10px", minWidth: 150 }}
+          >
+            <option value="">All Listings</option>
+            {listings?.map((l: Listing) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
+              </option>
+            ))}
+          </select>
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              width: "100%",
+            }}
+          >
+            <label style={{ fontSize: "0.85rem" }}>
+              Slot Duration: {newException.slotDurationMinutes} min
+            </label>
+            <input
+              type="range"
+              min={15}
+              max={120}
+              step={15}
+              value={newException.slotDurationMinutes}
+              onChange={(e) =>
+                setNewException({
+                  ...newException,
+                  slotDurationMinutes: Number(e.target.value),
+                })
+              }
+              style={{ flex: 1, maxWidth: 200 }}
+            />
+          </div>
+
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={handleAddException}
+            disabled={addExceptionsMut.isPending}
+          >
+            {addExceptionsMut.isPending ? (
+              <span className="spinner" />
+            ) : (
+              <>
+                <Plus size={14} /> Add Exception
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Exception list */}
+        {exceptions.length === 0 ? (
+          <p style={{ color: "var(--text-dim)" }}>No exceptions set.</p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {exceptions.map((ex) => (
+              <div
+                key={ex.id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  background: "var(--bg-input)",
+                  padding: "8px 12px",
+                  borderRadius: 6,
+                }}
+              >
+                <div>
+                  <strong>
+                    {new Date(ex.exceptionFrom).toLocaleDateString()} –{" "}
+                    {new Date(ex.exceptionTo).toLocaleDateString()}
+                  </strong>
+                  {ex.type === "blocked" ? (
+                    <span style={{ marginLeft: 8, color: "var(--red)" }}>
+                      🔴 Blocked
+                    </span>
+                  ) : (
+                    <span style={{ marginLeft: 8 }}>
+                      🕒 {ex.startTime} – {ex.endTime} ({ex.slotDurationMinutes}{" "}
+                      min slots)
+                    </span>
+                  )}
+                  {ex.reason && (
+                    <span
+                      style={{
+                        marginLeft: 8,
+                        color: "var(--text-dim)",
+                        fontSize: "0.85rem",
+                      }}
+                    >
+                      ({ex.reason})
+                    </span>
+                  )}
+                  {ex.listingId &&
+                    listings?.find((l) => l.id === ex.listingId) && (
+                      <span
+                        style={{
+                          marginLeft: 8,
+                          fontSize: "0.8rem",
+                          color: "var(--accent)",
+                        }}
+                      >
+                        for {listings.find((l) => l.id === ex.listingId)?.name}
+                      </span>
+                    )}
+                </div>
+                <button
+                  className="btn btn-danger btn-sm"
+                  onClick={() => deleteExceptionMut.mutate(ex.id)}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {toast && <div className={`toast toast-${toast.type}`}>{toast.msg}</div>}
     </div>
   );

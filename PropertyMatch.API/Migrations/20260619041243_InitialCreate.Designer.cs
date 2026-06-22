@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PropertyMatch.API.Data;
@@ -12,9 +13,11 @@ using PropertyMatch.API.Data;
 namespace PropertyMatch.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260619041243_InitialCreate")]
+    partial class InitialCreate
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -74,9 +77,6 @@ namespace PropertyMatch.API.Migrations
 
                     b.Property<string>("Reason")
                         .HasColumnType("text");
-
-                    b.Property<int>("SlotDurationMinutes")
-                        .HasColumnType("integer");
 
                     b.Property<string>("StartTime")
                         .HasColumnType("text");
@@ -339,6 +339,12 @@ namespace PropertyMatch.API.Migrations
                     b.Property<int>("Rooms")
                         .HasColumnType("integer");
 
+                    b.Property<string>("SourcePlatform")
+                        .HasColumnType("text");
+
+                    b.Property<string>("SourceUrl")
+                        .HasColumnType("text");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("text");
@@ -517,41 +523,6 @@ namespace PropertyMatch.API.Migrations
                     b.HasIndex("TenantId");
 
                     b.ToTable("Reviews");
-                });
-
-            modelBuilder.Entity("PropertyMatch.API.Models.ScoringConfig", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("LifestyleRadiusMeters")
-                        .HasColumnType("integer");
-
-                    b.Property<double>("WeightCommute")
-                        .HasColumnType("double precision");
-
-                    b.Property<double>("WeightLifestyle")
-                        .HasColumnType("double precision");
-
-                    b.Property<double>("WeightNumeric")
-                        .HasColumnType("double precision");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("ScoringConfig");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            LifestyleRadiusMeters = 800,
-                            WeightCommute = 0.29999999999999999,
-                            WeightLifestyle = 0.29999999999999999,
-                            WeightNumeric = 0.40000000000000002
-                        });
                 });
 
             modelBuilder.Entity("PropertyMatch.API.Models.SearchLog", b =>

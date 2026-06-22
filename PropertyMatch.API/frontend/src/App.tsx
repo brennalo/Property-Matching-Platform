@@ -38,7 +38,14 @@ import TokenTopUpPage from "./pages/agent/TokenTopUpPage";
 import PaymentSuccessPage from "./pages/agent/PaymentSuccessPage";
 import PaymentCancelPage from "./pages/agent/PaymentCancelPage";
 import AdminTenantsPage from "./pages/admin/TenantsPage";
-
+import BrowsePage from "./pages/BrowsePage";
+import FavouritesPage from "./pages/tenant/FavouritesPage";
+import HistoryPage from "./pages/tenant/HistoryPage";
+import ConversationsPage from "./pages/tenant/ConversationsPage";
+import AgentConversationsPage from "./pages/agent/ConversationsPage";
+import ScoringConfigPage from "./pages/admin/ScoringConfigPage";
+import TenantFeedbackPage from "./pages/tenant/FeedbackPage";
+import AdminFeedbackPage from "./pages/admin/FeedbackPage";
 import {
   Search,
   Heart,
@@ -50,7 +57,17 @@ import {
   Building2,
   Menu,
   Coins,
+  MessageSquare,
+  Clock,
+  Star,
+  CalendarCheck,
+  ClipboardCheck,
+  LayoutDashboard,
+  Building,
+  Settings,
 } from "lucide-react";
+import AgentReviewsPage from "./pages/agent/ReviewsPage";
+import AgentAnalyticsPage from "./pages/agent/AgentAnalytics";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
@@ -198,6 +215,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const tenantLinks = [
+    { to: "/browse", icon: <Building size={16} />, label: "Browse" },
     { to: "/search", icon: <Search size={16} />, label: "Find a Home" },
     {
       to: "/lifestyle",
@@ -205,28 +223,51 @@ function AppShell({ children }: { children: React.ReactNode }) {
       label: "Lifestyle Templates",
     },
     { to: "/my-schedules", icon: <Calendar size={16} />, label: "My Viewings" },
+    { to: "/favourites", icon: <Heart size={16} />, label: "Saved Listings" },
+    { to: "/history", icon: <Clock size={16} />, label: "History" },
+    {
+      to: "/conversations",
+      icon: <MessageSquare size={16} />,
+      label: "Messages",
+    },
+    { to: "/feedback", icon: <MessageSquare size={16} />, label: "Feedback" },
   ];
   const agentLinks = [
     {
       to: "/agent/dashboard",
-      icon: <BarChart3 size={16} />,
+      icon: <LayoutDashboard size={16} />,
       label: "Dashboard",
     },
     { to: "/agent/listings", icon: <List size={16} />, label: "My Listings" },
     {
       to: "/agent/availability",
-      icon: <Calendar size={16} />,
+      icon: <CalendarCheck size={16} />,
       label: "My Availability",
     },
     {
       to: "/agent/calendar",
-      icon: <Calendar size={16} />,
+      icon: <Clock size={16} />,
       label: "Viewing Calendar",
     },
     {
       to: "/agent/topup",
       icon: <Coins size={16} />,
       label: "Top Up Tokens",
+    },
+    {
+      to: "/agent/conversations",
+      icon: <MessageSquare size={16} />,
+      label: "Messages",
+    },
+    {
+      to: "/agent/analytics",
+      icon: <BarChart3 size={16} />,
+      label: "Listing Analytics",
+    },
+    {
+      to: "/agent/reviews",
+      icon: <Star size={16} />,
+      label: "Reviews & Ratings",
     },
   ];
   const adminLinks = [
@@ -236,7 +277,17 @@ function AppShell({ children }: { children: React.ReactNode }) {
       label: "Analytics",
     },
     { to: "/admin/agents", icon: <Users size={16} />, label: "Agents" },
-      { to: "/admin/tenants", icon: <Users size={16} />, label: "Tenants" },
+    { to: "/admin/tenants", icon: <Users size={16} />, label: "Tenants" },
+    {
+      to: "/admin/scoring-config",
+      icon: <Settings size={16} />,
+      label: "Scoring Config",
+    },
+    {
+      to: "/admin/feedback",
+      icon: <MessageSquare size={16} />,
+      label: "Feedback",
+    },
   ];
 
   const links =
@@ -328,7 +379,7 @@ function RootRedirect() {
   const { user, loading } = useAuth();
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
-  if (user.role === "Tenant") return <Navigate to="/search" replace />;
+  if (user.role === "Tenant") return <Navigate to="/browse" replace />;
   if (user.role === "Agent") return <Navigate to="/agent/dashboard" replace />;
   return <Navigate to="/admin/dashboard" replace />;
 }
@@ -347,7 +398,16 @@ export default function App() {
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/email-verified" element={<EmailVerifiedPage />} />
             <Route path="/" element={<RootRedirect />} />
-
+            <Route
+              path="/browse"
+              element={
+                <ProtectedRoute roles={["Tenant"]} requireVerified={false}>
+                  <AppShell>
+                    <BrowsePage />
+                  </AppShell>
+                </ProtectedRoute>
+              }
+            />
             {/* Tenant — SearchPage accessible even when Pending */}
             <Route
               path="/search"
@@ -401,6 +461,46 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/favourites"
+              element={
+                <ProtectedRoute roles={["Tenant"]} requireVerified>
+                  <AppShell>
+                    <FavouritesPage />
+                  </AppShell>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/history"
+              element={
+                <ProtectedRoute roles={["Tenant"]} requireVerified>
+                  <AppShell>
+                    <HistoryPage />
+                  </AppShell>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/conversations"
+              element={
+                <ProtectedRoute roles={["Tenant"]} requireVerified>
+                  <AppShell>
+                    <ConversationsPage />
+                  </AppShell>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/feedback"
+              element={
+                <ProtectedRoute roles={["Tenant"]} requireVerified>
+                  <AppShell>
+                    <TenantFeedbackPage />
+                  </AppShell>
+                </ProtectedRoute>
+              }
+            />
 
             {/* Agent — all require verified */}
             <Route
@@ -429,6 +529,16 @@ export default function App() {
                 <ProtectedRoute roles={["Agent"]} requireVerified>
                   <AppShell>
                     <AgentAvailabilityPage />
+                  </AppShell>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/agent/conversations"
+              element={
+                <ProtectedRoute roles={["Agent"]} requireVerified>
+                  <AppShell>
+                    <AgentConversationsPage />
                   </AppShell>
                 </ProtectedRoute>
               }
@@ -463,8 +573,29 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+
+            <Route
+              path="/agent/analytics"
+              element={
+                <ProtectedRoute roles={["Agent"]}>
+                  <AppShell>
+                    <AgentAnalyticsPage />
+                  </AppShell>
+                </ProtectedRoute>
+              }
+            />
             <Route path="/payment-success" element={<PaymentSuccessPage />} />
             <Route path="/payment-cancel" element={<PaymentCancelPage />} />
+            <Route
+              path="/agent/reviews"
+              element={
+                <ProtectedRoute roles={["Agent"]} requireVerified>
+                  <AppShell>
+                    <AgentReviewsPage />
+                  </AppShell>
+                </ProtectedRoute>
+              }
+            />
 
             {/* Admin */}
             <Route
@@ -493,6 +624,26 @@ export default function App() {
                 <ProtectedRoute roles={["Admin"]}>
                   <AppShell>
                     <AdminTenantsPage />
+                  </AppShell>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/scoring-config"
+              element={
+                <ProtectedRoute roles={["Admin"]}>
+                  <AppShell>
+                    <ScoringConfigPage />
+                  </AppShell>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/feedback"
+              element={
+                <ProtectedRoute roles={["Admin"]}>
+                  <AppShell>
+                    <AdminFeedbackPage />
                   </AppShell>
                 </ProtectedRoute>
               }

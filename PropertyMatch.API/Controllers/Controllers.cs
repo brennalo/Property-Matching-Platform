@@ -13,12 +13,22 @@ namespace PropertyMatch.API.Controllers;
 [ApiController]
 [Route("api/match")]
 [Authorize(Roles = "Tenant")]
-public class MatchController(MatchingService matching) : ControllerBase
+public class MatchController(MatchingService matching, AppDbContext db) : ControllerBase
 {
     [HttpPost]
     public async Task<IActionResult> Match([FromBody] MatchRequest req)
     {
         var tenantId = User.GetUserId();
+
+        db.SearchLogs.Add(new SearchLog
+        {
+            TenantId = tenantId,
+            SearchedAt = DateTime.UtcNow,
+            Snapshot = System.Text.Json.JsonSerializer.Serialize(req)
+        });
+
+        await db.SaveChangesAsync();
+
         var results = await matching.MatchAsync(req, tenantId);
         return Ok(results);
     }
@@ -87,7 +97,7 @@ public class LifestyleTemplatesController(AppDbContext db) : ControllerBase
 [ApiController]
 [Route("api/schedules")]
 [Authorize]
-public class SchedulesController(AppDbContext db) : ControllerBase
+public class SchedulesController(AppDbContext db, ResendEmailService _resendEmailService) : ControllerBase
 {
     // Tenant: book a viewing
     [HttpPost]
@@ -96,29 +106,48 @@ public class SchedulesController(AppDbContext db) : ControllerBase
     {
         var tenantId = User.GetUserId();
 
-        // Check listing exists and is agent-owned (agent listing has no SourceUrl)
-        var listing = await db.Listings.FindAsync(req.ListingId);
+        // Load listing with agent + user so we can send email
+        var listing = await db.Listings
+            .Include(l => l.Agent).ThenInclude(a => a.User)
+            .FirstOrDefaultAsync(l => l.Id == req.ListingId);
         if (listing == null) return NotFound(new { message = "Listing not found" });
-        if (listing.SourceUrl != null)
-            return BadRequest(new { message = "Cannot schedule viewing for scraped listings. Use the source link." });
         if (listing.Status != ListingStatus.Active)
             return BadRequest(new { message = "Listing is not active" });
 
-        // Check for double-booking
-        var exists = await db.ViewingSchedules.FindAsync(req.ListingId, req.ScheduledAt);
-        if (exists != null)
+        var scheduledAtUtc = req.ScheduledAt.ToUniversalTime();
+
+        // Check for double-booking (FindAsync won't work — Id is the PK now)
+        var exists = await db.ViewingSchedules
+            .AnyAsync(v => v.ListingId == req.ListingId && v.ScheduledAt == scheduledAtUtc);
+        if (exists)
             return Conflict(new { message = "This time slot is already booked" });
+
+        var tenant = await db.Users.FindAsync(tenantId);
+        if (tenant == null) return NotFound(new { message = "Tenant not found" });
 
         var schedule = new ViewingSchedule
         {
+            Id = Guid.NewGuid(),
             ListingId = req.ListingId,
-            ScheduledAt = req.ScheduledAt.ToUniversalTime(),
+            ScheduledAt = scheduledAtUtc,
             TenantId = tenantId,
             Status = ScheduleStatus.Pending
         };
 
         db.ViewingSchedules.Add(schedule);
         await db.SaveChangesAsync();
+
+        // Email agent: new viewing request (fire-and-forget)
+        _ = _resendEmailService.SendViewingRequestToAgentAsync(
+            listing.Agent.User.Email, listing.Agent.User.FullName,
+            tenant.FullName, tenant.Email,
+            listing.Name, listing.Address, schedule.ScheduledAt)
+            .ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                    Console.Error.WriteLine($"[Email] Agent notification failed: {t.Exception}");
+            });
+
         return Ok(new { message = "Viewing scheduled successfully" });
     }
 
@@ -160,21 +189,69 @@ public class SchedulesController(AppDbContext db) : ControllerBase
     // Agent: confirm or cancel a schedule
     [HttpPatch("{listingId}/{scheduledAt}")]
     [Authorize(Roles = "Agent")]
-    public async Task<IActionResult> UpdateStatus(Guid listingId, DateTime scheduledAt, [FromBody] ScheduleStatus status)
+    public async Task<IActionResult> UpdateStatus(
+        Guid listingId,
+        DateTime scheduledAt,
+        [FromBody] UpdateScheduleStatusRequest req)
     {
-        var schedule = await db.ViewingSchedules.FindAsync(listingId, scheduledAt.ToUniversalTime());
+        var schedule = await db.ViewingSchedules
+            .Include(v => v.Listing)
+            .Include(v => v.Tenant)
+            .FirstOrDefaultAsync(v =>
+                v.ListingId == listingId &&
+                v.ScheduledAt == scheduledAt.ToUniversalTime());
+
         if (schedule == null) return NotFound();
-        schedule.Status = status;
+
+        // Require a reason for cancellation
+        if (req.Status == ScheduleStatus.Cancelled && string.IsNullOrWhiteSpace(req.Reason))
+            return BadRequest(new { message = "A reason is required for cancellation." });
+
+        schedule.Status = req.Status;
+        if (!string.IsNullOrWhiteSpace(req.Reason))
+            schedule.Reason = req.Reason;
+
         await db.SaveChangesAsync();
+
+        // Send email notifications
+        if (req.Status == ScheduleStatus.Confirmed)
+        {
+            _ = _resendEmailService.SendViewingConfirmedToTenantAsync(
+                schedule.Tenant.Email, schedule.Tenant.FullName,
+                schedule.Listing.Name, schedule.Listing.Address,
+                schedule.ScheduledAt)
+                .ContinueWith(t =>
+                {
+                    if (t.IsFaulted)
+                        Console.Error.WriteLine($"[Email] Confirmation email failed: {t.Exception}");
+                });
+        }
+        else if (req.Status == ScheduleStatus.Cancelled)
+        {
+            _ = _resendEmailService.SendViewingRejectedToTenantAsync(
+                schedule.Tenant.Email, schedule.Tenant.FullName,
+                schedule.Listing.Name, schedule.ScheduledAt, req.Reason)
+                .ContinueWith(t =>
+                {
+                    if (t.IsFaulted)
+                        Console.Error.WriteLine($"[Email] Rejection email failed: {t.Exception}");
+                });
+        }
+
         return Ok(new { message = "Schedule updated" });
     }
 
     private static ScheduleResponse MapResponse(ViewingSchedule v) => new(
-        v.ListingId, v.Listing?.Name ?? "", v.Listing?.Address ?? "",
-        v.TenantId, v.Tenant?.FullName ?? "",
-        v.ScheduledAt, v.Status);
+        v.Id,
+        v.ListingId,
+        v.Listing?.Name ?? "",
+        v.Listing?.Address ?? "",
+        v.TenantId,
+        v.Tenant?.FullName ?? "",
+        v.ScheduledAt,
+        v.Status,
+        v.Reason);
 }
-
 //// ── Payments ──────────────────────────────────────────────────────────────────
 //[ApiController]
 //[Route("api/payments")]
@@ -472,6 +549,67 @@ public class AdminController(AppDbContext db) : ControllerBase
         double conversionRate = totalListings == 0 ? 0 : (double)paidListings / totalListings * 100;
         return Ok(new { totalListings, paidListings, conversionRate });
     }
+
+    [HttpGet("analytics/search-to-schedule-rate")]
+    public async Task<IActionResult> GetSearchToScheduleRate()
+    {
+        var totalSearches = await db.SearchLogs.CountAsync();
+        var totalSchedules = await db.ViewingSchedules.CountAsync();
+
+        var rate = totalSearches == 0
+            ? 0
+            : (double)totalSchedules / totalSearches * 100;
+
+        return Ok(new
+        {
+            totalSearches,
+            totalSchedules,
+            rate
+        });
+    }
+
+    [HttpGet("analytics/token-buying")]
+    public async Task<IActionResult> GetTokenBuying()
+    {
+        var succeeded = db.Payments.Where(p => p.Status == "succeeded");
+
+        var totalPurchases = await succeeded.CountAsync();
+        var totalTokensSold = await succeeded.SumAsync(p => p.TokensPurchased);
+        var totalRevenue = await succeeded.SumAsync(p => p.Amount);
+
+        return Ok(new
+        {
+            totalPurchases,
+            totalTokensSold,
+            totalRevenue,
+            averageTokensPerPurchase = totalPurchases == 0
+                ? 0
+                : (double)totalTokensSold / totalPurchases
+        });
+    }
+
+    [HttpGet("analytics/demand-locations")]
+    public async Task<IActionResult> GetDemandLocations()
+    {
+        var data = await db.Listings
+            .Where(l => l.ViewingSchedules.Any())
+            .Select(l => new
+            {
+                listingId = l.Id,
+                listingName = l.Name,
+                address = l.Address,
+                lat = l.Lat,
+                lng = l.Lng,
+                scheduleCount = l.ViewingSchedules.Count,
+                confirmedCount = l.ViewingSchedules.Count(v => v.Status == ScheduleStatus.Confirmed),
+                isBooked = l.Status == ListingStatus.Booked
+            })
+            .OrderByDescending(x => x.scheduleCount)
+            .Take(20)
+            .ToListAsync();
+
+        return Ok(data);
+    }
 }
 
 // ── Config (public — serves Google Maps key to frontend) ──────────────────────
@@ -599,5 +737,122 @@ public class AgentDashboardController(AppDbContext db) : ControllerBase
             topListings,
             pendingPaymentList
         ));
+    }
+
+    [HttpGet("analytics/listings")]
+    [Authorize(Roles = "Agent")]
+    public async Task<IActionResult> GetListingAnalytics()
+    {
+        var agentId = User.GetUserId();
+
+        var analytics = await db.Listings
+            .Where(l => l.AgentId == agentId)
+            .Select(l => new
+            {
+                l.Id,
+                l.Name,
+                ViewCount = db.ViewHistory.Count(v => v.ListingId == l.Id),
+                BookingCount = db.ViewingSchedules.Count(vs => vs.ListingId == l.Id),
+                ConfirmedCount = db.ViewingSchedules.Count(vs => vs.ListingId == l.Id && vs.Status == ScheduleStatus.Confirmed),
+                PendingCount = db.ViewingSchedules.Count(vs => vs.ListingId == l.Id && vs.Status == ScheduleStatus.Pending),
+                CancelledCount = db.ViewingSchedules.Count(vs => vs.ListingId == l.Id && vs.Status == ScheduleStatus.Cancelled)
+            })
+            .OrderByDescending(l => l.ViewCount)
+            .ToListAsync();
+
+        return Ok(analytics);
+    }
+
+    // ── Feedback ─────────────────────────────────────────────────────────
+    [ApiController]
+    [Route("api/feedback")]
+    [Authorize]
+    public class FeedbackController(AppDbContext db) : ControllerBase
+    {
+        [HttpPost]
+        [Authorize(Roles = "Tenant")]
+        public async Task<IActionResult> SubmitFeedback([FromBody] CreateFeedbackRequest req)
+        {
+            var tenantId = User.GetUserId();
+
+            if (string.IsNullOrWhiteSpace(req.Description))
+                return BadRequest(new { message = "Feedback description is required." });
+
+            var feedback = new Feedback
+            {
+                TenantId = tenantId,
+                Description = req.Description.Trim(),
+                Status = "Open",
+                CreatedAt = DateTime.UtcNow
+            };
+
+            db.Feedbacks.Add(feedback);
+            await db.SaveChangesAsync();
+
+            return Ok(new { message = "Feedback submitted successfully." });
+        }
+
+        [HttpGet("mine")]
+        [Authorize(Roles = "Tenant")]
+        public async Task<IActionResult> GetMyFeedback()
+        {
+            var tenantId = User.GetUserId();
+
+            var feedbacks = await db.Feedbacks
+                .Include(f => f.Tenant)
+                .Where(f => f.TenantId == tenantId)
+                .OrderByDescending(f => f.CreatedAt)
+                .Select(f => new FeedbackResponse(
+                    f.Id,
+                    f.TenantId,
+                    f.Tenant.FullName,
+                    f.Tenant.Email,
+                    f.Description,
+                    f.Status,
+                    f.CreatedAt
+                ))
+                .ToListAsync();
+
+            return Ok(feedbacks);
+        }
+
+        [HttpGet("admin")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetAllFeedback()
+        {
+            var feedbacks = await db.Feedbacks
+                .Include(f => f.Tenant)
+                .OrderByDescending(f => f.CreatedAt)
+                .Select(f => new FeedbackResponse(
+                    f.Id,
+                    f.TenantId,
+                    f.Tenant.FullName,
+                    f.Tenant.Email,
+                    f.Description,
+                    f.Status,
+                    f.CreatedAt
+                ))
+                .ToListAsync();
+
+            return Ok(feedbacks);
+        }
+
+        [HttpPatch("{id}/status")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> UpdateFeedbackStatus(Guid id, [FromBody] UpdateFeedbackStatusRequest req)
+        {
+            var feedback = await db.Feedbacks.FindAsync(id);
+            if (feedback == null) return NotFound(new { message = "Feedback not found." });
+
+            var allowedStatuses = new[] { "Open", "Reviewed" };
+
+            if (!allowedStatuses.Contains(req.Status))
+                return BadRequest(new { message = "Invalid feedback status." });
+
+            feedback.Status = req.Status;
+            await db.SaveChangesAsync();
+
+            return Ok(new { message = $"Feedback marked as {req.Status}." });
+        }
     }
 }

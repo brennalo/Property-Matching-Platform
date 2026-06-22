@@ -10,10 +10,16 @@ import type {
   AgentDetail,
   TenantDetail,
   UserStatus,
-  AgentAvailability,
+  AvailabilityTemplate,
+  AvailabilityException,
+  AvailabilityTemplateRequest,
+  AvailabilityExceptionRequest,
+  AvailableSlot,
   BatchListingRow,
   ListingStatus,
   ImageDto,
+  ScoringConfigRequest,
+  ScoringConfig,
 } from "../types";
 
 const api = axios.create({
@@ -55,7 +61,7 @@ export const listingsApi = {
   getById: (id: string) => api.get<Listing>(`/listings/${id}`),
 
   updateStatus: (id: string, status: ListingStatus) =>
-      api.patch(`/listings/${id}/status`, { status }),
+    api.patch(`/listings/${id}/status`, { status }),
 
   create: (data: {
     name: string;
@@ -66,7 +72,18 @@ export const listingsApi = {
     address: string;
     residencyType: string;
     price: number;
+    description: string;
   }) => api.post<{ id: string; message: string }>("/listings", data),
+
+    generateDescription: (data: {
+        name: string;
+        rooms: number;
+        toilets: number;
+        address: string;
+        residencyType: string;
+        price: number;
+        extraDetails?: string
+    }) => api.post<{ description: string }>('/listings/generate-description', data),
 
   update: (
     id: string,
@@ -79,6 +96,8 @@ export const listingsApi = {
       address: string;
       residencyType: string;
       price: number;
+      description: string;
+      amenities: string;
     }>,
   ) => api.put(`/listings/${id}`, data),
 
@@ -144,35 +163,62 @@ export const schedulesApi = {
 
   getAgentSchedules: () => api.get<ViewingSchedule[]>("/schedules/agent"),
 
-  updateStatus: (listingId: string, scheduledAt: string, status: string) =>
+  updateStatus: (
+    listingId: string,
+    scheduledAt: string,
+    status: string,
+    reason?: string,
+  ) =>
     api.patch(
       `/schedules/${listingId}/${encodeURIComponent(scheduledAt)}`,
-      JSON.stringify(status),
+      { status, reason },
       {
         headers: { "Content-Type": "application/json" },
       },
     ),
 };
 
-// ── Availability ──────────────────────────────────────────────────────────────────
-// Agent availability scheduling
+// ── Availability Template and Exception ──────────────────────────────────────────────────────────────────
 export const availabilityApi = {
-  getMine: () =>
-    api.get<{ availabilities: AgentAvailability[] }>("/availability/mine"),
+  // Agent endpoints
+  getSummary: () =>
+    api.get<{
+      templates: AvailabilityTemplate[];
+      exceptions: AvailabilityException[];
+    }>("/availability/summary"),
 
-  getByAgentId: (agentId: string) =>
-    api.get<{ availabilities: AgentAvailability[] }>(
-      `/availability/${agentId}`,
+  addTemplates: (
+    templates: Array<{
+      dayOfWeek: number;
+      startTime: string;
+      endTime: string;
+      slotDurationMinutes?: number;
+      validFrom?: string | null;
+      validTo?: string | null;
+      listingId?: string | null;
+    }>,
+  ) => api.post("/availability/templates", templates),
+
+  addExceptions: (
+    exceptions: Array<{
+      exceptionFrom: string;
+      exceptionTo: string;
+      type: "blocked" | "custom_hours";
+      startTime?: string | null;
+      endTime?: string | null;
+      reason?: string | null;
+      listingId?: string | null;
+    }>,
+  ) => api.post("/availability/exceptions", exceptions),
+
+  deleteTemplate: (id: string) => api.delete(`/availability/templates/${id}`),
+  deleteException: (id: string) => api.delete(`/availability/exceptions/${id}`),
+
+  // Tenant endpoint
+  getSlots: (listingId: string, from: Date, to: Date) =>
+    api.get<AvailableSlot[]>(
+      `/availability/slots?listingId=${listingId}&from=${from.toISOString()}&to=${to.toISOString()}`,
     ),
-
-  create: (dayOfWeek: number, startTime: string, endTime: string) =>
-    api.post("/availability", { dayOfWeek, startTime, endTime }),
-
-  batchCreate: (
-    slots: Array<{ dayOfWeek: number; startTime: string; endTime: string }>,
-  ) => api.post("/availability/batch", slots),
-
-  delete: (id: string) => api.delete(`/availability/${id}`),
 };
 
 // ── Payments ────────────────────────────────────────────────────────────────────────
@@ -204,11 +250,11 @@ export const adminApi = {
     api.get(`/admin/analytics/agent-performance?top=${top}`),
   getListingStatus: () => api.get("/admin/analytics/listing-status"),
   getAvgPriceByType: () => api.get("/admin/analytics/avg-price-by-type"),
-    getConversionRate: () => api.get("/admin/analytics/conversion-rate"),
+  getConversionRate: () => api.get("/admin/analytics/conversion-rate"),
   getTenants: (status?: UserStatus) =>
-    api.get<TenantDetail[]>('/admin/tenants', { params: { status } }),
+    api.get<TenantDetail[]>("/admin/tenants", { params: { status } }),
 
-    updateTenantStatus: (id: string, status: UserStatus) =>
+  updateTenantStatus: (id: string, status: UserStatus) =>
     api.put(`/admin/tenants/${id}/status`, { status }),
 
   getAgents: (status?: UserStatus) =>
@@ -220,6 +266,13 @@ export const adminApi = {
     api.put(`/admin/agents/${agentId}/status`, { status }),
 
   getAllListings: () => api.get("/admin/listings"),
+
+  getSearchToScheduleRate: () =>
+    api.get("/admin/analytics/search-to-schedule-rate"),
+
+  getTokenBuying: () => api.get("/admin/analytics/token-buying"),
+
+  getDemandLocations: () => api.get("/admin/analytics/demand-locations"),
 };
 
 export default api;
@@ -240,4 +293,121 @@ export const scheduleSlotsApi = {
     api.get<{ scheduledAt: string; status: string }[]>(
       `/schedules/listing/${listingId}/slots`,
     ),
+};
+
+// ── Favourites ────────────────────────────────────────────────────────────────
+export const favouritesApi = {
+  getAll: () => api.get("/favourites"),
+  add: (listingId: string) => api.post(`/favourites/${listingId}`),
+  remove: (listingId: string) => api.delete(`/favourites/${listingId}`),
+  getStatus: (listingId: string) =>
+    api.get<{ saved: boolean }>(`/favourites/${listingId}/status`),
+};
+
+// ── Search History ─────────────────────────────────────────────────────────────
+export const searchHistoryApi = {
+  getAll: () => api.get("/search-history"),
+  save: (snapshot: string) => api.post("/search-history", { snapshot }),
+};
+
+// ── View History ───────────────────────────────────────────────────────────────
+export const viewHistoryApi = {
+  getAll: () => api.get("/view-history"),
+  track: (listingId: string) => api.post(`/view-history/${listingId}`),
+};
+
+// ── Conversations ──────────────────────────────────────────────────────────────
+export const conversationsApi = {
+  open: (listingId: string) =>
+    api.post<{ conversationId: string }>("/conversations/open", { listingId }),
+  getAll: () => api.get("/conversations"),
+  getMessages: (conversationId: string) =>
+    api.get(`/conversations/${conversationId}/messages`),
+  sendMessage: (conversationId: string, content: string) =>
+    api.post(`/conversations/${conversationId}/messages`, { content }),
+};
+
+// ── Browse (public landing page) ───────────────────────────────────────────────
+export const browseApi = {
+  getListings: () => api.get("/browse/listings"),
+};
+
+// ── Agent public profile ───────────────────────────────────────────────────────
+export const agentApi = {
+  getPublicProfile: (agentId: string) => api.get(`/agents/${agentId}/public`),
+  getListingAnalytics: () =>
+    api.get<
+      Array<{
+        id: string;
+        name: string;
+        viewCount: number;
+        bookingCount: number;
+        confirmedCount: number;
+        pendingCount: number;
+        cancelledCount: number;
+      }>
+    >("/agent/dashboard/analytics/listings"),
+};
+
+// ── Review ──────────────────────────────────────────────────────────────────────
+export const reviewsApi = {
+  create: (data: {
+    rating: number;
+    reviewText: string;
+    viewingScheduleId?: string;
+    conversationId?: string;
+  }) => api.post("/reviews", data),
+
+  getAgentReviews: () =>
+    api.get<{
+      averageRating: number;
+      totalReviews: number;
+      reviews: ReviewResponse[];
+    }>("/reviews/agent"),
+
+  getPublicReviews: (agentId: string) =>
+    api.get<{
+      averageRating: number;
+      totalReviews: number;
+      reviews: ReviewResponse[];
+    }>(`/reviews/agent/${agentId}/public`),
+
+  getMyReviews: () => api.get<ReviewResponse[]>("/reviews/tenant"),
+
+  getBySource: (params: {
+    viewingScheduleId?: string;
+    conversationId?: string;
+  }) => api.get<ReviewResponse>("/reviews/tenant/by-source", { params }),
+
+  update: (id: string, data: { rating: number; reviewText: string }) =>
+    api.put(`/reviews/${id}`, data),
+};
+
+// types
+export interface ReviewResponse {
+  id: string;
+  agentId: string;
+  agentName: string;
+  rating: number;
+  reviewText: string;
+  createdAt: string;
+  source: "Viewing" | "Conversation";
+  listingName: string;
+}
+
+export const scoringConfigApi = {
+  get: () => api.get<ScoringConfig>("/admin/scoring-config"),
+  update: (req: ScoringConfigRequest) => api.put("/admin/scoring-config", req),
+};
+
+//── Feedback ───────────────────────────────────────────────────────
+export const feedbackApi = {
+  submit: (description: string) => api.post("/feedback", { description }),
+
+  getMine: () => api.get("/feedback/mine"),
+
+  getAll: () => api.get("/feedback/admin"),
+
+  updateStatus: (id: string, status: string) =>
+    api.patch(`/feedback/${id}/status`, { status }),
 };

@@ -1,14 +1,21 @@
 export type UserRole = "Tenant" | "Agent" | "Admin";
-export type UserStatus = 'Pending' | 'Unapproved' | 'Verified' | 'Blocked'
-export type AgentStatus = 'Pending' | 'Unapproved' | 'Verified' | 'Blocked'
-export type ListingStatus = "Draft" | "PendingPayment" | "Active" | "Inactive" | "Booked";
+export type UserStatus = "Pending" | "Unapproved" | "Verified" | "Blocked";
+export type AgentStatus = "Pending" | "Unapproved" | "Verified" | "Blocked";
+export type ListingStatus =
+  | "Draft"
+  | "PendingPayment"
+  | "Active"
+  | "Inactive"
+  | "Booked";
 export type ScheduleStatus = "Pending" | "Confirmed" | "Cancelled";
 export type ResidencyType =
   | "Landed"
   | "Condo"
   | "Apartment"
   | "Townhouse"
-  | "Studio";
+  | "Studio"
+  | "MasterRoom"
+  | "SharedRoom";
 export type TransportMode = "Driving" | "Walking" | "Transit" | "Bicycling";
 
 export interface AuthUser {
@@ -43,8 +50,8 @@ export interface Listing {
   createdAt: string;
   images: ImageDto[];
   imageUrls: string[];
-  sourceUrl: string | null;
-  sourcePlatform: string | null;
+  description?: string;
+  amenities?: string;
 }
 
 export interface TransitStep {
@@ -96,6 +103,7 @@ export interface LifestyleTemplate {
 }
 
 export interface ViewingSchedule {
+  id: string;
   listingId: string;
   listingName: string;
   listingAddress: string;
@@ -103,6 +111,7 @@ export interface ViewingSchedule {
   tenantName: string;
   scheduledAt: string;
   status: ScheduleStatus;
+  reason?: string | null;
 }
 
 export interface BookedSlot {
@@ -113,7 +122,7 @@ export interface BookedSlot {
 export interface MatchRequest {
   rooms?: number;
   toilets?: number;
-  residencyType?: ResidencyType;
+  residencyTypes?: ResidencyType[];
   priceMin?: number;
   priceMax?: number;
   workplaceAddress: string;
@@ -133,17 +142,17 @@ export interface Analytics {
   blockedAgents: number;
 }
 export interface TenantDetail {
-    userId: string
-    fullName: string
-    email: string
-    status: UserStatus
-    createdAt: string
-    verifiedAt: string | null
-    totalViewings: number
-    pendingViewings: number
-    confirmedViewings: number
-    cancelledViewings: number
-    lastViewingAt: string | null
+  userId: string;
+  fullName: string;
+  email: string;
+  status: UserStatus;
+  createdAt: string;
+  verifiedAt: string | null;
+  totalViewings: number;
+  pendingViewings: number;
+  confirmedViewings: number;
+  cancelledViewings: number;
+  lastViewingAt: string | null;
 }
 
 export interface AgentDetail {
@@ -159,15 +168,56 @@ export interface AgentDetail {
   lppehSearchUrl: string | null;
 }
 
-export interface AgentAvailability {
+export interface AvailabilityTemplate {
   id: string;
-  agentId: string;
-  startTime: string;
-  endTime: string;
-  validFromDate: string;
-  validToDate: string;
+  dayOfWeek: number; // 0=Sunday, 1=Monday...
+  startTime: string; // "09:00"
+  endTime: string; // "17:00"
+  slotDurationMinutes: number;
+  validFrom?: string | null;
+  validTo?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  listingId?: string | null;
+}
+
+export interface AvailabilityException {
+  id: string;
+  exceptionFrom: string; // ISO date
+  exceptionTo: string;
+  type: "blocked" | "custom_hours";
+  startTime?: string | null;
+  endTime?: string | null;
   reason?: string | null;
   createdAt: string;
+  listingId?: string | null;
+  slotDurationMinutes: number;
+}
+
+export interface AvailabilityTemplateRequest {
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  slotDurationMinutes?: number;
+  validFrom?: string | null;
+  validTo?: string | null;
+}
+
+export interface AvailabilityExceptionRequest {
+  exceptionFrom: string;
+  exceptionTo: string;
+  type: "blocked" | "custom_hours";
+  startTime?: string | null;
+  endTime?: string | null;
+  reason?: string | null;
+  slotDurationMinutes: number;
+}
+
+export interface AvailableSlot {
+  date: string; // "2025-06-20"
+  startTime: string; // "09:00"
+  endTime: string; // "10:00"
+  isBooked: boolean;
 }
 
 export interface BatchListingRow {
@@ -180,7 +230,8 @@ export interface BatchListingRow {
   Type: ResidencyType;
   Latitude: number;
   Longitude: number;
-  Description: string;
+  Description?: string;
+  Amenities?: string;
 }
 
 // Place type data lives in placeTypes.ts — re-exported here for convenience
@@ -193,3 +244,165 @@ export {
   getPlaceTypeLabel,
   searchPlaceTypes,
 } from "../types/placeTypes";
+
+export interface FavouriteListing {
+  listingId: string;
+  name: string;
+  address: string;
+  price: number;
+  residencyType: string;
+  rooms: number;
+  toilets: number;
+  thumbnailUrl?: string;
+  agentName: string;
+  savedAt: string;
+}
+
+export interface ViewHistoryItem {
+  listingId: string;
+  name: string;
+  address: string;
+  price: number;
+  residencyType: string;
+  thumbnailUrl?: string;
+  agentName: string;
+  viewedAt: string;
+}
+
+export interface SearchLogItem {
+  searchedAt: string;
+  snapshot: string; // JSON
+}
+
+export interface Conversation {
+  id: string;
+  listingName: string;
+  tenantName: string;
+  agentName: string;
+  lastMessage?: string;
+  lastMessageAt?: string;
+  unreadCount: number;
+  listingId: string;
+}
+
+export interface Message {
+  id: string;
+  senderId: string;
+  senderRole: string;
+  content: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface BrowseListing {
+  id: string;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  price: number;
+  residencyType: string;
+  rooms: number;
+  toilets: number;
+  amenities?: string;
+  description?: string;
+  images: string[];
+  agentName: string;
+  agentLicense?: string;
+  agentContact?: string;
+  viewingCount: number;
+}
+
+export interface AgentPublicProfile {
+  agentId: string;
+  fullName: string;
+  licenseNumber?: string;
+  contactNo?: string;
+  ratings?: number;
+}
+
+export interface ReviewResponse {
+  id: string;
+  agentId: string;
+  agentName: string;
+  rating: number;
+  reviewText: string;
+  createdAt: string;
+  source: "Viewing" | "Conversation";
+  listingName: string;
+}
+
+export interface AgentReviewSummary {
+  averageRating: number;
+  totalReviews: number;
+  reviews: ReviewResponse[];
+}
+
+export interface ConversationSummaryResponse {
+  id: string;
+  listingName: string;
+  tenantName: string;
+  agentName: string;
+  lastMessage?: string | null;
+  lastMessageAt?: string | null;
+  unreadCount: number;
+  listingId: string;
+}
+
+export interface MessageResponse {
+  id: string;
+  senderId: string;
+  senderRole: string;
+  content: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface ScoringConfig {
+  id: number;
+  weightNumeric: number;
+  weightCommute: number;
+  weightLifestyle: number;
+  lifestyleRadiusMeters: number;
+}
+
+export interface ScoringConfigRequest {
+  weightNumeric: number;
+  weightCommute: number;
+  weightLifestyle: number;
+  lifestyleRadiusMeters: number;
+}
+
+export interface Feedback {
+  id: string;
+  tenantId: string;
+  tenantName: string;
+  tenantEmail: string;
+  description: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface SearchToScheduleRate {
+  totalSearches: number;
+  totalSchedules: number;
+  rate: number;
+}
+
+export interface TokenBuyingAnalytics {
+  totalPurchases: number;
+  totalTokensSold: number;
+  totalRevenue: number;
+  averageTokensPerPurchase: number;
+}
+
+export interface DemandLocation {
+  listingId: string;
+  listingName: string;
+  address: string;
+  lat: number;
+  lng: number;
+  scheduleCount: number;
+  confirmedCount: number;
+  isBooked: boolean;
+}

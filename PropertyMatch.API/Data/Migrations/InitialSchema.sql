@@ -4,15 +4,14 @@
 -- Instructions at bottom of this file.
 -- ============================================================
 
+-- ============================================================
+-- PropertyMatch — Schema v3
+-- Run this on a FRESH NeonDB database (drop all tables first).
+-- ============================================================
+
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- ── Users ─────────────────────────────────────────────────────────────────────
--- Status replaces the old IsActive boolean.
---   Pending  → registered, email not yet verified
---   Verified → email confirmed (tenants can use all features;
---              agents still need admin approval to post listings)
---   Blocked  → banned by admin
-
+-- ── Users ──────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS "Users" (
     "Id"           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "Email"        VARCHAR(255) NOT NULL UNIQUE,
@@ -25,9 +24,6 @@ CREATE TABLE IF NOT EXISTS "Users" (
 );
 
 -- ── Email Verifications ───────────────────────────────────────────────────────
--- Short-lived token sent via Resend email.
--- Deleted once consumed.
-
 CREATE TABLE IF NOT EXISTS "EmailVerifications" (
     "Id"        UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "UserId"    UUID NOT NULL REFERENCES "Users"("Id") ON DELETE CASCADE,
@@ -39,14 +35,13 @@ CREATE INDEX IF NOT EXISTS idx_email_verifications_token  ON "EmailVerifications
 CREATE INDEX IF NOT EXISTS idx_email_verifications_userid ON "EmailVerifications"("UserId");
 
 -- ── Agents ────────────────────────────────────────────────────────────────────
--- UserId IS the primary key — one-to-one with Users.
--- Approval state lives on Users.Status — no redundant status here.
-
 CREATE TABLE IF NOT EXISTS "Agents" (
     "UserId"           UUID PRIMARY KEY REFERENCES "Users"("Id") ON DELETE CASCADE,
     "StripeCustomerId" VARCHAR(255),
-    "TokenBalance"     INT         NOT NULL DEFAULT 0,
-    "LicenseNumber"    VARCHAR(100)
+    "TokenBalance"     INT          NOT NULL DEFAULT 0,
+    "LicenseNumber"    VARCHAR(100),
+    "ContactNo"        VARCHAR(30),
+    "Ratings"          DECIMAL(3,2)
 );
 
 -- ── Listings ──────────────────────────────────────────────────────────────────
@@ -61,11 +56,12 @@ CREATE TABLE IF NOT EXISTS "Listings" (
     "Address"        VARCHAR(500) NOT NULL,
     "ResidencyType"  VARCHAR(30)  NOT NULL,
     "Price"          DECIMAL(12,2) NOT NULL,
+    "Amenities"      TEXT,
+    "Description"    TEXT,
     "Status"         VARCHAR(20)  NOT NULL DEFAULT 'Draft',
-    "CreatedAt"      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    "SourceUrl"      TEXT,
-    "SourcePlatform" VARCHAR(100)
+    "CreatedAt"      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
+
 CREATE INDEX IF NOT EXISTS idx_listings_status   ON "Listings"("Status");
 CREATE INDEX IF NOT EXISTS idx_listings_agent_id ON "Listings"("AgentId");
 
@@ -87,29 +83,55 @@ CREATE TABLE IF NOT EXISTS "LifestyleTemplates" (
     "CreatedAt"  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- ── Viewing Schedules (composite PK) ─────────────────────────────────────────
+-- ── Viewing Schedules ─────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS "ViewingSchedules" (
     "ListingId"   UUID        NOT NULL REFERENCES "Listings"("Id") ON DELETE CASCADE,
     "ScheduledAt" TIMESTAMPTZ NOT NULL,
     "TenantId"    UUID        NOT NULL REFERENCES "Users"("Id") ON DELETE CASCADE,
     "Status"      VARCHAR(20) NOT NULL DEFAULT 'Pending',
+    "Reason"      TEXT,
     PRIMARY KEY ("ListingId", "ScheduledAt")
 );
 
--- ── Agent Availability ────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS "AgentAvailabilities" (
-    "Id"           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    "AgentId"      UUID NOT NULL REFERENCES "Agents"("UserId") ON DELETE CASCADE,
-    "StartTime"    VARCHAR(5) NOT NULL,
-    "EndTime"      VARCHAR(5) NOT NULL,
-    "ValidFromDate" DATE NOT NULL,
-    "ValidToDate"   DATE NOT NULL,
-    "Reason"       VARCHAR(200),
-    "CreatedAt"    TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+-- ── AvailabilityTemplates ─────────────────
 
-CREATE INDEX idx_agent_availabilities_agent_id ON "AgentAvailabilities"("AgentId");
-CREATE INDEX idx_agent_availabilities_dates ON "AgentAvailabilities"("AgentId", "ValidFromDate", "ValidToDate");
+CREATE TABLE IF NOT EXISTS "AvailabilityTemplates" (
+    "Id"        UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+    "AgentId"   UUID        NOT NULL REFERENCES "Agents"("UserId") ON DELETE CASCADE,
+    "ListingId" UUID        NULL REFERENCES "Listings"("Id") ON DELETE CASCADE,
+    "DayOfWeek" INT         NOT NULL,
+    "StartTime" VARCHAR(5)  NOT NULL,
+    "EndTime"   VARCHAR(5)  NOT NULL,
+    "SlotDurationMinutes" INT NOT NULL DEFAULT 60,
+    "ValidFrom" DATE        NULL,
+    "ValidTo"   DATE        NULL,
+    "IsActive"  BOOLEAN NOT NULL DEFAULT TRUE,
+    "CreatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "UpdatedAt" TIMESTAMPTZ NULL
+);
+CREATE INDEX IF NOT EXISTS idx_availabilitytemplates_agentid ON "AvailabilityTemplates"("AgentId");
+CREATE INDEX IF NOT EXISTS idx_availabilitytemplates_agentid_listingid ON "AvailabilityTemplates"("AgentId", "ListingId");
+CREATE INDEX IF NOT EXISTS idx_availabilitytemplates_dayofweek ON "AvailabilityTemplates"("DayOfWeek");
+
+-- ── AvailabilityExceptions ─────────────────
+
+CREATE TABLE IF NOT EXISTS "AvailabilityExceptions" (
+    "Id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    "AgentId" UUID NOT NULL REFERENCES "Agents"("UserId") ON DELETE CASCADE,
+    "ListingId" UUID NULL REFERENCES "Listings"("Id") ON DELETE CASCADE,
+    "ExceptionFrom" DATE NOT NULL,
+    "ExceptionTo" DATE NOT NULL,
+    "Type" VARCHAR(20) NOT NULL DEFAULT 'blocked',
+    "StartTime" VARCHAR(5) NULL,
+    "EndTime" VARCHAR(5) NULL,
+    "Reason" VARCHAR(200) NULL,
+    "CreatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_availabilityexceptions_agentid ON "AvailabilityExceptions"("AgentId");
+CREATE INDEX IF NOT EXISTS idx_availabilityexceptions_agentid_listingid ON "AvailabilityExceptions"("AgentId", "ListingId");
+CREATE INDEX IF NOT EXISTS idx_availabilityexceptions_exceptionfrom_exceptionto ON "AvailabilityExceptions"("ExceptionFrom", "ExceptionTo");
+
+
 
 -- ── Payments ──────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS "Payments" (
@@ -123,11 +145,99 @@ CREATE TABLE IF NOT EXISTS "Payments" (
     "TokensPurchased"       INT NOT NULL DEFAULT 0
 );
 
+-- ── Reviews ───────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS "Reviews" (
+    "Id"       UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    "AgentId"  UUID NOT NULL REFERENCES "Agents"("UserId") ON DELETE CASCADE,
+    "TenantId" UUID NOT NULL REFERENCES "Users"("Id") ON DELETE CASCADE,
+    "Ratings"  DECIMAL(3,2) NOT NULL,
+    "Review"   TEXT NOT NULL,
+    "CreatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ── Search Logs ───────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS "SearchLogs" (
+    "TenantId"   UUID        NOT NULL REFERENCES "Users"("Id") ON DELETE CASCADE,
+    "SearchedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "Snapshot"   JSONB       NOT NULL,
+    PRIMARY KEY ("TenantId", "SearchedAt")
+);
+CREATE INDEX IF NOT EXISTS idx_searchlogs_tenant ON "SearchLogs"("TenantId");
+
+-- ── View History ──────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS "ViewHistory" (
+    "TenantId"  UUID        NOT NULL REFERENCES "Users"("Id") ON DELETE CASCADE,
+    "ListingId" UUID        NOT NULL REFERENCES "Listings"("Id") ON DELETE CASCADE,
+    "ViewedAt"  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY ("TenantId", "ListingId", "ViewedAt")
+);
+CREATE INDEX IF NOT EXISTS idx_viewhistory_tenant ON "ViewHistory"("TenantId");
+
+-- ── Favourite Listings ────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS "FavouriteListings" (
+    "TenantId"  UUID NOT NULL REFERENCES "Users"("Id") ON DELETE CASCADE,
+    "ListingId" UUID NOT NULL REFERENCES "Listings"("Id") ON DELETE CASCADE,
+    "SavedAt"   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY ("TenantId", "ListingId")
+);
+CREATE INDEX IF NOT EXISTS idx_favourites_tenant ON "FavouriteListings"("TenantId");
+
+-- ── Conversations ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS "Conversations" (
+    "Id"               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    "TenantId"         UUID NOT NULL REFERENCES "Users"("Id") ON DELETE CASCADE,
+    "ListingId"        UUID NOT NULL REFERENCES "Listings"("Id") ON DELETE CASCADE,
+    "AgentId"          UUID NOT NULL REFERENCES "Agents"("UserId") ON DELETE CASCADE,
+    "CreatedAt"        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "LastMessageAt"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "TenantLastReadAt" TIMESTAMPTZ,
+    "AgentLastReadAt"  TIMESTAMPTZ,
+    UNIQUE ("TenantId", "ListingId")  -- one conversation per tenant-listing pair
+);
+CREATE INDEX IF NOT EXISTS idx_conversations_tenant ON "Conversations"("TenantId");
+CREATE INDEX IF NOT EXISTS idx_conversations_agent  ON "Conversations"("AgentId");
+
+-- ── Messages ──────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS "Messages" (
+    "Id"             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    "ConversationId" UUID        NOT NULL REFERENCES "Conversations"("Id") ON DELETE CASCADE,
+    "SenderId"       UUID        NOT NULL REFERENCES "Users"("Id") ON DELETE CASCADE,
+    "SenderRole"     VARCHAR(20) NOT NULL,
+    "Content"        TEXT        NOT NULL,
+    "IsRead"         BOOLEAN     NOT NULL DEFAULT FALSE,
+    "CreatedAt"      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_messages_conversation ON "Messages"("ConversationId");
+
+-- ── Feedback ──────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS "Feedback" (
+    "Id"          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    "TenantId"    UUID        NOT NULL REFERENCES "Users"("Id") ON DELETE CASCADE,
+    "Subject"       VARCHAR(30) NOT NULL,
+    "Description" TEXT        NOT NULL,
+    "Status"      VARCHAR(30) NOT NULL DEFAULT 'Open',
+    "CreatedAt"   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ── Reports ───────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS "Reports" (
+    "Id"          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    "TenantId"    UUID        NOT NULL REFERENCES "Users"("Id") ON DELETE CASCADE,
+    "Item"        VARCHAR(30) NOT NULL,   -- 'agent' or 'listing'
+    "ItemId"      UUID        NOT NULL,
+    "Description" TEXT        NOT NULL,
+    "Status"      VARCHAR(30) NOT NULL DEFAULT 'Open',
+    "CreatedAt"   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- ── EF Migrations History ─────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
     "MigrationId"    VARCHAR(150) NOT NULL PRIMARY KEY,
     "ProductVersion" VARCHAR(32)  NOT NULL
 );
+
+-- ── Seed Data ─────────────────────────────────────────────────────────────────
+-- (keep your existing seed INSERT statements from v2 unchanged)
 
 -- ── Seed Data ─────────────────────────────────────────────────────────────────
 -- Admin (password: Admin@123)

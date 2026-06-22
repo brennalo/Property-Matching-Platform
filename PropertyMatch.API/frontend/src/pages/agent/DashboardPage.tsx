@@ -13,6 +13,8 @@ import {
   PlusCircle,
   DollarSign,
   Coins,
+  Star,
+  BarChart3,
 } from "lucide-react";
 
 interface DashboardData {
@@ -321,6 +323,12 @@ export default function AgentDashboardPage() {
           </Link>
           <Link to="/agent/topup" className="btn btn-outline">
             <Coins size={14} /> Top Up Tokens
+          </Link>
+          <Link to="/agent/reviews" className="btn btn-outline">
+            <Star size={14} /> Reviews & Ratings
+          </Link>
+          <Link to="/agent/analytics" className="btn btn-outline">
+            <BarChart3 size={14} /> Listing Analytics
           </Link>
         </div>
       </div>

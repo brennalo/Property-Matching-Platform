@@ -1,4 +1,6 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Microsoft.VisualBasic;
+using Stripe;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace PropertyMatch.API.Models;
@@ -7,7 +9,7 @@ public enum UserRole { Tenant, Agent, Admin }
 public enum UserStatus { Pending, Unapproved, Verified, Blocked }
 public enum ListingStatus { Draft, PendingPayment, Active, Inactive, Booked }
 public enum ScheduleStatus { Pending, Confirmed, Cancelled }
-public enum ResidencyType { Landed, Condo, Apartment, Townhouse, Studio }
+public enum ResidencyType { Landed, Condo, Apartment, Townhouse, Studio, MasterRoom, SharedRoom }
 public enum TransportMode { Driving, Walking, Transit, Bicycling }
 
 // ── User ────────────────────────────────────────────────────────────────
@@ -35,6 +37,13 @@ public class User
     public ICollection<EmailVerification> EmailVerifications { get; set; } = [];
     public ICollection<LifestyleTemplate> LifestyleTemplates { get; set; } = [];
     public ICollection<ViewingSchedule> ViewingSchedules { get; set; } = [];
+    public ICollection<Conversation> Conversations { get; set; } = [];
+    public ICollection<Message> SentMessages { get; set; } = [];
+    public ICollection<FavouriteListing> FavouriteListings { get; set; } = [];
+    public ICollection<ViewHistory> ViewHistory { get; set; } = [];
+    public ICollection<SearchLog> SearchLogs { get; set; } = [];
+    public ICollection<Models.Review> Reviews { get; set; } = new List<Models.Review>();
+    public ICollection<Feedback> Feedbacks { get; set; } = [];
 }
 
 // ── Email Verification ───────────────────────────────────────────────────────
@@ -61,12 +70,17 @@ public class Agent
     public string? StripeCustomerId { get; set; }
     public int TokenBalance { get; set; } = 0;
     public string? LicenseNumber { get; set; }
+    public string? ContactNo { get; set; }
+    public decimal? Ratings { get; set; }
 
     // Navigation
     public User User { get; set; } = null!;
     public ICollection<Listing> Listings { get; set; } = [];
     public ICollection<Payment> Payments { get; set; } = [];
-    public ICollection<AgentAvailability> Availabilities { get; set; } = [];
+    public ICollection<AvailabilityTemplate> AvailabilityTemplates { get; set; } = new List<AvailabilityTemplate>();
+    public ICollection<AvailabilityException> AvailabilityExceptions { get; set; } = new List<AvailabilityException>();
+    public ICollection<Conversation> Conversations { get; set; } = [];
+    public ICollection<Models.Review> Reviews { get; set; } = new List<Models.Review>();
 }
 
 // ── Listing ───────────────────────────────────────────────────────────────
@@ -88,16 +102,18 @@ public class Listing
 
     [Column(TypeName = "decimal(12,2)")]
     public decimal Price { get; set; }
-
+    public string? Amenities { get; set; }
+    public string? Description { get; set; }
     public ListingStatus Status { get; set; } = ListingStatus.Draft;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-    public string? SourceUrl { get; set; }
-    public string? SourcePlatform { get; set; }
-
     public Agent Agent { get; set; } = null!;
     public ICollection<ListingImage> Images { get; set; } = [];
     public ICollection<ViewingSchedule> ViewingSchedules { get; set; } = [];
+    public ICollection<AvailabilityTemplate> AvailabilityTemplates { get; set; } = new List<AvailabilityTemplate>();
+    public ICollection<AvailabilityException> AvailabilityExceptions { get; set; } = new List<AvailabilityException>();
+    public ICollection<FavouriteListing> FavouritedBy { get; set; } = [];
+    public ICollection<Conversation> Conversations { get; set; } = [];
+    public ICollection<ViewHistory> ViewHistory { get; set; } = [];
 }
 
 // ── Listing Image ─────────────────────────────────────────────────────────
@@ -113,21 +129,58 @@ public class ListingImage
     public Listing Listing { get; set; } = null!;
 }
 
-// ── Agent Availability ────────────────────────────────────────────────────────
+// ── Agent Availability Template────────────────────────────────────────────────────────
 
-public class AgentAvailability
+public class AvailabilityTemplate
 {
     public Guid Id { get; set; }
     public Guid AgentId { get; set; }
-    public string StartTime { get; set; } = "09:00";
-    public string EndTime { get; set; } = "17:00";
-    public DateTime ValidFromDate { get; set; }
-    public DateTime ValidToDate { get; set; }
-    public string? Reason { get; set; }
-    public DateTime CreatedAt { get; set; }
+    public Guid? ListingId { get; set; } // null = agent-level default
 
+    public int DayOfWeek { get; set; } // 0=Sunday, 1=Monday, ..., 6=Saturday
+    public string StartTime { get; set; } = "09:00"; // HH:mm
+    public string EndTime { get; set; } = "17:00";
+    public int SlotDurationMinutes { get; set; } = 60;
+
+    public DateTime? ValidFrom { get; set; } // null = indefinite
+    public DateTime? ValidTo { get; set; }   // null = indefinite
+
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
 
     public Agent? Agent { get; set; }
+    public Listing? Listing { get; set; }
+}
+
+// ── Agent Availability Exception────────────────────────────────────────────────────────
+
+public enum ExceptionType
+{
+    Blocked,
+    CustomHours
+}
+
+public class AvailabilityException
+{
+    public Guid Id { get; set; }
+    public Guid AgentId { get; set; }
+    public Guid? ListingId { get; set; }
+
+    public DateTime ExceptionFrom { get; set; }
+    public DateTime ExceptionTo { get; set; }
+    public ExceptionType Type { get; set; } = ExceptionType.Blocked;
+
+    public string? StartTime { get; set; } // only for CustomHours
+    public string? EndTime { get; set; }   // only for CustomHours
+    public string? Reason { get; set; }
+    public int SlotDurationMinutes { get; set; } = 60;
+
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+   
+
+    public Agent? Agent { get; set; }
+    public Listing? Listing { get; set; }
 }
 
 // ── Lifestyle Template ───────────────────────────────────────────────────────
@@ -150,13 +203,17 @@ public class LifestyleTemplate
 
 public class ViewingSchedule
 {
+    public Guid Id { get; set; } 
     public Guid ListingId { get; set; }
     public DateTime ScheduledAt { get; set; }
     public Guid TenantId { get; set; }
     public ScheduleStatus Status { get; set; } = ScheduleStatus.Pending;
+    public string? Reason { get; set; }
 
+    // Navigation
     public Listing Listing { get; set; } = null!;
     public User Tenant { get; set; } = null!;
+    public ICollection<Models.Review> Reviews { get; set; } = new List<Models.Review>();
 }
 
 // ── Payment ───────────────────────────────────────────────────────────
@@ -178,4 +235,125 @@ public class Payment
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public Agent Agent { get; set; } = null!;
+}
+
+// ── Review ────────────────────────────────────────────────────────────────
+public class Review
+{
+    public Guid Id { get; set; }
+    public Guid AgentId { get; set; }
+    public Guid TenantId { get; set; }
+    public int Rating { get; set; }  // 1-5
+    public string ReviewText { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    
+    public Guid? ViewingScheduleId { get; set; }
+    public Guid? ConversationId { get; set; }
+
+    // Navigation
+    public Agent Agent { get; set; } = null!;
+    public User Tenant { get; set; } = null!;
+    public ViewingSchedule? ViewingSchedule { get; set; }
+    public Conversation? Conversation { get; set; }
+}
+
+// ── SearchLog ─────────────────────────────────────────────────────────────
+public class SearchLog
+{
+    public Guid TenantId { get; set; }
+    public DateTime SearchedAt { get; set; } = DateTime.UtcNow;
+    public string Snapshot { get; set; } = "{}";  // JSON string
+
+    public User Tenant { get; set; } = null!;
+}
+
+// ── ViewHistory ───────────────────────────────────────────────────────────
+public class ViewHistory
+{
+    public Guid TenantId { get; set; }
+    public Guid ListingId { get; set; }
+    public DateTime ViewedAt { get; set; } = DateTime.UtcNow;
+
+    public User Tenant { get; set; } = null!;
+    public Listing Listing { get; set; } = null!;
+}
+
+// ── FavouriteListing ──────────────────────────────────────────────────────
+public class FavouriteListing
+{
+    public Guid TenantId { get; set; }
+    public Guid ListingId { get; set; }
+    public DateTime SavedAt { get; set; } = DateTime.UtcNow;
+
+    public User Tenant { get; set; } = null!;
+    public Listing Listing { get; set; } = null!;
+}
+
+// ── Conversation ──────────────────────────────────────────────────────────
+public class Conversation
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public Guid ListingId { get; set; }
+    public Guid AgentId { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime LastMessageAt { get; set; } = DateTime.UtcNow;
+    public DateTime? TenantLastReadAt { get; set; }
+    public DateTime? AgentLastReadAt { get; set; }
+
+    public User Tenant { get; set; } = null!;
+    public Listing Listing { get; set; } = null!;
+    public Agent Agent { get; set; } = null!;
+    public ICollection<Message> Messages { get; set; } = [];
+    public ICollection<Models.Review> Reviews { get; set; } = new List<Models.Review>();
+}
+
+// ── Message ───────────────────────────────────────────────────────────────
+public class Message
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid ConversationId { get; set; }
+    public Guid SenderId { get; set; }
+    public string SenderRole { get; set; } = "";
+    public string Content { get; set; } = "";
+    public bool IsRead { get; set; } = false;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public Conversation Conversation { get; set; } = null!;
+    public User Sender { get; set; } = null!;
+}
+
+// ── Feedback ──────────────────────────────────────────────────────────────
+public class Feedback
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public string Description { get; set; } = "";
+    public string Status { get; set; } = "Open";
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public User Tenant { get; set; } = null!;
+}
+
+// ── Report ────────────────────────────────────────────────────────────────
+public class Report
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TenantId { get; set; }
+    public string Item { get; set; } = "";   // "agent" or "listing"
+    public Guid ItemId { get; set; }
+    public string Description { get; set; } = "";
+    public string Status { get; set; } = "Open";
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public User Tenant { get; set; } = null!;
+}
+
+public class ScoringConfig
+{
+    public int Id { get; set; } = 1; // singleton row
+    public double WeightNumeric { get; set; } = 0.40;
+    public double WeightCommute { get; set; } = 0.30;
+    public double WeightLifestyle { get; set; } = 0.30;
+    public int LifestyleRadiusMeters { get; set; } = 800;
 }

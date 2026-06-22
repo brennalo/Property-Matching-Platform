@@ -10,12 +10,11 @@ public class MatchingService(
     GoogleRoutesService routes,
     GooglePlacesService places)
 {
-    private const double WeightNumeric = 0.40;
-    private const double WeightCommute = 0.30;
-    private const double WeightLifestyle = 0.30;
-
     public async Task<List<MatchedListingResponse>> MatchAsync(MatchRequest req, Guid? tenantId)
     {
+        var cfg = await db.ScoringConfig.FindAsync(1)
+            ?? new ScoringConfig();
+
         var listings = await db.Listings
             .Include(l => l.Images)
             .Include(l => l.Agent).ThenInclude(a => a.User)
@@ -34,7 +33,7 @@ public class MatchingService(
             ? req.TransportModes.Distinct().ToList()
             : [TransportMode.Driving]);
 
-        var scoredTasks = listings.Select(l => ScoreListingAsync(l, req, modes, placeTypes));
+        var scoredTasks = listings.Select(l => ScoreListingAsync(l, req, modes, placeTypes, cfg));
         var scored = await Task.WhenAll(scoredTasks);
 
         return [.. scored.OrderByDescending(r => r.TotalScore)];
@@ -42,7 +41,7 @@ public class MatchingService(
 
     private async Task<MatchedListingResponse> ScoreListingAsync(
         Listing listing, MatchRequest req,
-        List<TransportMode> modes, List<string> placeTypes)
+        List<TransportMode> modes, List<string> placeTypes, ScoringConfig cfg)
     {
         // ── Numeric score (40%) ───────────────────────────────────────────────
         double numericScore = 0;
@@ -61,8 +60,8 @@ public class MatchingService(
         }
         else numericScore += 15;
 
-        if (req.ResidencyType.HasValue)
-            numericScore += listing.ResidencyType == req.ResidencyType.Value ? 20 : 0;
+        if (req.ResidencyTypes is { Count: > 0 })
+            numericScore += req.ResidencyTypes.Contains(listing.ResidencyType) ? 20 : 0;
         else numericScore += 20;
 
         if (req.PriceMin.HasValue || req.PriceMax.HasValue)
@@ -112,7 +111,7 @@ public class MatchingService(
         if (placeTypes.Count > 0)
         {
             lifestylePlaces = await places.GetLifestylePlacesAsync(
-                listing.Lat, listing.Lng, placeTypes);
+                listing.Lat, listing.Lng, placeTypes, cfg.LifestyleRadiusMeters);
 
             var categoryScores = placeTypes.Select(pt =>
             {
@@ -123,9 +122,9 @@ public class MatchingService(
         }
         else lifestyleScore = 50;
 
-        var total = (numericScore * WeightNumeric)
-                  + (commuteScore * WeightCommute)
-                  + (lifestyleScore * WeightLifestyle);
+        var total = (numericScore * cfg.WeightNumeric)
+                  + (commuteScore * cfg.WeightCommute)
+                  + (lifestyleScore * cfg.WeightLifestyle);
 
         // Map PlaceLocation (service model) → PlaceLocationDto (response DTO)
         var lifestylePlacesDto = lifestylePlaces.ToDictionary(
@@ -147,10 +146,9 @@ public class MatchingService(
     l.Id, l.AgentId, l.Agent?.User?.FullName ?? "Agent",
     l.Name, l.Rooms, l.Toilets,
     l.Lat, l.Lng, l.Address,
-    l.ResidencyType, l.Price, l.Status,
+    l.ResidencyType, l.Price, l.Amenities, l.Description, l.Status,
     l.CreatedAt,
     l.Images.OrderBy(i => i.DisplayOrder)
         .Select(i => new ImageDto(i.Id, i.S3Url, i.DisplayOrder, i.Caption))
-        .ToList(),
-    l.SourceUrl, l.SourcePlatform);
+        .ToList());
 }

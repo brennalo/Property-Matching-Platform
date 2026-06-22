@@ -3,7 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { listingsApi, paymentsApi } from "../../api";
-import type { Listing, ResidencyType, BatchListingRow, ListingStatus } from "../../types";
+import type {
+  Listing,
+  ResidencyType,
+  BatchListingRow,
+  ListingStatus,
+} from "../../types";
 import {
   Plus,
   Pencil,
@@ -15,6 +20,7 @@ import {
   Ban,
   Download,
   Coins,
+  Sparkles,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
@@ -25,6 +31,8 @@ const RESIDENCY_TYPES: ResidencyType[] = [
   "Apartment",
   "Townhouse",
   "Studio",
+  "MasterRoom",
+  "SharedRoom",
 ];
 
 function StatusBadge({ status }: { status: Listing["status"] }) {
@@ -45,20 +53,21 @@ function StatusBadge({ status }: { status: Listing["status"] }) {
   return (
     <span className={`badge ${map[status] ?? "badge-grey"}`}>
       {icons[status]}{" "}
-      {status === "PendingPayment" ? "Awaiting Payment" : status}
+        {status === "PendingPayment" ? "Pending (Legacy)" : status}
     </span>
   );
 }
 
 interface ListingFormData {
-  name: string;
-  rooms: string;
-  toilets: string;
-  lat: string;
-  lng: string;
-  address: string;
-  residencyType: ResidencyType;
-  price: string;
+    name: string
+    rooms: string
+    toilets: string
+    lat: string
+    lng: string
+    address: string
+    residencyType: ResidencyType
+    price: string
+    description: string
 }
 
 function ListingFormModal({
@@ -72,16 +81,44 @@ function ListingFormModal({
   onClose: () => void;
   loading: boolean;
 }) {
-  const [form, setForm] = useState<ListingFormData>({
-    name: initial?.name ?? "",
-    rooms: initial?.rooms?.toString() ?? "",
-    toilets: initial?.toilets?.toString() ?? "",
-    lat: initial?.lat?.toString() ?? "",
-    lng: initial?.lng?.toString() ?? "",
-    address: initial?.address ?? "",
-    residencyType: initial?.residencyType ?? "Condo",
-    price: initial?.price?.toString() ?? "",
-  });
+    const [form, setForm] = useState<ListingFormData>({
+        name: initial?.name ?? '',
+        rooms: initial?.rooms?.toString() ?? '',
+        toilets: initial?.toilets?.toString() ?? '',
+        lat: initial?.lat?.toString() ?? '',
+        lng: initial?.lng?.toString() ?? '',
+        address: initial?.address ?? '',
+        residencyType: initial?.residencyType ?? 'Condo',
+        price: initial?.price?.toString() ?? '',
+        description: initial?.description ?? '',
+    })
+    const [generating, setGenerating] = useState(false)
+    const [genError, setGenError] = useState('')
+
+    const handleGenerateDescription = async () => {
+        if (!form.name || !form.address || !form.price) {
+            setGenError('Fill in name, address, and price first.')
+            return
+        }
+        setGenerating(true)
+        setGenError('')
+        try {
+            const { data } = await listingsApi.generateDescription({
+                name: form.name,
+                rooms: parseInt(form.rooms) || 0,
+                toilets: parseInt(form.toilets) || 0,
+                address: form.address,
+                residencyType: form.residencyType,
+                price: parseFloat(form.price) || 0,
+                extraDetails: form.description.trim() || undefined,
+            })
+            upd('description', data.description)
+        } catch (e: any) {
+            setGenError(e.response?.data?.message ?? 'Failed to generate description.')
+        } finally {
+            setGenerating(false)
+        }
+    }
   const upd = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   return (
@@ -171,33 +208,45 @@ function ListingFormModal({
             💡 Right-click on Google Maps → "What's here?" to get coordinates
           </p>
 
-          <div className="form-group">
-            <label className="form-label">Property Type</label>
-            <select
-              className="select"
-              value={form.residencyType}
-              onChange={(e) => upd("residencyType", e.target.value)}
-            >
-              {RESIDENCY_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </div>
+                  <div className="form-group">
+                      <label className="form-label">Property Type</label>
+                      <select
+                          className="select"
+                          value={form.residencyType}
+                          onChange={(e) => upd("residencyType", e.target.value)}
+                      >
+                          {RESIDENCY_TYPES.map((t) => (
+                              <option key={t} value={t}>
+                                  {t}
+                              </option>
+                          ))}
+                      </select>
+                  </div>
 
-          <div className="form-group">
-            <label className="form-label">Monthly Rent (RM)</label>
-            <input
-              className="input"
-              type="number"
-              min={0}
-              step={50}
-              value={form.price}
-              onChange={(e) => upd("price", e.target.value)}
-              placeholder="e.g. 2500"
-            />
-          </div>
+                  <div className="form-group">
+                      <label className="form-label">Monthly Rent (RM)</label>
+                      <input className="input" type="number" min={0} step={50} value={form.price}
+                          onChange={e => upd('price', e.target.value)} placeholder="e.g. 2500" />
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: 16 }}>
+                      <div className="flex items-center justify-between" style={{ marginBottom: 6 }}>
+                          <label className="form-label" style={{ margin: 0 }}>Description (type notes, then click Generate to expand)</label>
+                          <button
+                              type="button"
+                              className="btn btn-outline btn-sm"
+                              onClick={handleGenerateDescription}
+                              disabled={generating}>
+                              {generating
+                                  ? <span className="spinner" />
+                                  : <><Sparkles size={13} /> Generate with AI</>}
+                          </button>
+                      </div>
+                      <textarea className="input" rows={4} value={form.description}
+                          onChange={e => upd('description', e.target.value)}
+                          placeholder="Type any details you want included (e.g. near LRT, renovated kitchen), then click 'Generate with AI' to expand into a full description or click 'Generate with AI' for suggestions" />
+                      {genError && <p style={{ color: 'var(--red)', fontSize: '0.8rem', marginTop: 6, marginBottom: 0 }}>{genError}</p>}
+                  </div>
         </div>
 
         <div className="flex gap-3 mt-5">
@@ -378,7 +427,7 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
 
   const showToast = (msg: string, type: "success" | "error" = "success") => {
     setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
+    setTimeout(() => setToast(null), 10000);
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -402,6 +451,7 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
         Latitude: parseFloat(row["Latitude"] || row["Lat"] || "0"),
         Longitude: parseFloat(row["Longitude"] || row["Lng"] || "0"),
         Description: row["Description"] || "",
+        Amenities: row["Amenities"] || "",
       }));
 
       setFiles([file]);
@@ -430,6 +480,7 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
         Latitude: parseFloat(row["Latitude"] || row["Lat"] || "0"),
         Longitude: parseFloat(row["Longitude"] || row["Lng"] || "0"),
         Description: row["Description"] || "",
+        Amenities: row["Amenities"] || "",
       }));
 
       setLoading(true);
@@ -448,6 +499,7 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Listings");
 
+    // Define columns – include Description and Amenities
     worksheet.columns = [
       { header: "PropertyName", key: "PropertyName", width: 25 },
       { header: "Bedrooms", key: "Bedrooms", width: 10 },
@@ -458,8 +510,11 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
       { header: "Type", key: "Type", width: 15 },
       { header: "Latitude", key: "Latitude", width: 15 },
       { header: "Longitude", key: "Longitude", width: 15 },
+      { header: "Description", key: "Description", width: 40 },
+      { header: "Amenities", key: "Amenities", width: 30 },
     ];
 
+    // Example row with all fields
     worksheet.addRow({
       PropertyName: "Example Property",
       Bedrooms: 3,
@@ -470,14 +525,19 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
       Type: "Condo",
       Latitude: 3.1478,
       Longitude: 101.6953,
+      Description: "A nice condominium with pool and gym",
+      Amenities: "Air conditioner, Bed, Fridge, Water Heater",
     });
 
+    // Data validation for Type column (column G = 7)
     const allowedTypes = [
       "Landed",
       "Condo",
       "Apartment",
       "Townhouse",
       "Studio",
+      "MasterRoom",
+      "SharedRoom", // updated list
     ];
     for (let row = 2; row <= 100; row++) {
       const cell = worksheet.getCell(`G${row}`);
@@ -529,6 +589,9 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
         >
           ⚠️ <strong>Images not supported in batch mode.</strong> Upload images
           individually after importing listings.
+          <br />
+          ⚠️ <strong>Amenities</strong> should be entered as a comma‑separated
+          list (e.g., "Air conditioner, Bed, Fridge").
         </div>
 
         {success ? (
@@ -633,7 +696,7 @@ export default function AgentListingsPage() {
 
   const showToast = (msg: string, type: "success" | "error" = "success") => {
     setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
+    setTimeout(() => setToast(null), 10000);
   };
 
   const { data: listings = [], isLoading } = useQuery({
@@ -646,23 +709,23 @@ export default function AgentListingsPage() {
     queryFn: () => paymentsApi.getTokenBalance().then((r) => r.data),
   });
 
-  const createMut = useMutation({
-    mutationFn: (data: ListingFormData) =>
-      listingsApi.create({
-        name: data.name,
-        rooms: parseInt(data.rooms),
-        toilets: parseInt(data.toilets),
-        lat: parseFloat(data.lat),
-        lng: parseFloat(data.lng),
-        address: data.address,
-        residencyType: data.residencyType,
-        price: parseFloat(data.price),
-      }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["my-listings"] });
-      setShowForm(false);
-      showToast("Listing created! Proceed to payment to activate it.");
-    },
+    const createMut = useMutation({
+        mutationFn: (data: ListingFormData) => listingsApi.create({
+            name: data.name,
+            rooms: parseInt(data.rooms),
+            toilets: parseInt(data.toilets),
+            lat: parseFloat(data.lat),
+            lng: parseFloat(data.lng),
+            address: data.address,
+            residencyType: data.residencyType,
+            price: parseFloat(data.price),
+            description: data.description,
+        }),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["my-listings"] });
+            setShowForm(false);
+            showToast("Listing created and is now active!");
+        },
     onError: (e: any) =>
       showToast(
         e.response?.data?.message ?? "Failed to create listing",
@@ -670,18 +733,19 @@ export default function AgentListingsPage() {
       ),
   });
 
-  const updateMut = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: ListingFormData }) =>
-      listingsApi.update(id, {
-        name: data.name,
-        rooms: parseInt(data.rooms),
-        toilets: parseInt(data.toilets),
-        lat: parseFloat(data.lat),
-        lng: parseFloat(data.lng),
-        address: data.address,
-        residencyType: data.residencyType,
-        price: parseFloat(data.price),
-      }),
+    const updateMut = useMutation({
+        mutationFn: ({ id, data }: { id: string; data: ListingFormData }) =>
+            listingsApi.update(id, {
+                name: data.name,
+                rooms: parseInt(data.rooms),
+                toilets: parseInt(data.toilets),
+                lat: parseFloat(data.lat),
+                lng: parseFloat(data.lng),
+                address: data.address,
+                residencyType: data.residencyType,
+                price: parseFloat(data.price),
+                description: data.description || undefined,
+            }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["my-listings"] });
       setEditTarget(null);
@@ -713,26 +777,32 @@ export default function AgentListingsPage() {
 
   const statusMut = useMutation({
     mutationFn: ({ id, status }: { id: string; status: ListingStatus }) =>
-        listingsApi.updateStatus(id, status),
+      listingsApi.updateStatus(id, status),
     onSuccess: () => {
-        qc.invalidateQueries({ queryKey: ['my-listings'] })
-        showToast('Listing status updated!')
+      qc.invalidateQueries({ queryKey: ["my-listings"] });
+      showToast("Listing status updated!");
     },
     onError: (e: any) =>
-        showToast(e.response?.data?.message ?? 'Failed to update status', 'error'),
-  })
+      showToast(
+        e.response?.data?.message ?? "Failed to update status",
+        "error",
+      ),
+  });
 
   const urlParams = new URLSearchParams(window.location.search);
-    const paymentStatus = urlParams.get("payment");
+  const paymentStatus = urlParams.get("payment");
 
   const { user } = useAuth();
 
   const canCreateListing = user?.status === "Verified";
 
   const getApprovalMessage = () => {
-    if (user?.status === "Pending") return "Please verify your email before creating listings.";
-    if (user?.status === "Unapproved") return "Your account is awaiting admin approval. You cannot create listings yet.";
-    if (user?.status === "Blocked") return "Your account has been blocked. You cannot create listings.";
+    if (user?.status === "Pending")
+      return "Please verify your email before creating listings.";
+    if (user?.status === "Unapproved")
+      return "Your account is awaiting admin approval. You cannot create listings yet.";
+    if (user?.status === "Blocked")
+      return "Your account has been blocked. You cannot create listings.";
     return "Only verified agents can create listings.";
   };
 
@@ -841,9 +911,9 @@ export default function AgentListingsPage() {
               style={{ cursor: "pointer" }}
             >
               <div className="flex gap-4 items-start">
-                {l.images && l.images.length > 0 ? (
-                  <img
-                    src={l.images[0].url}
+                {l.imageUrls && l.imageUrls.length > 0 ? (
+                    <img
+                        src={l.imageUrls[0]}
                     alt={l.name}
                     style={{
                       width: 100,
@@ -952,18 +1022,22 @@ export default function AgentListingsPage() {
                   >
                     <Trash2 size={13} />
                   </button>
-                  {l.status === 'Active' && (
+                  {l.status === "Active" && (
                     <button
                       className="btn btn-primary btn-sm"
-                      onClick={() => statusMut.mutate({ id: l.id, status: 'Booked' })}
+                      onClick={() =>
+                        statusMut.mutate({ id: l.id, status: "Booked" })
+                      }
                     >
                       Mark as Booked
                     </button>
                   )}
-                  {l.status === 'Booked' && (
+                  {l.status === "Booked" && (
                     <button
                       className="btn btn-success btn-sm"
-                      onClick={() => statusMut.mutate({ id: l.id, status: 'Active' })}
+                      onClick={() =>
+                        statusMut.mutate({ id: l.id, status: "Active" })
+                      }
                     >
                       Mark as Active
                     </button>

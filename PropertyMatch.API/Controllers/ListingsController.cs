@@ -12,7 +12,7 @@ namespace PropertyMatch.API.Controllers;
 [ApiController]
 [Route("api/listings")]
 [Authorize]
-public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
+public class ListingsController(AppDbContext db, S3Service s3, GroqService groq) : ControllerBase
 {
     // GET /api/listings — public, returns all active listings (for tenants)
     [HttpGet]
@@ -116,14 +116,15 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
             Address = req.Address,
             ResidencyType = req.ResidencyType,
             Price = req.Price,
-            Status = ListingStatus.PendingPayment
+            Description = req.Description,
+            Status = ListingStatus.Active
         };
 
         db.Listings.Add(listing);
         await db.SaveChangesAsync();
 
         return CreatedAtAction(nameof(GetById), new { id = listing.Id },
-            new { listing.Id, message = "Listing created. Proceed to payment to activate." });
+            new { listing.Id, message = "Listing created and is now active." });
     }
 
     // POST /api/listings/batch — batch upload multiple listings (XLSX)
@@ -163,6 +164,17 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
             });
         }
 
+        // ── Token check for entire batch ──────────────────────────────────
+        var requiredTokens = requests.Count;
+        if (agent.TokenBalance < requiredTokens)
+        {
+            return BadRequest(new
+            {
+                message = $"Insufficient tokens. This batch requires {requiredTokens} tokens but you only have {agent.TokenBalance}. Please top up before uploading."
+            });
+        }
+        // ────────────────────────────────────────────────────────────────────
+
         var successCount = 0;
         var errors = new List<string>();
 
@@ -189,10 +201,13 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
                     Address = req.Address,
                     ResidencyType = residencyType,
                     Price = req.Price,
-                    Status = ListingStatus.PendingPayment
+                    Status = ListingStatus.PendingPayment,
+                    Description = req.Description,
+                    Amenities = req.Amenities
                 };
 
                 db.Listings.Add(listing);
+                agent.TokenBalance -= 1;
                 await db.SaveChangesAsync();
                 successCount++;
             }
@@ -224,6 +239,8 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
         if (req.Address != null) listing.Address = req.Address;
         if (req.ResidencyType.HasValue) listing.ResidencyType = req.ResidencyType.Value;
         if (req.Price.HasValue) listing.Price = req.Price.Value;
+        if (req.Description != null) listing.Description = req.Description;
+        if (req.Amenities != null) listing.Amenities = req.Amenities;
 
         await db.SaveChangesAsync();
         return Ok(new { message = "Listing updated" });
@@ -253,7 +270,6 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
         return Ok(new { message = $"Listing marked as {req.Status}" });
     }
 
-    // POST /api/listings/{id}/images — multipart upload
     [HttpPost("{id}/images")]
     [Authorize(Roles = "Agent")]
     public async Task<IActionResult> UploadImages(Guid id, [FromForm] List<IFormFile> files)
@@ -264,6 +280,31 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
 
         if (listing == null) return NotFound();
         if (files.Count == 0) return BadRequest(new { message = "No files provided" });
+
+        // ── Image content check ──────────────────────────────────────────
+        foreach (var file in files)
+        {
+            using var ms = new MemoryStream();
+            await file.CopyToAsync(ms);
+            var imageBytes = ms.ToArray();
+
+            try
+            {
+                var (isValid, reason) = await groq.CheckImageAsync(imageBytes, file.ContentType);
+                if (!isValid)
+                {
+                    return BadRequest(new
+                    {
+                        message = $"Image '{file.FileName}' was rejected: {reason}"
+                    });
+                }
+            }
+            catch (InvalidOperationException ex)
+            {
+                return StatusCode(500, new { message = $"Image verification failed: {ex.Message}" });
+            }
+        }
+        // ──────────────────────────────────────────────────────────────────
 
         var urls = await s3.UploadListingImagesAsync(id, files);
         return Ok(new { urls });
@@ -347,13 +388,43 @@ public class ListingsController(AppDbContext db, S3Service s3) : ControllerBase
         return Ok(new { message = "Listing deleted" });
     }
 
+    [HttpPost("generate-description")]
+    [Authorize(Roles = "Agent")]
+    public async Task<IActionResult> GenerateDescription([FromBody] GenerateDescriptionRequest req)
+    {
+        try
+        {
+            var description = await groq.GenerateListingDescriptionAsync(
+                req.Name, req.Rooms, req.Toilets, req.Address, req.ResidencyType, req.Price, req.ExtraDetails);
+
+            return Ok(new GenerateDescriptionResponse(description));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(500, new { message = ex.Message });
+        }
+    }
+
     private static ListingResponse MapResponse(Listing l) => new(
     l.Id, l.AgentId, l.Agent?.User?.FullName ?? "",
     l.Name, l.Rooms, l.Toilets,
     l.Lat, l.Lng, l.Address,
-    l.ResidencyType, l.Price, l.Status, l.CreatedAt,
+    l.ResidencyType, l.Price, l.Amenities,l.Description, l.Status, l.CreatedAt,
     l.Images.OrderBy(i => i.DisplayOrder)
         .Select(i => new ImageDto(i.Id, i.S3Url ?? "", i.DisplayOrder, i.Caption))
-        .ToList(),
-    l.SourceUrl, l.SourcePlatform);
+        .ToList());
+
+    [HttpGet("agents/{agentId}/public")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetAgentPublic(Guid agentId)
+    {
+        var agent = await db.Agents
+            .Include(a => a.User)
+            .FirstOrDefaultAsync(a => a.UserId == agentId);
+        if (agent == null) return NotFound();
+
+        return Ok(new AgentPublicProfileResponse(
+            agent.UserId, agent.User.FullName,
+            agent.LicenseNumber, agent.ContactNo, agent.Ratings));
+    }
 }

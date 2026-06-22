@@ -72,7 +72,10 @@ builder.Services.AddScoped<GoogleRoutesService>();
 builder.Services.AddScoped<GooglePlacesService>();
 builder.Services.AddScoped<StripeService>();
 builder.Services.AddScoped<S3Service>();
+builder.Services.AddScoped<GroqService>();
 builder.Services.AddScoped<ResendEmailService>();
+builder.Services.AddScoped<AvailabilityService>();
+builder.Services.AddHostedService<ViewingReminderService>();
 builder.Services.AddHttpClient();
 
 builder.Services.AddControllers()
