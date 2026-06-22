@@ -72,6 +72,7 @@ export const listingsApi = {
     address: string;
     residencyType: string;
     price: number;
+    description: string;
   }) => api.post<{ id: string; message: string }>("/listings", data),
 
     generateDescription: (data: {

@@ -46,7 +46,6 @@ export interface Listing {
   address: string;
   residencyType: ResidencyType;
   price: number;
-  description: string | null;
   status: ListingStatus;
   createdAt: string;
   images: ImageDto[];

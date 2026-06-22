@@ -106,27 +106,48 @@ public class SchedulesController(AppDbContext db, ResendEmailService _resendEmai
     {
         var tenantId = User.GetUserId();
 
-        // Check listing exists and is agent-owned (agent listing has no SourceUrl)
-        var listing = await db.Listings.FindAsync(req.ListingId);
+        // Load listing with agent + user so we can send email
+        var listing = await db.Listings
+            .Include(l => l.Agent).ThenInclude(a => a.User)
+            .FirstOrDefaultAsync(l => l.Id == req.ListingId);
         if (listing == null) return NotFound(new { message = "Listing not found" });
         if (listing.Status != ListingStatus.Active)
             return BadRequest(new { message = "Listing is not active" });
 
-        // Check for double-booking
-        var exists = await db.ViewingSchedules.FindAsync(req.ListingId, req.ScheduledAt);
-        if (exists != null)
+        var scheduledAtUtc = req.ScheduledAt.ToUniversalTime();
+
+        // Check for double-booking (FindAsync won't work — Id is the PK now)
+        var exists = await db.ViewingSchedules
+            .AnyAsync(v => v.ListingId == req.ListingId && v.ScheduledAt == scheduledAtUtc);
+        if (exists)
             return Conflict(new { message = "This time slot is already booked" });
+
+        var tenant = await db.Users.FindAsync(tenantId);
+        if (tenant == null) return NotFound(new { message = "Tenant not found" });
 
         var schedule = new ViewingSchedule
         {
+            Id = Guid.NewGuid(),
             ListingId = req.ListingId,
-            ScheduledAt = req.ScheduledAt.ToUniversalTime(),
+            ScheduledAt = scheduledAtUtc,
             TenantId = tenantId,
             Status = ScheduleStatus.Pending
         };
 
         db.ViewingSchedules.Add(schedule);
         await db.SaveChangesAsync();
+
+        // Email agent: new viewing request (fire-and-forget)
+        _ = _resendEmailService.SendViewingRequestToAgentAsync(
+            listing.Agent.User.Email, listing.Agent.User.FullName,
+            tenant.FullName, tenant.Email,
+            listing.Name, listing.Address, schedule.ScheduledAt)
+            .ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                    Console.Error.WriteLine($"[Email] Agent notification failed: {t.Exception}");
+            });
+
         return Ok(new { message = "Viewing scheduled successfully" });
     }
 
@@ -221,15 +242,15 @@ public class SchedulesController(AppDbContext db, ResendEmailService _resendEmai
     }
 
     private static ScheduleResponse MapResponse(ViewingSchedule v) => new(
-    v.Id,
-    v.ListingId,
-    v.Listing?.Name ?? "",
-    v.Listing?.Address ?? "",
-    v.TenantId,
-    v.Tenant?.FullName ?? "",
-    v.ScheduledAt,
-    v.Status,
-    v.Reason);
+        v.Id,
+        v.ListingId,
+        v.Listing?.Name ?? "",
+        v.Listing?.Address ?? "",
+        v.TenantId,
+        v.Tenant?.FullName ?? "",
+        v.ScheduledAt,
+        v.Status,
+        v.Reason);
 }
 //// ── Payments ──────────────────────────────────────────────────────────────────
 //[ApiController]

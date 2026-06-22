@@ -21,7 +21,6 @@ import {
   Download,
   Coins,
   Sparkles,
-  Download
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
@@ -720,7 +719,7 @@ export default function AgentListingsPage() {
             address: data.address,
             residencyType: data.residencyType,
             price: parseFloat(data.price),
-            description: data.description || undefined,
+            description: data.description,
         }),
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ["my-listings"] });

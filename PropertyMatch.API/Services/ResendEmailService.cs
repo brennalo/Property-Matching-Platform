@@ -72,6 +72,53 @@ public class ResendEmailService(HttpClient http, IConfiguration config)
     }
 
     /// <summary>
+    /// Notifies the agent when a tenant books a viewing slot.
+    /// </summary>
+    public async Task SendViewingRequestToAgentAsync(
+        string agentEmail, string agentName,
+        string tenantName, string tenantEmail,
+        string listingName, string listingAddress, DateTime scheduledAt)
+    {
+        var myt = TimeZoneInfo.ConvertTimeFromUtc(
+            scheduledAt,
+            TimeZoneInfo.FindSystemTimeZoneById("Asia/Kuala_Lumpur"));
+
+        var html = $"""
+            <!DOCTYPE html>
+            <html>
+            <body style="font-family: Arial, sans-serif; background: #0f0f0e; color: #e8e4de; padding: 40px;">
+              <div style="max-width: 520px; margin: 0 auto; background: #1c1b19; border-radius: 12px; padding: 36px; border: 1px solid #2e2d2b;">
+                <h1 style="font-size: 1.6rem; color: #e8a045; margin-bottom: 8px;">PropertyMatch</h1>
+                <div style="background:#1a2a1a; border:1px solid #2b6b2b; border-radius:8px; padding:12px 16px; margin-bottom:20px;">
+                  <span style="color:#4caf50; font-weight:700;">📅 New Viewing Request</span>
+                </div>
+                <p style="color: #b0aa9f; margin-bottom: 24px;">
+                  Hi {agentName}, <strong style="color:#e8e4de;">{tenantName}</strong> has requested a viewing for one of your listings.
+                </p>
+                <table style="width:100%; border-collapse:collapse; margin-bottom:24px;">
+                  <tr><td style="color:#6b6560; padding:8px 0; border-bottom:1px solid #2e2d2b; width:40%;">Property</td>
+                      <td style="padding:8px 0; border-bottom:1px solid #2e2d2b;">{listingName}</td></tr>
+                  <tr><td style="color:#6b6560; padding:8px 0; border-bottom:1px solid #2e2d2b;">Address</td>
+                      <td style="padding:8px 0; border-bottom:1px solid #2e2d2b;">{listingAddress}</td></tr>
+                  <tr><td style="color:#6b6560; padding:8px 0; border-bottom:1px solid #2e2d2b;">Date</td>
+                      <td style="padding:8px 0; border-bottom:1px solid #2e2d2b;">{myt:dddd, d MMMM yyyy}</td></tr>
+                  <tr><td style="color:#6b6560; padding:8px 0; border-bottom:1px solid #2e2d2b;">Time</td>
+                      <td style="padding:8px 0; border-bottom:1px solid #2e2d2b;">{myt:h:mm tt} MYT</td></tr>
+                  <tr><td style="color:#6b6560; padding:8px 0; border-bottom:1px solid #2e2d2b;">Tenant</td>
+                      <td style="padding:8px 0; border-bottom:1px solid #2e2d2b;">{tenantName}</td></tr>
+                  <tr><td style="color:#6b6560; padding:8px 0;">Tenant Email</td>
+                      <td style="padding:8px 0;">{tenantEmail}</td></tr>
+                </table>
+                <p style="font-size: 0.8rem; color: #6b6560;">Log in to PropertyMatch to confirm or decline this request.</p>
+              </div>
+            </body>
+            </html>
+            """;
+
+        await SendAsync(agentEmail, $"New Viewing Request — {listingName}", html);
+    }
+
+    /// <summary>
     /// Sends a 24-hour reminder to the tenant before their viewing.
     /// Call this from a background job (e.g. Hangfire or a hosted service).
     /// </summary>
@@ -157,7 +204,7 @@ public class ResendEmailService(HttpClient http, IConfiguration config)
         await SendAsync(toEmail, "Your Viewing Request Was Declined", html);
     }
 
-/// <summary>
+    /// <summary>
     /// Sends a rejection notification to the tenant with optional reason.
     /// </summary>
     public async Task SendViewingConfirmedToTenantAsync(
