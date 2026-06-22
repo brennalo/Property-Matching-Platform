@@ -108,7 +108,7 @@ export default function BrowsePage() {
 
             marker.addListener('click', () => {
                 info.open(gMapRef.current!, marker)
-                setTimeout(() => navigate(`/listing/${l.id}`), 700)
+                setTimeout(() => navigate(`/listing/${l.id}`, { state: { from: 'browse' } }), 700)
             })
 
             markersRef.current.push(marker)
@@ -125,10 +125,6 @@ export default function BrowsePage() {
                 <Building2 size={20} color="var(--accent)" />
                 <span style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--accent)' }}>PropertyMatch</span>
                 <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Browse Listings</span>
-                <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-                    <a href="/login" className="btn btn-outline btn-sm">Login</a>
-                    <a href="/register" className="btn btn-primary btn-sm">Sign Up</a>
-                </div>
             </div>
 
             {/* Map */}
@@ -192,7 +188,7 @@ export default function BrowsePage() {
                             key={l.id}
                             className="card"
                             style={{ cursor: 'pointer', overflow: 'hidden' }}
-                            onClick={() => navigate(`/listing/${l.id}`)}
+                            onClick={() => navigate(`/listing/${l.id}`, { state: { from: 'browse' } })}
                         >
                             {l.images[0] ? (
                                 <img

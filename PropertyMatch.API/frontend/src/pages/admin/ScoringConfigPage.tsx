@@ -2,7 +2,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Settings, RotateCcw, Save, AlertTriangle, CheckCircle } from 'lucide-react'
 import api, { scoringConfigApi } from '../../api'
-import { ScoringConfigRequest } from '../../types'
+interface ScoringConfigRequest {
+    weightNumeric: number
+    weightCommute: number
+    weightLifestyle: number
+    lifestyleRadiusMeters: number
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -72,20 +77,6 @@ function WeightSlider({
                 }}>
                     {pct(value)}%
                 </span>
-            </div>
-
-            {/* Track */}
-            <div style={{ position: 'relative', height: 6, borderRadius: 3, background: 'var(--border)' }}>
-                <div style={{
-                    position: 'absolute',
-                    left: 0,
-                    top: 0,
-                    height: '100%',
-                    borderRadius: 3,
-                    width: `${pct(value)}%`,
-                    background: color,
-                    transition: 'width 0.15s ease',
-                }} />
             </div>
 
             <input
