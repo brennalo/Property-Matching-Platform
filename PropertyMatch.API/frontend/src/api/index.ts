@@ -74,6 +74,16 @@ export const listingsApi = {
     price: number;
   }) => api.post<{ id: string; message: string }>("/listings", data),
 
+    generateDescription: (data: {
+        name: string;
+        rooms: number;
+        toilets: number;
+        address: string;
+        residencyType: string;
+        price: number;
+        extraDetails?: string
+    }) => api.post<{ description: string }>('/listings/generate-description', data),
+
   update: (
     id: string,
     data: Partial<{

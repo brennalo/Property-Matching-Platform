@@ -1895,8 +1895,8 @@ export default function ListingDetailPage() {
                 <ArrowLeft size={14} /> {fromBrowse ? "Back to Browse" : "Back to Results"}
             </button>
 
-            {/* Use enhanced gallery with images (ImageDto[]) instead of imageUrls */}
-            <ImageGallery images={listing.images} name={listing.name} />
+      {/* Use enhanced gallery with images (ImageDto[]) instead of imageUrls */}
+      <ImageGallery images={listing.images ?? []} name={listing.name} />
 
             <div
                 style={{
