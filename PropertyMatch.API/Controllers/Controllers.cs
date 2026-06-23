@@ -770,95 +770,212 @@ public class AgentDashboardController(AppDbContext db) : ControllerBase
     }
 }
 
-    // ── Feedback ─────────────────────────────────────────────────────────
-    [ApiController]
-    [Route("api/feedback")]
-    [Authorize]
-    public class FeedbackController(AppDbContext db) : ControllerBase
+// ── Feedback ─────────────────────────────────────────────────────────
+[ApiController]
+[Route("api/feedback")]
+[Authorize]
+public class FeedbackController(AppDbContext db) : ControllerBase
+{
+    [HttpPost]
+    [Authorize(Roles = "Tenant")]
+    public async Task<IActionResult> SubmitFeedback([FromBody] CreateFeedbackRequest req)
     {
-        [HttpPost]
-        [Authorize(Roles = "Tenant")]
-        public async Task<IActionResult> SubmitFeedback([FromBody] CreateFeedbackRequest req)
+        var tenantId = User.GetUserId();
+
+        if (string.IsNullOrWhiteSpace(req.Description))
+            return BadRequest(new { message = "Feedback description is required." });
+
+        var feedback = new Feedback
         {
-            var tenantId = User.GetUserId();
+            TenantId = tenantId,
+            Description = req.Description.Trim(),
+            Status = "Open",
+            CreatedAt = DateTime.UtcNow
+        };
 
-            if (string.IsNullOrWhiteSpace(req.Description))
-                return BadRequest(new { message = "Feedback description is required." });
+        db.Feedbacks.Add(feedback);
+        await db.SaveChangesAsync();
 
-            var feedback = new Feedback
-            {
-                TenantId = tenantId,
-                Description = req.Description.Trim(),
-                Status = "Open",
-                CreatedAt = DateTime.UtcNow
-            };
-
-            db.Feedbacks.Add(feedback);
-            await db.SaveChangesAsync();
-
-            return Ok(new { message = "Feedback submitted successfully." });
-        }
-
-        [HttpGet("mine")]
-        [Authorize(Roles = "Tenant")]
-        public async Task<IActionResult> GetMyFeedback()
-        {
-            var tenantId = User.GetUserId();
-
-            var feedbacks = await db.Feedbacks
-                .Include(f => f.Tenant)
-                .Where(f => f.TenantId == tenantId)
-                .OrderByDescending(f => f.CreatedAt)
-                .Select(f => new FeedbackResponse(
-                    f.Id,
-                    f.TenantId,
-                    f.Tenant.FullName,
-                    f.Tenant.Email,
-                    f.Description,
-                    f.Status,
-                    f.CreatedAt
-                ))
-                .ToListAsync();
-
-            return Ok(feedbacks);
-        }
-
-        [HttpGet("admin")]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetAllFeedback()
-        {
-            var feedbacks = await db.Feedbacks
-                .Include(f => f.Tenant)
-                .OrderByDescending(f => f.CreatedAt)
-                .Select(f => new FeedbackResponse(
-                    f.Id,
-                    f.TenantId,
-                    f.Tenant.FullName,
-                    f.Tenant.Email,
-                    f.Description,
-                    f.Status,
-                    f.CreatedAt
-                ))
-                .ToListAsync();
-
-            return Ok(feedbacks);
-        }
-
-        [HttpPatch("{id}/status")]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> UpdateFeedbackStatus(Guid id, [FromBody] UpdateFeedbackStatusRequest req)
-        {
-            var feedback = await db.Feedbacks.FindAsync(id);
-            if (feedback == null) return NotFound(new { message = "Feedback not found." });
-
-            var allowedStatuses = new[] { "Open", "Reviewed" };
-
-            if (!allowedStatuses.Contains(req.Status))
-                return BadRequest(new { message = "Invalid feedback status." });
-
-            feedback.Status = req.Status;
-            await db.SaveChangesAsync();
-
-            return Ok(new { message = $"Feedback marked as {req.Status}." });
-        }
+        return Ok(new { message = "Feedback submitted successfully." });
     }
+
+    [HttpGet("mine")]
+    [Authorize(Roles = "Tenant")]
+    public async Task<IActionResult> GetMyFeedback()
+    {
+        var tenantId = User.GetUserId();
+
+        var feedbacks = await db.Feedbacks
+            .Include(f => f.Tenant)
+            .Where(f => f.TenantId == tenantId)
+            .OrderByDescending(f => f.CreatedAt)
+            .Select(f => new FeedbackResponse(
+                f.Id,
+                f.TenantId,
+                f.Tenant.FullName,
+                f.Tenant.Email,
+                f.Description,
+                f.Status,
+                f.CreatedAt
+            ))
+            .ToListAsync();
+
+        return Ok(feedbacks);
+    }
+
+    [HttpGet("admin")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GetAllFeedback()
+    {
+        var feedbacks = await db.Feedbacks
+            .Include(f => f.Tenant)
+            .OrderByDescending(f => f.CreatedAt)
+            .Select(f => new FeedbackResponse(
+                f.Id,
+                f.TenantId,
+                f.Tenant.FullName,
+                f.Tenant.Email,
+                f.Description,
+                f.Status,
+                f.CreatedAt
+            ))
+            .ToListAsync();
+
+        return Ok(feedbacks);
+    }
+
+    [HttpPatch("{id}/status")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> UpdateFeedbackStatus(Guid id, [FromBody] UpdateFeedbackStatusRequest req)
+    {
+        var feedback = await db.Feedbacks.FindAsync(id);
+        if (feedback == null) return NotFound(new { message = "Feedback not found." });
+
+        var allowedStatuses = new[] { "Open", "Reviewed" };
+
+        if (!allowedStatuses.Contains(req.Status))
+            return BadRequest(new { message = "Invalid feedback status." });
+
+        feedback.Status = req.Status;
+        await db.SaveChangesAsync();
+
+        return Ok(new { message = $"Feedback marked as {req.Status}." });
+    }
+}
+
+// ── Reports ─────────────────────────────────────────────────────────
+[ApiController]
+[Route("api/reports")]
+[Authorize]
+public class ReportsController(AppDbContext db) : ControllerBase
+{
+    [HttpPost]
+    [Authorize(Roles = "Tenant")]
+    public async Task<IActionResult> SubmitReport([FromBody] CreateReportRequest req)
+    {
+        var tenantId = User.GetUserId();
+
+        if (string.IsNullOrWhiteSpace(req.Description))
+            return BadRequest(new { message = "Report description is required." });
+
+        var item = req.Item.Trim().ToLowerInvariant();
+
+        if (item != "listing" && item != "agent")
+            return BadRequest(new { message = "Report item must be either listing or agent." });
+
+        if (item == "listing")
+        {
+            var listingExists = await db.Listings.AnyAsync(l => l.Id == req.ItemId);
+            if (!listingExists)
+                return NotFound(new { message = "Listing not found." });
+        }
+
+        if (item == "agent")
+        {
+            var agentExists = await db.Agents.AnyAsync(a => a.UserId == req.ItemId);
+            if (!agentExists)
+                return NotFound(new { message = "Agent not found." });
+        }
+
+        var report = new Report
+        {
+            TenantId = tenantId,
+            Item = item,
+            ItemId = req.ItemId,
+            Description = req.Description.Trim(),
+            Status = "Open",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        db.Reports.Add(report);
+        await db.SaveChangesAsync();
+
+        return Ok(new { message = "Report submitted successfully." });
+    }
+
+    [HttpGet("admin")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GetAllReports()
+    {
+        var reports = await db.Reports
+            .Include(r => r.Tenant)
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync();
+
+        var result = new List<ReportResponse>();
+
+        foreach (var r in reports)
+        {
+            var itemName = r.Item;
+
+            if (r.Item == "listing")
+            {
+                itemName = await db.Listings
+                    .Where(l => l.Id == r.ItemId)
+                    .Select(l => l.Name)
+                    .FirstOrDefaultAsync() ?? "Unknown listing";
+            }
+
+            if (r.Item == "agent")
+            {
+                itemName = await db.Agents
+                    .Where(a => a.UserId == r.ItemId)
+                    .Select(a => a.User.FullName)
+                    .FirstOrDefaultAsync() ?? "Unknown agent";
+            }
+
+            result.Add(new ReportResponse(
+                r.Id,
+                r.TenantId,
+                r.Tenant.FullName,
+                r.Tenant.Email,
+                r.Item,
+                r.ItemId,
+                itemName,
+                r.Description,
+                r.Status,
+                r.CreatedAt
+            ));
+        }
+
+        return Ok(result);
+    }
+
+    [HttpPatch("{id}/status")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> UpdateReportStatus(Guid id, [FromBody] UpdateReportStatusRequest req)
+    {
+        var report = await db.Reports.FindAsync(id);
+        if (report == null) return NotFound(new { message = "Report not found." });
+
+        var allowedStatuses = new[] { "Open", "Reviewed" };
+
+        if (!allowedStatuses.Contains(req.Status))
+            return BadRequest(new { message = "Invalid report status." });
+
+        report.Status = req.Status;
+        await db.SaveChangesAsync();
+
+        return Ok(new { message = $"Report marked as {req.Status}." });
+    }
+}

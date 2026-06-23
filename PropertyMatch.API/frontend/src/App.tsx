@@ -46,6 +46,7 @@ import AgentConversationsPage from "./pages/agent/ConversationsPage";
 import ScoringConfigPage from "./pages/admin/ScoringConfigPage";
 import TenantFeedbackPage from "./pages/tenant/FeedbackPage";
 import AdminFeedbackPage from "./pages/admin/FeedbackPage";
+import AdminReportsPage from "./pages/admin/ReportsPage";
 import {
   Search,
   Heart,
@@ -65,6 +66,7 @@ import {
   LayoutDashboard,
   Building,
   Settings,
+  Flag,
 } from "lucide-react";
 import AgentReviewsPage from "./pages/agent/ReviewsPage";
 import AgentAnalyticsPage from "./pages/agent/AgentAnalytics";
@@ -287,6 +289,11 @@ function AppShell({ children }: { children: React.ReactNode }) {
       to: "/admin/feedback",
       icon: <MessageSquare size={16} />,
       label: "Feedback",
+    },
+    {
+      to: "/admin/reports",
+        icon: <Flag size={16} />,
+      label: "Reports",
     },
   ];
 
@@ -644,6 +651,16 @@ export default function App() {
                 <ProtectedRoute roles={["Admin"]}>
                   <AppShell>
                     <AdminFeedbackPage />
+                  </AppShell>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/reports"
+              element={
+                <ProtectedRoute roles={["Admin"]}>
+                  <AppShell>
+                    <AdminReportsPage />
                   </AppShell>
                 </ProtectedRoute>
               }

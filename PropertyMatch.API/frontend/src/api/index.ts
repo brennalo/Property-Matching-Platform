@@ -411,3 +411,15 @@ export const feedbackApi = {
   updateStatus: (id: string, status: string) =>
     api.patch(`/feedback/${id}/status`, { status }),
 };
+
+//── Report ───────────────────────────────────────────────────────
+export const reportApi = {
+    submit: (data: { item: "listing" | "agent"; itemId: string; description: string }) =>
+        api.post("/reports", data),
+
+    getAll: () =>
+        api.get("/reports/admin"),
+
+    updateStatus: (id: string, status: string) =>
+        api.patch(`/reports/${id}/status`, { status }),
+};

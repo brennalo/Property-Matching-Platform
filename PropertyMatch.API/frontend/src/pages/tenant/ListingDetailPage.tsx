@@ -9,6 +9,7 @@ import {
     conversationsApi,
     viewHistoryApi,
     listingsApi,
+    reportApi,
 } from "../../api";
 import type {
     MatchedListing,
@@ -1808,6 +1809,20 @@ export default function ListingDetailPage() {
     const [workplaceLat, setWorkplaceLat] = useState<number | null>(null);
     const [workplaceLng, setWorkplaceLng] = useState<number | null>(null);
     const [showSchedule, setShowSchedule] = useState(false);
+    const [showReport, setShowReport] = useState(false);
+    const [reportText, setReportText] = useState("");
+    const [toast, setToast] = useState<{
+        msg: string;
+        type: "success" | "error";
+    } | null>(null);
+
+    const showToast = (
+        msg: string,
+        type: "success" | "error" = "success"
+    ) => {
+        setToast({ msg, type });
+        setTimeout(() => setToast(null), 3000);
+    };
     const mapsReady = useGoogleMaps();
 
     useEffect(() => {
@@ -1871,6 +1886,21 @@ export default function ListingDetailPage() {
     const enquireMut = useMutation({
         mutationFn: () => conversationsApi.open(listingId!),
         onSuccess: () => navigate("/conversations"),
+    });
+    const reportMut = useMutation({
+        mutationFn: () =>
+            reportApi.submit({
+                item: "listing",
+                itemId: listing.id,
+                description: reportText,
+            }),
+        onSuccess: () => {
+            setShowReport(false);
+            setReportText("");
+            showToast("Report submitted successfully.");
+        },
+        onError: (e: any) =>
+            showToast(e.response?.data?.message ?? "Failed to submit report.", "error"),
     });
     const { data: agentProfile } = useQuery({
         queryKey: ["agent-public", agentId],
@@ -2063,7 +2093,7 @@ export default function ListingDetailPage() {
                             </button>
                         </>
 
-                        <div className="card" style={{ padding: 20, marginTop: 24 }}>
+                        <div className="card" style={{ padding: 10, marginTop: 24 }}>
                             <div
                                 style={{
                                     fontWeight: 700,
@@ -2108,7 +2138,12 @@ export default function ListingDetailPage() {
                                         </div>
                                     )}
                                 </div>
-                                <div style={{ display: "flex", gap: 8 }}>
+                                <div style={{
+                                    display: "flex", gap: 8, flexWrap: "wrap",
+                                    justifyContent: "flex-start",
+                                    width: "100%",
+                                }}
+                                >
                                     <button
                                         className={`btn ${favStatus?.saved ? "btn-primary" : "btn-outline"}`}
                                         onClick={() => toggleFav.mutate()}
@@ -2131,6 +2166,12 @@ export default function ListingDetailPage() {
                                         ) : (
                                             "Enquire More"
                                         )}
+                                    </button>
+                                    <button
+                                        className="btn btn-danger"
+                                        onClick={() => setShowReport(true)}
+                                    >
+                                        Report
                                     </button>
                                 </div>
                             </div>
@@ -2240,6 +2281,40 @@ export default function ListingDetailPage() {
                     onClose={() => setShowSchedule(false)}
                 />
             )}
+
+            {/* Report Modal */}
+            {showReport && (
+                <div className="modal-overlay" onClick={() => setShowReport(false)}>
+                    <div className="modal" onClick={(e) => e.stopPropagation()}>
+                        <h2 style={{ marginBottom: 8 }}>Report Listing</h2>
+                        <p style={{ color: "var(--text-muted)", marginBottom: 16 }}>
+                            Report: {listing.name}
+                        </p>
+
+                        <textarea
+                            className="input"
+                            rows={6}
+                            value={reportText}
+                            onChange={(e) => setReportText(e.target.value)}
+                            placeholder="Describe the issue with this listing..."
+                        />
+
+                        <div className="flex gap-3 mt-4">
+                            <button className="btn btn-outline" onClick={() => setShowReport(false)}>
+                                Cancel
+                            </button>
+                            <button
+                                className="btn btn-danger"
+                                disabled={!reportText.trim() || reportMut.isPending}
+                                onClick={() => reportMut.mutate()}
+                            >
+                                {reportMut.isPending ? <span className="spinner" /> : "Submit Report"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {toast && (<div className={`toast toast-${toast.type}`}>{toast.msg}</div>)}
         </div>
     );
 }
