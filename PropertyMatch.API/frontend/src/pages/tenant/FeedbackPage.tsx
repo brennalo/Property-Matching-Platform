@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { feedbackApi } from "../../api";
 import type { Feedback } from "../../types";
@@ -6,6 +6,7 @@ import type { Feedback } from "../../types";
 export default function TenantFeedbackPage() {
     const [description, setDescription] = useState("");
     const [selected, setSelected] = useState<Feedback | null>(null);
+    const [showSuccess, setShowSuccess] = useState(false);
     const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
     const showToast = (msg: string, type: "success" | "error" = "success") => {
@@ -23,7 +24,7 @@ export default function TenantFeedbackPage() {
         onSuccess: () => {
             setDescription("");
             refetch();
-            showToast("Feedback submitted successfully.");
+            setShowSuccess(true);
         },
         onError: (e: any) =>
             showToast(e.response?.data?.message ?? "Failed to submit feedback.", "error"),
@@ -101,6 +102,21 @@ export default function TenantFeedbackPage() {
             )}
 
             {toast && <div className={`toast toast-${toast.type}`}>{toast.msg}</div>}
+
+            {showSuccess && (
+                <div className="modal-overlay" onClick={() => setShowSuccess(false)}>
+                    <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420, textAlign: "center" }}>
+                        <div style={{ fontSize: "2.5rem", marginBottom: 12 }}>✅</div>
+                        <h2 style={{ marginBottom: 8 }}>Feedback Submitted</h2>
+                        <p style={{ color: "var(--text-muted)", marginBottom: 20 }}>
+                            Thank you for sharing your feedback. The admin team will review it soon.
+                        </p>
+                        <button className="btn btn-primary" onClick={() => setShowSuccess(false)}>
+                            OK
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

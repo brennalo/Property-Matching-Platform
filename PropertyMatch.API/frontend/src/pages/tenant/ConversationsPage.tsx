@@ -19,6 +19,7 @@ export default function ConversationsPage() {
   const [showReport, setShowReport] = useState(false);
   const [reportTarget, setReportTarget] = useState<ConversationSummaryResponse | null>(null);
   const [reportText, setReportText] = useState("");
+  const [showReportSuccess, setShowReportSuccess] = useState(false);
   const [toast, setToast] = useState<{
     msg: string;
     type: "success" | "error";
@@ -64,7 +65,7 @@ export default function ConversationsPage() {
       setShowReport(false);
       setReportTarget(null);
       setReportText("");
-      showToast("Report submitted successfully.");
+      setShowReportSuccess(true);
     },
     onError: (e: any) =>
       showToast(e.response?.data?.message ?? "Failed to submit report.", "error"),
@@ -325,6 +326,21 @@ export default function ConversationsPage() {
         />
       )}
       {toast && <div className={`toast toast-${toast.type}`}>{toast.msg}</div>}
+
+      {showReportSuccess && (
+          <div className="modal-overlay" onClick={() => setShowReportSuccess(false)}>
+              <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420, textAlign: "center" }}>
+                  <div style={{ fontSize: "2.5rem", marginBottom: 12 }}>✅</div>
+                  <h2 style={{ marginBottom: 8 }}>Report Submitted</h2>
+                  <p style={{ color: "var(--text-muted)", marginBottom: 20 }}>
+                      Thank you for reaching to us. Your report has been submitted to the admin team for review.
+                  </p>
+                  <button className="btn btn-primary" onClick={() => setShowReportSuccess(false)}>
+                      OK
+                  </button>
+              </div>
+          </div>
+      )}
 
       {/* Report Modal */}
       {showReport && reportTarget && (

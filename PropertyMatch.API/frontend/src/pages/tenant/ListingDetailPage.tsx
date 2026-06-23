@@ -1811,6 +1811,7 @@ export default function ListingDetailPage() {
     const [showSchedule, setShowSchedule] = useState(false);
     const [showReport, setShowReport] = useState(false);
     const [reportText, setReportText] = useState("");
+    const [showReportSuccess, setShowReportSuccess] = useState(false);
     const [toast, setToast] = useState<{
         msg: string;
         type: "success" | "error";
@@ -1897,7 +1898,7 @@ export default function ListingDetailPage() {
         onSuccess: () => {
             setShowReport(false);
             setReportText("");
-            showToast("Report submitted successfully.");
+            setShowReportSuccess(true);
         },
         onError: (e: any) =>
             showToast(e.response?.data?.message ?? "Failed to submit report.", "error"),
@@ -2280,6 +2281,21 @@ export default function ListingDetailPage() {
                     agentId={listing.agentId}
                     onClose={() => setShowSchedule(false)}
                 />
+            )}
+
+            {showReportSuccess && (
+                <div className="modal-overlay" onClick={() => setShowReportSuccess(false)}>
+                    <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420, textAlign: "center" }}>
+                        <div style={{ fontSize: "2.5rem", marginBottom: 12 }}>✅</div>
+                        <h2 style={{ marginBottom: 8 }}>Report Submitted</h2>
+                        <p style={{ color: "var(--text-muted)", marginBottom: 20 }}>
+                            Your report has been submitted to the admin team for review.
+                        </p>
+                        <button className="btn btn-primary" onClick={() => setShowReportSuccess(false)}>
+                            OK
+                        </button>
+                    </div>
+                </div>
             )}
 
             {/* Report Modal */}
