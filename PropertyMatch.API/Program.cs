@@ -8,8 +8,13 @@ using PropertyMatch.API.Data;
 using PropertyMatch.API.Middleware;
 using PropertyMatch.API.Services;
 using Stripe;
+using OfficeOpenXml;
+
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Set EPPlus license for non‑commercial use
+ExcelPackage.License.SetNonCommercialPersonal("PropertyMatch");
 
 // ── Database ───────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<AppDbContext>(opt =>

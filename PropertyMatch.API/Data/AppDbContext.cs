@@ -81,12 +81,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         .OnDelete(DeleteBehavior.Cascade);
 
     mb.Entity<AvailabilityTemplate>()
-        .HasOne(t => t.Listing)
-        .WithMany(l => l.AvailabilityTemplates)
-        .HasForeignKey(t => t.ListingId)
-        .OnDelete(DeleteBehavior.Cascade);
-
-    mb.Entity<AvailabilityTemplate>()
         .Property(t => t.SlotDurationMinutes)
         .HasDefaultValue(60);
 
@@ -143,8 +137,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         mb.Entity<Listing>().HasIndex(l => l.Status);
         mb.Entity<Listing>().HasIndex(l => l.AgentId);
         mb.Entity<AvailabilityTemplate>()
-    .HasIndex(t => new { t.AgentId, t.ListingId })
-    .HasDatabaseName("IX_AvailabilityTemplates_AgentId_ListingId");
+            .HasIndex(t => new { t.AgentId})
+            .HasDatabaseName("IX_AvailabilityTemplates_AgentId");
 
         mb.Entity<AvailabilityTemplate>()
             .HasIndex(t => t.DayOfWeek)
