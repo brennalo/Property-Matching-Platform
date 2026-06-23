@@ -273,7 +273,7 @@ export const adminApi = {
 
   getTokenBuying: () => api.get("/admin/analytics/token-buying"),
 
-  getDemandLocations: () => api.get("/admin/analytics/demand-locations"),
+    getSearchDemandLocations: () => api.get("/admin/analytics/search-demand-locations"),
 };
 
 export default api;

@@ -594,27 +594,58 @@ public class AdminController(AppDbContext db) : ControllerBase
         });
     }
 
-    [HttpGet("analytics/demand-locations")]
-    public async Task<IActionResult> GetDemandLocations()
+    [HttpGet("analytics/search-demand-locations")]
+    public async Task<IActionResult> GetSearchDemandLocations()
     {
-        var data = await db.Listings
-            .Where(l => l.ViewingSchedules.Any())
-            .Select(l => new
-            {
-                listingId = l.Id,
-                listingName = l.Name,
-                address = l.Address,
-                lat = l.Lat,
-                lng = l.Lng,
-                scheduleCount = l.ViewingSchedules.Count,
-                confirmedCount = l.ViewingSchedules.Count(v => v.Status == ScheduleStatus.Confirmed),
-                isBooked = l.Status == ListingStatus.Booked
-            })
-            .OrderByDescending(x => x.scheduleCount)
-            .Take(20)
+        var logs = await db.SearchLogs
+            .OrderByDescending(s => s.SearchedAt)
             .ToListAsync();
 
-        return Ok(data);
+        var parsed = logs.Select(s =>
+        {
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(s.Snapshot);
+                var root = doc.RootElement;
+
+                var address = root.TryGetProperty("workplaceAddress", out var addr)
+                    ? addr.GetString()
+                    : "Unknown";
+
+                var lat = root.TryGetProperty("workplaceLat", out var latEl)
+                    ? latEl.GetDouble()
+                    : 0;
+
+                var lng = root.TryGetProperty("workplaceLng", out var lngEl)
+                    ? lngEl.GetDouble()
+                    : 0;
+
+                return new
+                {
+                    Address = address ?? "Unknown",
+                    Lat = Math.Round(lat, 3),
+                    Lng = Math.Round(lng, 3)
+                };
+            }
+            catch
+            {
+                return null;
+            }
+        })
+        .Where(x => x != null && x.Lat != 0 && x.Lng != 0)
+        .GroupBy(x => new { x!.Lat, x.Lng, x.Address })
+        .Select(g => new
+        {
+            workplaceAddress = g.Key.Address,
+            lat = g.Key.Lat,
+            lng = g.Key.Lng,
+            searchCount = g.Count()
+        })
+        .OrderByDescending(x => x.searchCount)
+        .Take(20)
+        .ToList();
+
+        return Ok(parsed);
     }
 }
 
