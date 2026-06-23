@@ -225,7 +225,8 @@ public class ConversationsController(AppDbContext db) : ControllerBase
                 lastMsg?.Content,
                 lastMsg?.CreatedAt,
                 unread,
-                c.ListingId
+                c.ListingId,
+                c.AgentId
             );
         }));
     }

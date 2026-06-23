@@ -92,6 +92,7 @@ public class ListingsController(AppDbContext db, S3Service s3, GroqService groq)
             ResidencyType = req.ResidencyType,
             Price = req.Price,
             Description = req.Description,
+            Amenities = req.Amenities,
             Status = ListingStatus.Active
         };
 

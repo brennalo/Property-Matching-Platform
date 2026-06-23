@@ -5,11 +5,17 @@ import { paymentsApi } from '../../api'
 import { useAuth } from '../../hooks/useAuth'
 import { Coins, Zap, CreditCard } from 'lucide-react'
 
-const PACKAGES = [
-    { tokens: 5, label: 'Starter', desc: 'Great for trying out' },
-    { tokens: 10, label: 'Standard', desc: 'Most popular' },
-    { tokens: 50, label: 'Pro', desc: 'Best value' },
-]
+const PACKAGES = [20, 50, 100]
+
+function getPricePerToken(tokens: number): number {
+    if (tokens >= 100) return 0.05
+    if (tokens >= 50) return 0.07
+    return 0.10
+}
+
+function getTotalPrice(tokens: number): number {
+    return Math.round(tokens * getPricePerToken(tokens) * 100) / 100
+}
 
 export default function TokenTopUpPage() {
     const { user } = useAuth()
@@ -25,11 +31,18 @@ export default function TokenTopUpPage() {
     })
 
     const finalAmount = customAmount ? parseInt(customAmount) : selectedTokens
+    const pricePerToken = getPricePerToken(finalAmount || 0)
+    const totalPrice = getTotalPrice(finalAmount || 0)
+    const belowMinimum = totalPrice > 0 && totalPrice < 2
 
     const handleTopUp = async () => {
         if (!user?.userId) return
         if (!finalAmount || finalAmount < 1) {
             setError('Please enter a valid token amount.')
+            return
+        }
+        if (totalPrice < 2) {
+            setError(`Minimum purchase is RM2.00. Please select at least ${Math.ceil(2 / pricePerToken)} tokens.`)
             return
         }
         setLoading(true)
@@ -50,7 +63,7 @@ export default function TokenTopUpPage() {
             <div className="flex items-center justify-between mb-6">
                 <div>
                     <h1 className="page-title">Top Up Tokens</h1>
-                    <p className="page-sub">1 token = RM 1 = 1 property listing</p>
+                    <p className="page-sub">1 token = 1 property listing · cheaper rates for bigger top-ups</p>
                 </div>
                 <button className="btn btn-ghost btn-sm" onClick={() => navigate('/agent/listings')}>
                     ← Back
@@ -80,6 +93,25 @@ export default function TokenTopUpPage() {
                 </div>
             </div>
 
+            {/* Pricing Tiers Info */}
+            <div className="card" style={{ marginBottom: 16, background: 'var(--bg-input)' }}>
+                <p style={{ fontWeight: 600, marginBottom: 10, fontSize: '0.85rem' }}>Pricing Tiers</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    <div className="flex items-center justify-between">
+                        <span>20 – 49 tokens</span>
+                        <span>RM0.10 / token</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                        <span>50 – 99 tokens</span>
+                        <span>RM0.07 / token</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                        <span>100+ tokens</span>
+                        <span>RM0.05 / token</span>
+                    </div>
+                </div>
+            </div>
+
             {/* Package Selection */}
             <div className="card" style={{ marginBottom: 16 }}>
                 <p style={{ fontWeight: 600, marginBottom: 14, fontSize: '0.9rem' }}>
@@ -87,30 +119,25 @@ export default function TokenTopUpPage() {
                     Quick Select
                 </p>
                 <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
-                    {PACKAGES.map(pkg => (
+                    {PACKAGES.map(tokens => (
                         <div
-                            key={pkg.tokens}
-                            onClick={() => { setSelectedTokens(pkg.tokens); setCustomAmount('') }}
+                            key={tokens}
+                            onClick={() => { setSelectedTokens(tokens); setCustomAmount('') }}
                             style={{
                                 flex: 1, padding: '14px 10px', borderRadius: 10, textAlign: 'center',
                                 cursor: 'pointer', border: '2px solid',
-                                borderColor: selectedTokens === pkg.tokens && !customAmount
+                                borderColor: selectedTokens === tokens && !customAmount
                                     ? 'var(--accent)' : 'var(--border)',
-                                background: selectedTokens === pkg.tokens && !customAmount
+                                background: selectedTokens === tokens && !customAmount
                                     ? 'var(--accent-dim)' : 'var(--bg-input)',
                                 transition: 'all 0.15s',
                             }}>
                             <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--accent)' }}>
-                                {pkg.tokens}
+                                {tokens}
                             </div>
                             <div style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: 2 }}>tokens</div>
-                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>RM {pkg.tokens}</div>
-                            <div style={{
-                                marginTop: 6, fontSize: '0.68rem', padding: '2px 6px',
-                                background: 'var(--bg-card)', borderRadius: 4,
-                                color: 'var(--text-muted)', display: 'inline-block'
-                            }}>
-                                {pkg.label}
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                RM {getTotalPrice(tokens).toFixed(2)}
                             </div>
                         </div>
                     ))}
@@ -141,9 +168,13 @@ export default function TokenTopUpPage() {
                     <span style={{ fontWeight: 600 }}>{finalAmount || 0} tokens</span>
                 </div>
                 <div className="flex items-center justify-between" style={{ marginTop: 8 }}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Rate per token</span>
+                    <span style={{ fontWeight: 600 }}>RM{pricePerToken.toFixed(4)}</span>
+                </div>
+                <div className="flex items-center justify-between" style={{ marginTop: 8 }}>
                     <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Total amount</span>
                     <span style={{ fontWeight: 700, color: 'var(--accent)', fontSize: '1.1rem' }}>
-                        RM {finalAmount || 0}.00
+                        RM {totalPrice.toFixed(2)}
                     </span>
                 </div>
                 <div className="flex items-center justify-between" style={{ marginTop: 8 }}>
@@ -154,6 +185,12 @@ export default function TokenTopUpPage() {
                 </div>
             </div>
 
+            {belowMinimum && (
+                <p style={{ color: 'var(--accent)', fontSize: '0.85rem', marginBottom: 12 }}>
+                    ⚠️ Minimum purchase is RM2.00. Please select a higher amount.
+                </p>
+            )}
+
             {error && (
                 <p style={{ color: 'var(--red)', fontSize: '0.85rem', marginBottom: 12 }}>{error}</p>
             )}
@@ -162,10 +199,10 @@ export default function TokenTopUpPage() {
                 className="btn btn-primary"
                 style={{ width: '100%', padding: '12px', fontSize: '1rem' }}
                 onClick={handleTopUp}
-                disabled={loading || !finalAmount || finalAmount < 1}>
+                disabled={loading || !finalAmount || finalAmount < 1 || belowMinimum}>
                 {loading
                     ? <span className="spinner" />
-                    : <><CreditCard size={16} style={{ marginRight: 8 }} /> Pay RM {finalAmount || 0}.00 with Stripe</>
+                    : <><CreditCard size={16} style={{ marginRight: 8 }} /> Pay RM {totalPrice.toFixed(2)} with Stripe</>
                 }
             </button>
 

@@ -63,17 +63,18 @@ export const listingsApi = {
   updateStatus: (id: string, status: ListingStatus) =>
     api.patch(`/listings/${id}/status`, { status }),
 
-  create: (data: {
-    name: string;
-    rooms: number;
-    toilets: number;
-    lat: number;
-    lng: number;
-    address: string;
-    residencyType: string;
-    price: number;
-    description: string;
-  }) => api.post<{ id: string; message: string }>("/listings", data),
+    create: (data: {
+        name: string;
+        rooms: number;
+        toilets: number;
+        lat: number;
+        lng: number;
+        address: string;
+        residencyType: string;
+        price: number;
+        description: string;
+        amenities?: string;
+    }) => api.post<{ id: string; message: string }>("/listings", data),
 
   generateDescription: (data: {
     name: string;
@@ -414,4 +415,16 @@ export const feedbackApi = {
 
   updateStatus: (id: string, status: string) =>
     api.patch(`/feedback/${id}/status`, { status }),
+};
+
+//── Report ───────────────────────────────────────────────────────
+export const reportApi = {
+    submit: (data: { item: "listing" | "agent"; itemId: string; description: string }) =>
+        api.post("/reports", data),
+
+    getAll: () =>
+        api.get("/reports/admin"),
+
+    updateStatus: (id: string, status: string) =>
+        api.patch(`/reports/${id}/status`, { status }),
 };

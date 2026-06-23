@@ -1,11 +1,12 @@
 ﻿import { useEffect, useState } from "react";
 import {
-  BrowserRouter,
-  Routes,
-  Route,
-  Navigate,
-  NavLink,
-  useNavigate,
+    BrowserRouter,
+    Routes,
+    Route,
+    Navigate,
+    NavLink,
+    useNavigate,
+    useLocation,
 } from "react-router-dom";
 import {
   QueryClient,
@@ -46,6 +47,7 @@ import AgentConversationsPage from "./pages/agent/ConversationsPage";
 import ScoringConfigPage from "./pages/admin/ScoringConfigPage";
 import TenantFeedbackPage from "./pages/tenant/FeedbackPage";
 import AdminFeedbackPage from "./pages/admin/FeedbackPage";
+import AdminReportsPage from "./pages/admin/ReportsPage";
 import {
   Search,
   Heart,
@@ -65,6 +67,7 @@ import {
   LayoutDashboard,
   Building,
   Settings,
+  Flag,
 } from "lucide-react";
 import AgentReviewsPage from "./pages/agent/ReviewsPage";
 import AgentAnalyticsPage from "./pages/agent/AgentAnalytics";
@@ -96,13 +99,21 @@ interface ProtectedRouteProps {
 }
 
 function ProtectedRoute({
-  children,
-  roles,
-  requireVerified = true,
+    children,
+    roles,
+    requireVerified = true,
 }: ProtectedRouteProps) {
-  const { user, loading } = useAuth();
+    const { user, loading } = useAuth();
+    const location = useLocation();
 
-  if (loading) {
+    useEffect(() => {
+        if (user) {
+            console.log("ProtectedRoute saving path:", location.pathname);
+            localStorage.setItem("lastPath", location.pathname);
+        }
+    }, [location.pathname, user]);
+
+if (loading) {
     return (
       <div
         style={{
@@ -288,6 +299,11 @@ function AppShell({ children }: { children: React.ReactNode }) {
       icon: <MessageSquare size={16} />,
       label: "Feedback",
     },
+    {
+      to: "/admin/reports",
+        icon: <Flag size={16} />,
+      label: "Reports",
+    },
   ];
 
   const links =
@@ -333,15 +349,16 @@ function AppShell({ children }: { children: React.ReactNode }) {
               {user?.role}
             </span>
           </span>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={async () => {
-              await logout();
-              navigate("/login");
-            }}
-          >
-            <LogOut size={14} /> Logout
-          </button>
+            <button
+                className="btn btn-ghost btn-sm"
+                onClick={async () => {
+                    localStorage.removeItem("lastPath");
+                    await logout();
+                    navigate("/login");
+                }}
+            >
+                <LogOut size={14} /> Logout
+            </button>
         </div>
       </header>
 
@@ -376,226 +393,234 @@ function AppShell({ children }: { children: React.ReactNode }) {
 // ── Root redirect ────────────────────────────────────────────────────────
 
 function RootRedirect() {
-  const { user, loading } = useAuth();
-  if (loading) return null;
-  if (!user) return <Navigate to="/login" replace />;
-  if (user.role === "Tenant") return <Navigate to="/browse" replace />;
-  if (user.role === "Agent") return <Navigate to="/agent/dashboard" replace />;
-  return <Navigate to="/admin/dashboard" replace />;
+    const { user, loading } = useAuth();
+    if (loading) return null;
+    if (!user) return <Navigate to="/login" replace />;
+
+    const lastPath = localStorage.getItem("lastPath");
+    console.log("RootRedirect checking lastPath:", lastPath);
+    if (lastPath && lastPath !== "/" && lastPath !== "/login") {
+        console.log("RootRedirect redirecting to:", lastPath);
+        return <Navigate to={lastPath} replace />;
+    }
+
+    if (user.role === "Tenant") return <Navigate to="/browse" replace />;
+    if (user.role === "Agent") return <Navigate to="/agent/dashboard" replace />;
+    return <Navigate to="/admin/dashboard" replace />;
 }
 
 // ── App ──────────────────────────────────────────────────────────────
 
 export default function App() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <GoogleMapsBootstrap />
-      <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            {/* Public */}
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/email-verified" element={<EmailVerifiedPage />} />
-            <Route path="/" element={<RootRedirect />} />
-            <Route
-              path="/browse"
-              element={
-                <ProtectedRoute roles={["Tenant"]} requireVerified={false}>
-                  <AppShell>
-                    <BrowsePage />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
-            {/* Tenant — SearchPage accessible even when Pending */}
-            <Route
-              path="/search"
-              element={
-                <ProtectedRoute roles={["Tenant"]} requireVerified={false}>
-                  <AppShell>
-                    <SearchPage />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/results"
-              element={
-                <ProtectedRoute roles={["Tenant"]} requireVerified={false}>
-                  <AppShell>
-                    <ResultsPage />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/listing/:id"
-              element={
-                <ProtectedRoute roles={["Tenant"]} requireVerified={false}>
-                  <AppShell>
-                    <ListingDetailPage />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
+        return (
+            <QueryClientProvider client={queryClient}>
+                <GoogleMapsBootstrap />
+                <AuthProvider>
+                    <BrowserRouter>
+                        <Routes>
+                            {/* Public */}
+                            <Route path="/login" element={<LoginPage />} />
+                            <Route path="/register" element={<RegisterPage />} />
+                            <Route path="/email-verified" element={<EmailVerifiedPage />} />
+                            <Route path="/" element={<RootRedirect />} />
+                            <Route
+                                path="/browse"
+                                element={
+                                    <ProtectedRoute roles={["Tenant"]} requireVerified={false}>
+                                        <AppShell>
+                                            <BrowsePage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            {/* Tenant — SearchPage accessible even when Pending */}
+                            <Route
+                                path="/search"
+                                element={
+                                    <ProtectedRoute roles={["Tenant"]} requireVerified={false}>
+                                        <AppShell>
+                                            <SearchPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/results"
+                                element={
+                                    <ProtectedRoute roles={["Tenant"]} requireVerified={false}>
+                                        <AppShell>
+                                            <ResultsPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/listing/:id"
+                                element={
+                                    <ProtectedRoute roles={["Tenant"]} requireVerified={false}>
+                                        <AppShell>
+                                            <ListingDetailPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
 
-            {/* Tenant — require verified for booking/lifestyle */}
-            <Route
-              path="/lifestyle"
-              element={
-                <ProtectedRoute roles={["Tenant"]} requireVerified>
-                  <AppShell>
-                    <LifestylePage />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/my-schedules"
-              element={
-                <ProtectedRoute roles={["Tenant"]} requireVerified>
-                  <AppShell>
-                    <TenantSchedulesPage />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/favourites"
-              element={
-                <ProtectedRoute roles={["Tenant"]} requireVerified>
-                  <AppShell>
-                    <FavouritesPage />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/history"
-              element={
-                <ProtectedRoute roles={["Tenant"]} requireVerified>
-                  <AppShell>
-                    <HistoryPage />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/conversations"
-              element={
-                <ProtectedRoute roles={["Tenant"]} requireVerified>
-                  <AppShell>
-                    <ConversationsPage />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/feedback"
-              element={
-                <ProtectedRoute roles={["Tenant"]} requireVerified>
-                  <AppShell>
-                    <TenantFeedbackPage />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
+                            {/* Tenant — require verified for booking/lifestyle */}
+                            <Route
+                                path="/lifestyle"
+                                element={
+                                    <ProtectedRoute roles={["Tenant"]} requireVerified>
+                                        <AppShell>
+                                            <LifestylePage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/my-schedules"
+                                element={
+                                    <ProtectedRoute roles={["Tenant"]} requireVerified>
+                                        <AppShell>
+                                            <TenantSchedulesPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/favourites"
+                                element={
+                                    <ProtectedRoute roles={["Tenant"]} requireVerified>
+                                        <AppShell>
+                                            <FavouritesPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/history"
+                                element={
+                                    <ProtectedRoute roles={["Tenant"]} requireVerified>
+                                        <AppShell>
+                                            <HistoryPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/conversations"
+                                element={
+                                    <ProtectedRoute roles={["Tenant"]} requireVerified>
+                                        <AppShell>
+                                            <ConversationsPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/feedback"
+                                element={
+                                    <ProtectedRoute roles={["Tenant"]} requireVerified>
+                                        <AppShell>
+                                            <TenantFeedbackPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
 
-            {/* Agent — all require verified */}
-            <Route
-              path="/agent/listings"
-              element={
-                <ProtectedRoute roles={["Agent"]} requireVerified>
-                  <AppShell>
-                    <AgentListingsPage />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/agent/listings/:id"
-              element={
-                <ProtectedRoute roles={["Agent"]} requireVerified>
-                  <AppShell>
-                    <AgentListingDetailPage />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/agent/availability"
-              element={
-                <ProtectedRoute roles={["Agent"]} requireVerified>
-                  <AppShell>
-                    <AgentAvailabilityPage />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/agent/conversations"
-              element={
-                <ProtectedRoute roles={["Agent"]} requireVerified>
-                  <AppShell>
-                    <AgentConversationsPage />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/agent/calendar"
-              element={
-                <ProtectedRoute roles={["Agent"]} requireVerified>
-                  <AppShell>
-                    <AgentCalendarPage />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/agent/dashboard"
-              element={
-                <ProtectedRoute roles={["Agent"]} requireVerified>
-                  <AppShell>
-                    <AgentDashboardPage />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/agent/topup"
-              element={
-                <ProtectedRoute roles={["Agent"]} requireVerified>
-                  <AppShell>
-                    <TokenTopUpPage />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
+                            {/* Agent — all require verified */}
+                            <Route
+                                path="/agent/listings"
+                                element={
+                                    <ProtectedRoute roles={["Agent"]} requireVerified>
+                                        <AppShell>
+                                            <AgentListingsPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/agent/listings/:id"
+                                element={
+                                    <ProtectedRoute roles={["Agent"]} requireVerified>
+                                        <AppShell>
+                                            <AgentListingDetailPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/agent/availability"
+                                element={
+                                    <ProtectedRoute roles={["Agent"]} requireVerified>
+                                        <AppShell>
+                                            <AgentAvailabilityPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/agent/conversations"
+                                element={
+                                    <ProtectedRoute roles={["Agent"]} requireVerified>
+                                        <AppShell>
+                                            <AgentConversationsPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/agent/calendar"
+                                element={
+                                    <ProtectedRoute roles={["Agent"]} requireVerified>
+                                        <AppShell>
+                                            <AgentCalendarPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/agent/dashboard"
+                                element={
+                                    <ProtectedRoute roles={["Agent"]} requireVerified>
+                                        <AppShell>
+                                            <AgentDashboardPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/agent/topup"
+                                element={
+                                    <ProtectedRoute roles={["Agent"]} requireVerified>
+                                        <AppShell>
+                                            <TokenTopUpPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
 
-            <Route
-              path="/agent/analytics"
-              element={
-                <ProtectedRoute roles={["Agent"]}>
-                  <AppShell>
-                    <AgentAnalyticsPage />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
-            <Route path="/payment-success" element={<PaymentSuccessPage />} />
-            <Route path="/payment-cancel" element={<PaymentCancelPage />} />
-            <Route
-              path="/agent/reviews"
-              element={
-                <ProtectedRoute roles={["Agent"]} requireVerified>
-                  <AppShell>
-                    <AgentReviewsPage />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
+                            <Route
+                                path="/agent/analytics"
+                                element={
+                                    <ProtectedRoute roles={["Agent"]}>
+                                        <AppShell>
+                                            <AgentAnalyticsPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route path="/payment-success" element={<PaymentSuccessPage />} />
+                            <Route path="/payment-cancel" element={<PaymentCancelPage />} />
+                            <Route
+                                path="/agent/reviews"
+                                element={
+                                    <ProtectedRoute roles={["Agent"]} requireVerified>
+                                        <AppShell>
+                                            <AgentReviewsPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
 
             {/* Admin */}
             <Route
@@ -644,6 +669,16 @@ export default function App() {
                 <ProtectedRoute roles={["Admin"]}>
                   <AppShell>
                     <AdminFeedbackPage />
+                  </AppShell>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/reports"
+              element={
+                <ProtectedRoute roles={["Admin"]}>
+                  <AppShell>
+                    <AdminReportsPage />
                   </AppShell>
                 </ProtectedRoute>
               }

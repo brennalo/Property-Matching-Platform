@@ -151,10 +151,19 @@ public class StripeService(AppDbContext db, IConfiguration config)
     /// 1 token = RM1 = 100 sen
     /// </summary>
     public async Task<(string CheckoutUrl, string SessionId)> CreateTokenCheckoutAsync(
-        Guid agentId, int tokenAmount, string successUrl, string cancelUrl)
+    Guid agentId, int tokenAmount, string successUrl, string cancelUrl)
     {
         if (tokenAmount < 1)
             throw new InvalidOperationException("Token amount must be at least 1");
+
+        decimal pricePerTokenCheck = tokenAmount switch
+        {
+            >= 100 => 0.05m,
+            >= 50 => 0.07m,
+            _ => 0.10m
+        };
+        if (tokenAmount * pricePerTokenCheck < 2)
+            throw new InvalidOperationException("Minimum purchase amount is RM2.00");
 
         var agent = await db.Agents
             .Include(a => a.User)
@@ -175,7 +184,16 @@ public class StripeService(AppDbContext db, IConfiguration config)
             await db.SaveChangesAsync();
         }
 
-        var amountInSen = tokenAmount * 100; // RM1 per token
+        // Tiered pricing: more tokens = cheaper rate per token
+        decimal pricePerToken = tokenAmount switch
+        {
+            >= 100 => 0.05m,
+            >= 50 => 0.07m,
+            _ => 0.10m
+        };
+
+        var totalPrice = Math.Round(tokenAmount * pricePerToken, 2);
+        var amountInSen = (long)(totalPrice * 100); // convert RM to sen
 
         var options = new SessionCreateOptions
         {
@@ -192,7 +210,7 @@ public class StripeService(AppDbContext db, IConfiguration config)
                         ProductData = new SessionLineItemPriceDataProductDataOptions
                         {
                             Name = $"PropertyMatch Tokens x{tokenAmount}",
-                            Description = $"Top up {tokenAmount} token(s) — each token allows 1 property listing"
+                            Description = $"Top up {tokenAmount} token(s) at RM{pricePerToken:0.0000}/token — each token allows 1 property listing"
                         }
                     },
                     Quantity = 1
@@ -218,7 +236,7 @@ public class StripeService(AppDbContext db, IConfiguration config)
             TokensPurchased = tokenAmount,
             StripeSessionId = session.Id,
             StripePaymentIntentId = session.PaymentIntentId ?? "pending",
-            Amount = tokenAmount, // RM1 per token
+            Amount = totalPrice,
             Status = "pending"
         });
         await db.SaveChangesAsync();

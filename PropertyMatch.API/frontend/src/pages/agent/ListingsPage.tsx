@@ -107,6 +107,7 @@ interface ListingFormData {
   residencyType: ResidencyType;
   price: string;
   description: string;
+  amenities: string;
 }
 
 function ListingFormModal({
@@ -130,6 +131,7 @@ function ListingFormModal({
     residencyType: initial?.residencyType ?? ("Condo" as ResidencyType),
     price: initial?.price?.toString() ?? "",
     description: initial?.description ?? "",
+    amenities: initial?.amenities ?? "",
   });
 
   // ── Location state ──
@@ -149,6 +151,61 @@ function ListingFormModal({
   const mapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
   const autocompleteRef = useRef<any>(null);
+
+  const COMMON_AMENITIES = [
+    "Air Conditioner",
+    "Bed",
+    "Fridge",
+    "Water Heater",
+    "Washing Machine",
+    "WiFi",
+    "TV",
+    "Microwave",
+    "Wardrobe",
+    "Sofa",
+  ];
+
+  const initialAmenities = form.amenities
+    ? form.amenities
+        .split(",")
+        .map((a) => a.trim())
+        .filter(Boolean)
+    : [];
+
+  const [selectedAmenities, setSelectedAmenities] = useState<string[]>(
+    initialAmenities.filter((a) => COMMON_AMENITIES.includes(a)),
+  );
+  const [customAmenities, setCustomAmenities] = useState<string[]>(
+    initialAmenities.filter((a) => !COMMON_AMENITIES.includes(a)),
+  );
+  const [customInput, setCustomInput] = useState("");
+
+  const toggleAmenity = (item: string) => {
+    setSelectedAmenities((prev) =>
+      prev.includes(item) ? prev.filter((a) => a !== item) : [...prev, item],
+    );
+  };
+
+  const addCustomAmenity = () => {
+    const trimmed = customInput.trim();
+    if (trimmed && !customAmenities.includes(trimmed)) {
+      setCustomAmenities((prev) => [...prev, trimmed]);
+      setCustomInput("");
+    }
+  };
+
+  // Keep form.amenities in sync whenever selections change
+  const syncAmenities = (selected: string[], custom: string[]) => {
+    const combined = [...selected, ...custom].join(", ");
+    updateForm("amenities", combined);
+  };
+
+  const removeCustomAmenity = (item: string) => {
+    setCustomAmenities((prev) => prev.filter((a) => a !== item));
+  };
+  useEffect(() => {
+    syncAmenities(selectedAmenities, customAmenities);
+  }, [selectedAmenities, customAmenities]);
 
   // ── AI Description Generator ──
   const [generating, setGenerating] = useState(false);
@@ -430,6 +487,107 @@ function ListingFormModal({
             />
           </div>
 
+          <div className="form-group">
+            <label className="form-label">Amenities</label>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 8,
+                marginBottom: 10,
+              }}
+            >
+              {COMMON_AMENITIES.map((item) => (
+                <label
+                  key={item}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "6px 10px",
+                    borderRadius: 8,
+                    border: "1px solid",
+                    cursor: "pointer",
+                    fontSize: "0.8rem",
+                    borderColor: selectedAmenities.includes(item)
+                      ? "var(--accent)"
+                      : "var(--border)",
+                    background: selectedAmenities.includes(item)
+                      ? "var(--accent-dim)"
+                      : "var(--bg-input)",
+                    color: selectedAmenities.includes(item)
+                      ? "var(--accent)"
+                      : "var(--text-muted)",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedAmenities.includes(item)}
+                    onChange={() => toggleAmenity(item)}
+                    style={{ display: "none" }}
+                  />
+                  {item}
+                </label>
+              ))}
+            </div>
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                className="input"
+                value={customInput}
+                onChange={(e) => setCustomInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addCustomAmenity();
+                  }
+                }}
+                placeholder="Add custom amenity (e.g. Balcony) and press Enter"
+              />
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={addCustomAmenity}
+              >
+                Add
+              </button>
+            </div>
+
+            {customAmenities.length > 0 && (
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 6,
+                  marginTop: 10,
+                }}
+              >
+                {customAmenities.map((item) => (
+                  <span
+                    key={item}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "4px 10px",
+                      borderRadius: 99,
+                      background: "var(--accent-dim)",
+                      color: "var(--accent)",
+                      fontSize: "0.78rem",
+                    }}
+                  >
+                    {item}
+                    <span
+                      onClick={() => removeCustomAmenity(item)}
+                      style={{ cursor: "pointer", fontWeight: 700 }}
+                    >
+                      ×
+                    </span>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
           {/* Description + AI */}
           <div className="form-group" style={{ marginBottom: 16 }}>
             <div
@@ -459,7 +617,7 @@ function ListingFormModal({
               rows={4}
               value={form.description}
               onChange={(e) => updateForm("description", e.target.value)}
-              placeholder="Type any details you want included (e.g. near LRT, renovated kitchen), then click 'Generate with AI' to expand into a full description."
+              placeholder="Type any details you want included (e.g. near LRT, renovated kitchen), then click 'Generate with AI' to expand into a full description or click 'Generate with AI' for suggestions"
             />
             {genError && (
               <p
@@ -474,45 +632,46 @@ function ListingFormModal({
               </p>
             )}
           </div>
-        </div>
 
-        {/* Actions */}
-        <div className="flex gap-3 mt-5">
-          <button className="btn btn-outline" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            className="btn btn-primary"
-            onClick={() => {
-              const data: ListingFormData = {
-                name: form.name,
-                rooms: form.rooms,
-                toilets: form.toilets,
-                lat: location.lat?.toString() ?? "",
-                lng: location.lng?.toString() ?? "",
-                address: location.address,
-                residencyType: form.residencyType,
-                price: form.price,
-                description: form.description,
-              };
-              onSave(data);
-            }}
-            disabled={
-              !form.name ||
-              !location.address ||
-              !form.price ||
-              loading ||
-              !coordsSet
-            }
-          >
-            {loading ? (
-              <span className="spinner" />
-            ) : initial ? (
-              "Save Changes"
-            ) : (
-              "Create Listing"
-            )}
-          </button>
+          {/* Actions */}
+          <div className="flex gap-3 mt-5">
+            <button className="btn btn-outline" onClick={onClose}>
+              Cancel
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                const data: ListingFormData = {
+                  name: form.name,
+                  rooms: form.rooms,
+                  toilets: form.toilets,
+                  lat: location.lat?.toString() ?? "",
+                  lng: location.lng?.toString() ?? "",
+                  address: location.address,
+                  residencyType: form.residencyType,
+                  price: form.price,
+                  description: form.description,
+                  amenities: form.amenities,
+                };
+                onSave(data);
+              }}
+              disabled={
+                !form.name ||
+                !location.address ||
+                !form.price ||
+                loading ||
+                !coordsSet
+              }
+            >
+              {loading ? (
+                <span className="spinner" />
+              ) : initial ? (
+                "Save Changes"
+              ) : (
+                "Create Listing"
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1125,6 +1284,7 @@ export default function AgentListingsPage() {
         residencyType: data.residencyType,
         price: parseFloat(data.price),
         description: data.description,
+        amenities: data.amenities || undefined,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["my-listings"] });
@@ -1150,6 +1310,7 @@ export default function AgentListingsPage() {
         residencyType: data.residencyType,
         price: parseFloat(data.price),
         description: data.description || undefined,
+        amenities: data.amenities || undefined,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["my-listings"] });
@@ -1389,19 +1550,24 @@ export default function AgentListingsPage() {
                   }}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {l.status === "PendingPayment" && (
+                  {l.status === "Active" && (
                     <button
                       className="btn btn-primary btn-sm"
-                      onClick={() => handlePayment(l.id)}
-                      disabled={payLoading === l.id}
+                      onClick={() =>
+                        statusMut.mutate({ id: l.id, status: "Booked" })
+                      }
                     >
-                      {payLoading === l.id ? (
-                        <span className="spinner" />
-                      ) : (
-                        <>
-                          <CreditCard size={13} /> Pay to Activate
-                        </>
-                      )}
+                      Mark as Booked
+                    </button>
+                  )}
+                  {l.status === "Booked" && (
+                    <button
+                      className="btn btn-success btn-sm"
+                      onClick={() =>
+                        statusMut.mutate({ id: l.id, status: "Active" })
+                      }
+                    >
+                      Mark as Active
                     </button>
                   )}
                   <button
@@ -1427,26 +1593,6 @@ export default function AgentListingsPage() {
                   >
                     <Trash2 size={13} />
                   </button>
-                  {l.status === "Active" && (
-                    <button
-                      className="btn btn-primary btn-sm"
-                      onClick={() =>
-                        statusMut.mutate({ id: l.id, status: "Booked" })
-                      }
-                    >
-                      Mark as Booked
-                    </button>
-                  )}
-                  {l.status === "Booked" && (
-                    <button
-                      className="btn btn-success btn-sm"
-                      onClick={() =>
-                        statusMut.mutate({ id: l.id, status: "Active" })
-                      }
-                    >
-                      Mark as Active
-                    </button>
-                  )}
                 </div>
               </div>
             </div>
