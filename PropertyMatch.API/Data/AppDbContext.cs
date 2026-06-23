@@ -233,7 +233,7 @@ mb.Entity<Models.Review>()
         mb.Entity<ScoringConfig>().HasData(
             new ScoringConfig { Id = 1 });
 
-        // Feedback
+        // ── Feedback ──────────────────────────────────────────────────────────
         mb.Entity<Feedback>()
             .HasOne(f => f.Tenant)
             .WithMany(u => u.Feedbacks)
@@ -242,6 +242,19 @@ mb.Entity<Models.Review>()
 
         mb.Entity<Feedback>()
             .HasIndex(f => f.CreatedAt);
+
+        // ── Report ──────────────────────────────────────────────────────────
+        mb.Entity<Report>()
+            .HasOne(r => r.Tenant)
+            .WithMany()
+            .HasForeignKey(r => r.TenantId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        mb.Entity<Report>()
+            .HasIndex(r => r.CreatedAt);
+
+        mb.Entity<Report>()
+            .HasIndex(r => new { r.Item, r.ItemId });
 
     }
 }

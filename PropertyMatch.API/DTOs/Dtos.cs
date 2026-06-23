@@ -284,7 +284,8 @@ public record ConversationSummaryResponse(
     Guid Id, string ListingName,
     string TenantName, string AgentName,
     string? LastMessage, DateTime? LastMessageAt,
-    int UnreadCount, Guid ListingId);
+    int UnreadCount, Guid ListingId,
+    Guid AgentId);
 
 public record MessageResponse(
     Guid Id, Guid SenderId, string SenderRole,
@@ -349,3 +350,25 @@ public record FeedbackResponse(
     DateTime CreatedAt
 );
 public record UpdateFeedbackStatusRequest(string Status);
+
+// ── Reports ────────────────────────────
+public record CreateReportRequest(
+    string Item,
+    Guid ItemId,
+    string Description
+);
+
+public record ReportResponse(
+    Guid Id,
+    Guid TenantId,
+    string TenantName,
+    string TenantEmail,
+    string Item,
+    Guid ItemId,
+    string ItemName,
+    string Description,
+    string Status,
+    DateTime CreatedAt
+);
+
+public record UpdateReportStatusRequest(string Status);

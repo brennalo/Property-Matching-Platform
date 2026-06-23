@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../hooks/useAuth";
-import { conversationsApi, reviewsApi } from "../../api";
+import { conversationsApi, reviewsApi, reportApi } from "../../api";
 import type { ConversationSummaryResponse, MessageResponse } from "../../types";
 import ReviewModal from "../../components/ReviewModal";
 import { MessageSquare, Send } from "lucide-react";
@@ -16,6 +16,9 @@ export default function ConversationsPage() {
   // Review modal state
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewLoading, setReviewLoading] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  const [reportTarget, setReportTarget] = useState<ConversationSummaryResponse | null>(null);
+  const [reportText, setReportText] = useState("");
   const [toast, setToast] = useState<{
     msg: string;
     type: "success" | "error";
@@ -48,6 +51,23 @@ export default function ConversationsPage() {
       qc.invalidateQueries({ queryKey: ["messages", selectedId] });
       qc.invalidateQueries({ queryKey: ["conversations"] });
     },
+  });
+
+  const reportMut = useMutation({
+    mutationFn: () =>
+      reportApi.submit({
+        item: "agent",
+        itemId: reportTarget!.agentId,
+        description: reportText,
+      }),
+    onSuccess: () => {
+      setShowReport(false);
+      setReportTarget(null);
+      setReportText("");
+      showToast("Report submitted successfully.");
+    },
+    onError: (e: any) =>
+      showToast(e.response?.data?.message ?? "Failed to submit report.", "error"),
   });
 
   useEffect(() => {
@@ -180,12 +200,32 @@ export default function ConversationsPage() {
                 </div>
               </div>
               {user?.role === "Tenant" && (
-                <button
-                  className="btn btn-outline btn-sm"
-                  onClick={() => setShowReviewModal(true)}
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    alignItems: "center",
+                  }}
                 >
-                  Rate Agent
-                </button>
+                  <button
+                    className="btn btn-outline btn-sm"
+                    onClick={() => setShowReviewModal(true)}
+                  >
+                    Rate Agent
+                  </button>
+
+                  <button
+                    className="btn btn-danger btn-sm"
+                    onClick={() => {
+                      if (selectedConversation) {
+                        setReportTarget(selectedConversation);
+                        setShowReport(true);
+                      }
+                    }}
+                  >
+                    Report
+                  </button>
+                </div>
               )}
             </div>
 
@@ -285,6 +325,39 @@ export default function ConversationsPage() {
         />
       )}
       {toast && <div className={`toast toast-${toast.type}`}>{toast.msg}</div>}
+
+      {/* Report Modal */}
+      {showReport && reportTarget && (
+        <div className="modal-overlay" onClick={() => setShowReport(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ marginBottom: 8 }}>Report Agent</h2>
+            <p style={{ color: "var(--text-muted)", marginBottom: 16 }}>
+              Report: {reportTarget.agentName}
+            </p>
+
+            <textarea
+              className="input"
+              rows={6}
+              value={reportText}
+              onChange={(e) => setReportText(e.target.value)}
+              placeholder="Describe the issue with this agent..."
+            />
+
+            <div className="flex gap-3 mt-4">
+              <button className="btn btn-outline" onClick={() => setShowReport(false)}>
+                Cancel
+              </button>
+              <button
+                className="btn btn-danger"
+                disabled={!reportText.trim() || reportMut.isPending}
+                onClick={() => reportMut.mutate()}
+              >
+                {reportMut.isPending ? <span className="spinner" /> : "Submit Report"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

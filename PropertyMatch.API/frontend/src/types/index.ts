@@ -283,6 +283,7 @@ export interface Conversation {
   lastMessageAt?: string;
   unreadCount: number;
   listingId: string;
+  agentId: string;
 }
 
 export interface Message {
@@ -347,6 +348,7 @@ export interface ConversationSummaryResponse {
   lastMessageAt?: string | null;
   unreadCount: number;
   listingId: string;
+  agentId: string;
 }
 
 export interface MessageResponse {
@@ -405,4 +407,17 @@ export interface DemandLocation {
   scheduleCount: number;
   confirmedCount: number;
   isBooked: boolean;
+}
+
+export interface Report {
+    id: string;
+    tenantId: string;
+    tenantName: string;
+    tenantEmail: string;
+    item: "listing" | "agent";
+    itemId: string;
+    itemName: string;
+    description: string;
+    status: string;
+    createdAt: string;
 }
