@@ -813,12 +813,16 @@ public class FeedbackController(AppDbContext db) : ControllerBase
     {
         var tenantId = User.GetUserId();
 
+        if (string.IsNullOrWhiteSpace(req.Subject))
+            return BadRequest(new { message = "Feedback subject is required." });
+
         if (string.IsNullOrWhiteSpace(req.Description))
             return BadRequest(new { message = "Feedback description is required." });
 
         var feedback = new Feedback
         {
             TenantId = tenantId,
+            Subject = req.Subject.Trim(),
             Description = req.Description.Trim(),
             Status = "Open",
             CreatedAt = DateTime.UtcNow
@@ -845,7 +849,9 @@ public class FeedbackController(AppDbContext db) : ControllerBase
                 f.TenantId,
                 f.Tenant.FullName,
                 f.Tenant.Email,
+                f.Subject,
                 f.Description,
+                f.AdminComment,
                 f.Status,
                 f.CreatedAt
             ))
@@ -866,7 +872,9 @@ public class FeedbackController(AppDbContext db) : ControllerBase
                 f.TenantId,
                 f.Tenant.FullName,
                 f.Tenant.Email,
+                f.Subject,
                 f.Description,
+                f.AdminComment,
                 f.Status,
                 f.CreatedAt
             ))
@@ -882,7 +890,7 @@ public class FeedbackController(AppDbContext db) : ControllerBase
         var feedback = await db.Feedbacks.FindAsync(id);
         if (feedback == null) return NotFound(new { message = "Feedback not found." });
 
-        var allowedStatuses = new[] { "Open", "Reviewed" };
+        var allowedStatuses = new[] { "Open", "Reviewed", "Commented" };
 
         if (!allowedStatuses.Contains(req.Status))
             return BadRequest(new { message = "Invalid feedback status." });
@@ -891,6 +899,27 @@ public class FeedbackController(AppDbContext db) : ControllerBase
         await db.SaveChangesAsync();
 
         return Ok(new { message = $"Feedback marked as {req.Status}." });
+    }
+
+    [HttpPatch("{id}/comment")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> UpdateFeedbackComment(
+    Guid id,
+    [FromBody] UpdateFeedbackCommentRequest req)
+    {
+        var feedback = await db.Feedbacks.FindAsync(id);
+
+        if (feedback == null)
+            return NotFound(new { message = "Feedback not found." });
+
+        feedback.AdminComment = req.AdminComment.Trim();
+
+        if (feedback.Status != "Commented")
+            feedback.Status = "Commented";
+
+        await db.SaveChangesAsync();
+
+        return Ok(new { message = "Admin comment saved." });
     }
 }
 

@@ -403,14 +403,17 @@ export const scoringConfigApi = {
 
 //── Feedback ───────────────────────────────────────────────────────
 export const feedbackApi = {
-  submit: (description: string) => api.post("/feedback", { description }),
+    submit: (subject: string, description: string) => api.post("/feedback", { subject, description }),
 
-  getMine: () => api.get("/feedback/mine"),
+    getMine: () => api.get("/feedback/mine"),
 
-  getAll: () => api.get("/feedback/admin"),
+    getAll: () => api.get("/feedback/admin"),
 
-  updateStatus: (id: string, status: string) =>
-    api.patch(`/feedback/${id}/status`, { status }),
+    updateStatus: (id: string, status: string) => 
+        api.patch(`/feedback/${id}/status`, { status }),
+
+    updateComment: (id: string, adminComment: string) =>
+        api.patch(`/feedback/${id}/comment`, { adminComment }),
 };
 
 //── Report ───────────────────────────────────────────────────────

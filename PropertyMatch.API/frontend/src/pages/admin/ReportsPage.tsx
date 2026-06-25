@@ -71,10 +71,6 @@ export default function AdminReportsPage() {
                         >
                             <div className="flex items-center justify-between gap-3">
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                    <span className="badge badge-red">
-                                        Report - {r.item}
-                                    </span>
-
                                     <p
                                         style={{
                                             marginTop: 8,
@@ -88,34 +84,50 @@ export default function AdminReportsPage() {
                                         {r.description}
                                     </p>
 
-                                    <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
-                                        Target: {r.itemName} - From: {r.tenantName} ({r.tenantEmail}) - {" "}
-                                        {new Date(r.createdAt).toLocaleString("en-MY")}
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "8px",
+                                            fontSize: "0.8rem",
+                                            color: "var(--text-muted)",
+                                            flexWrap: "wrap",
+                                        }}
+                                    >
+                                        <span>
+                                            Target: {r.itemName} - From: {r.tenantName} ({r.tenantEmail}) - {" "}
+                                            {new Date(r.createdAt).toLocaleString("en-MY")}
+                                        </span>
+
+                                        <span className="badge badge-red">
+                                            {r.item.toUpperCase()}
+                                        </span>
                                     </div>
                                 </div>
 
                                 <div className="flex gap-2 items-center" onClick={(e) => e.stopPropagation()}>
+
                                     <span className={`badge ${statusBadge(r.status)}`}>
                                         {r.status}
                                     </span>
 
-                                    {r.status !== "Reviewed" ? (
-                                        <button
-                                            className="btn btn-sm btn-primary"
-                                            disabled={reportStatusMut.isPending}
-                                            onClick={() => reportStatusMut.mutate({ id: r.id, status: "Reviewed" })}
-                                        >
-                                            Mark Reviewed
-                                        </button>
-                                    ) : (
-                                        <button
-                                            className="btn btn-sm btn-outline"
-                                            disabled={reportStatusMut.isPending}
-                                            onClick={() => reportStatusMut.mutate({ id: r.id, status: "Open" })}
-                                        >
-                                            Reopen
-                                        </button>
-                                    )}
+                                    {/*{r.status !== "Reviewed" ? (*/}
+                                    {/*    <button*/}
+                                    {/*        className="btn btn-sm btn-primary"*/}
+                                    {/*        disabled={reportStatusMut.isPending}*/}
+                                    {/*        onClick={() => reportStatusMut.mutate({ id: r.id, status: "Reviewed" })}*/}
+                                    {/*    >*/}
+                                    {/*        Mark Reviewed*/}
+                                    {/*    </button>*/}
+                                    {/*) : (*/}
+                                    {/*    <button*/}
+                                    {/*        className="btn btn-sm btn-outline"*/}
+                                    {/*        disabled={reportStatusMut.isPending}*/}
+                                    {/*        onClick={() => reportStatusMut.mutate({ id: r.id, status: "Open" })}*/}
+                                    {/*    >*/}
+                                    {/*        Reopen*/}
+                                    {/*    </button>*/}
+                                    {/*)}*/}
                                 </div>
                             </div>
                         </div>
@@ -139,41 +151,179 @@ function ReportModal({
     report: Report;
     onClose: () => void;
 }) {
+    const statusBadge =
+        report.status === "Reviewed"
+            ? "badge-green"
+            : "badge-amber";
+
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div
                 className="modal"
                 onClick={(e) => e.stopPropagation()}
-                style={{ maxWidth: 650 }}
+                style={{
+                    maxWidth: 720,
+                    padding: 0,
+                    overflow: "hidden",
+                }}
             >
-                <h2 style={{ marginBottom: 8 }}>Report Details</h2>
-
-                <div style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginBottom: 16 }}>
-                    Type: {report.item} <br />
-                    Target: {report.itemName} <br />
-                    From: {report.tenantName} ({report.tenantEmail}) <br />
-                    Status: {report.status} <br />
-                    Submitted: {new Date(report.createdAt).toLocaleString("en-MY")}
-                </div>
-
+                {/* Header */}
                 <div
                     style={{
-                        whiteSpace: "pre-wrap",
-                        background: "var(--bg-input)",
-                        padding: 14,
-                        borderRadius: 8,
-                        maxHeight: 360,
+                        padding: "20px 24px",
+                        borderBottom: "1px solid var(--border-color)",
+                    }}
+                >
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <h2 style={{ margin: 0 }}>
+                                Report Details
+                            </h2>
+
+                            <div
+                                style={{
+                                    marginTop: 8,
+                                    fontSize: "0.85rem",
+                                    color: "var(--text-muted)",
+                                }}
+                            >
+                                Submitted{" "}
+                                {new Date(
+                                    report.createdAt
+                                ).toLocaleString("en-MY")}
+                            </div>
+                        </div>
+
+                        <span
+                            className={`badge ${statusBadge}`}
+                        >
+                            {report.status}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Body */}
+                <div
+                    style={{
+                        padding: 24,
+                        maxHeight: "65vh",
                         overflowY: "auto",
                     }}
                 >
-                    {report.description}
+                    {/* Report Information */}
+                    <div
+                        style={{
+                            display: "grid",
+                            gridTemplateColumns:
+                                "repeat(auto-fit, minmax(220px, 1fr))",
+                            gap: 16,
+                            marginBottom: 24,
+                        }}
+                    >
+                        <InfoCard
+                            label="Report Type"
+                            value={report.item.toUpperCase()}
+                        />
+
+                        <InfoCard
+                            label="Reported Target"
+                            value={report.itemName}
+                        />
+
+                        <InfoCard
+                            label="Reporter"
+                            value={report.tenantName}
+                        />
+
+                        <InfoCard
+                            label="Email"
+                            value={report.tenantEmail}
+                        />
+                    </div>
+
+                    {/* Description */}
+                    <div>
+                        <div
+                            style={{
+                                fontWeight: 600,
+                                marginBottom: 10,
+                            }}
+                        >
+                            Report Description
+                        </div>
+
+                        <div
+                            style={{
+                                background: "var(--bg-input)",
+                                border:
+                                    "1px solid var(--border-color)",
+                                borderRadius: 12,
+                                padding: 16,
+                                whiteSpace: "pre-wrap",
+                                lineHeight: 1.7,
+                            }}
+                        >
+                            {report.description}
+                        </div>
+                    </div>
                 </div>
 
-                <div className="flex gap-3 mt-4">
-                    <button className="btn btn-primary" onClick={onClose}>
+                {/* Footer */}
+                <div
+                    style={{
+                        padding: "16px 24px",
+                        borderTop: "1px solid var(--border-color)",
+                        display: "flex",
+                        justifyContent: "flex-end",
+                    }}
+                >
+                    <button
+                        className="btn btn-primary"
+                        onClick={onClose}
+                    >
                         Close
                     </button>
                 </div>
+            </div>
+        </div>
+    );
+}
+
+function InfoCard({
+    label,
+    value,
+}: {
+    label: string;
+    value: string;
+}) {
+    return (
+        <div
+            style={{
+                background: "var(--bg-input)",
+                border: "1px solid var(--border-color)",
+                borderRadius: 10,
+                padding: 12,
+            }}
+        >
+            <div
+                style={{
+                    fontSize: "0.75rem",
+                    color: "var(--text-muted)",
+                    marginBottom: 4,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                }}
+            >
+                {label}
+            </div>
+
+            <div
+                style={{
+                    fontWeight: 500,
+                    wordBreak: "break-word",
+                }}
+            >
+                {value}
             </div>
         </div>
     );

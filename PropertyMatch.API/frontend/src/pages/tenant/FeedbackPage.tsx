@@ -4,6 +4,7 @@ import { feedbackApi } from "../../api";
 import type { Feedback } from "../../types";
 
 export default function TenantFeedbackPage() {
+    const [subject, setSubject] = useState("");
     const [description, setDescription] = useState("");
     const [selected, setSelected] = useState<Feedback | null>(null);
     const [showSuccess, setShowSuccess] = useState(false);
@@ -20,8 +21,9 @@ export default function TenantFeedbackPage() {
     });
 
     const submitMut = useMutation({
-        mutationFn: () => feedbackApi.submit(description),
+        mutationFn: () => feedbackApi.submit(subject, description),
         onSuccess: () => {
+            setSubject("");
             setDescription("");
             refetch();
             setShowSuccess(true);
@@ -30,8 +32,22 @@ export default function TenantFeedbackPage() {
             showToast(e.response?.data?.message ?? "Failed to submit feedback.", "error"),
     });
 
-    const statusBadge = (status: string) =>
-        status === "Reviewed" ? "badge-green" : "badge-amber";
+    const statusBadge = (status: string) => {
+        if (status === "Reviewed") return "badge-green";
+        if (status === "Commented") return "badge-green";
+        return "badge-amber";
+    };
+
+    // Helper functions for Date formats
+    function formatDate(dateString: string) {
+        return new Date(dateString).toLocaleString("en-MY", {
+            day: "numeric",
+            month: "short",
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+        });
+    }
 
     return (
         <div>
@@ -39,6 +55,17 @@ export default function TenantFeedbackPage() {
             <p className="page-sub">Share your feedback with the admin team</p>
 
             <div className="card mb-6">
+                <div className="form-group mb-4">
+                    <label className="form-label">Subject</label>
+                    <input
+                        className="input"
+                        value={subject}
+                        onChange={(e) => setSubject(e.target.value)}
+                        placeholder="e.g. Search results issue"
+                        maxLength={100}
+                    />
+                </div>
+
                 <div className="form-group">
                     <label className="form-label">Your Feedback</label>
                     <textarea
@@ -52,7 +79,7 @@ export default function TenantFeedbackPage() {
 
                 <button
                     className="btn btn-primary mt-4"
-                    disabled={!description.trim() || submitMut.isPending}
+                    disabled={!subject.trim() || !description.trim() || submitMut.isPending}
                     onClick={() => submitMut.mutate()}
                 >
                     {submitMut.isPending ? <span className="spinner" /> : "Submit Feedback"}
@@ -82,16 +109,30 @@ export default function TenantFeedbackPage() {
                                     overflow: "hidden",
                                 }}
                             >
-                                {f.description}
+                                {f.subject}
                             </p>
-
-                            <span className={`badge ${statusBadge(f.status)}`}>
-                                {f.status}
-                            </span>
                         </div>
 
-                        <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 8 }}>
-                            Submitted: {new Date(f.createdAt).toLocaleString("en-MY")}
+                        <div
+                            style={{
+                                fontSize: "0.75rem",
+                                color: "var(--text-muted)",
+                                marginTop: 8,
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                gap: 8,
+                            }}
+                        >
+                            <span>
+                                Submitted: {formatDate(f.createdAt)}
+                            </span>
+
+                            {(f.status === "Reviewed" || f.status === "Commented") && (
+                                <span className={`badge ${statusBadge(f.status)}`}>
+                                    {f.status}
+                                </span>
+                            )}
                         </div>
                     </div>
                 ))
@@ -128,36 +169,280 @@ function FeedbackModal({
     feedback: Feedback;
     onClose: () => void;
 }) {
+    const statusBadge = (status: string) => {{feedback.status === "Commented" && feedback.adminComment && (
+                    <div style={{ marginTop: 20 }}>
+                        <div style={{ fontWeight: 600, marginBottom: 10 }}>
+                            Admin Comment
+                        </div>
+
+                        <div
+                            style={{
+                                background: "var(--bg-input)",
+                                border: "1px solid var(--border)",
+                                borderRadius: 12,
+                                padding: 16,
+                                whiteSpace: "pre-wrap",
+                                lineHeight: 1.6,
+                            }}
+                        >
+                            {feedback.adminComment}
+                        </div>
+                    </div>
+                )}
+        if (status === "Reviewed") return "badge-green";
+        if (status === "Commented") return "badge-green";
+        return "badge-amber";
+    };
+
+    function formatFullDate(dateString: string) {
+        const date = new Date(dateString);
+
+        const day = date.getDate();
+        const month = date.toLocaleString("en-MY", { month: "long" });
+        const year = date.getFullYear();
+
+        const time = date.toLocaleString("en-MY", {
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+        });
+
+        return `${day} ${month} ${year} at ${time}`;
+    }
+
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div
                 className="modal"
                 onClick={(e) => e.stopPropagation()}
-                style={{ maxWidth: 650 }}
+                style={{
+                    maxWidth: 700,
+                    padding: 0,
+                    overflow: "hidden",
+                }}
             >
-                <h2 style={{ marginBottom: 8 }}>Feedback Details</h2>
-
-                <div style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginBottom: 16 }}>
-                    Status: {feedback.status} <br />
-                    Submitted: {new Date(feedback.createdAt).toLocaleString("en-MY")}
-                </div>
-
+                {/* Header */}
                 <div
                     style={{
-                        whiteSpace: "pre-wrap",
-                        background: "var(--bg-input)",
-                        padding: 14,
-                        borderRadius: 8,
-                        maxHeight: 360,
+                        padding: "24px",
+                        borderBottom: "1px solid var(--border)",
+                    }}
+                >
+                    <div
+                        style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "flex-start",
+                            gap: 16,
+                        }}
+                    >
+                        <div>
+                            <h2
+                                style={{
+                                    margin: 0,
+                                    marginBottom: 6,
+                                }}
+                            >
+                                {feedback.subject}
+                            </h2>
+
+                            <div
+                                style={{
+                                    fontSize: "0.85rem",
+                                    color: "var(--text-muted)",
+                                }}
+                            >
+                                Submitted on {formatFullDate(feedback.createdAt)}
+                            </div>
+                        </div>
+
+                        {(feedback.status === "Reviewed" ||
+                            feedback.status === "Commented") && (
+                                <span
+                                    className={`badge ${statusBadge(feedback.status)}`}
+                                >
+                                    {feedback.status}
+                                </span>
+                            )
+                        }
+                    </div>
+                </div>
+
+                {/* Content */}
+                <div
+                    style={{
+                        padding: 24,
+                        maxHeight: "65vh",
                         overflowY: "auto",
                     }}
                 >
-                    {feedback.description}
+                    {/* Status Notice */}
+                    {feedback.status === "Open" && (
+                        <div
+                            style={{
+                                background: "rgba(245,158,11,.08)",
+                                border: "1px solid rgba(245,158,11,.2)",
+                                color: "#f59e0b",
+                                padding: 14,
+                                borderRadius: 12,
+                                marginBottom: 20,
+                            }}
+                        >
+                            ⏳ Your feedback has been submitted and is awaiting
+                            review.
+                        </div>
+                    )}
+
+                    {feedback.status === "Reviewed" && (
+                        <div
+                            style={{
+                                background: "rgba(59,130,246,.08)",
+                                border: "1px solid rgba(59,130,246,.2)",
+                                color: "#3b82f6",
+                                padding: 14,
+                                borderRadius: 12,
+                                marginBottom: 20,
+                            }}
+                        >
+                            👀 An administrator has reviewed your feedback.
+                        </div>
+                    )}
+
+                    {feedback.status === "Commented" && (
+                        <div
+                            style={{
+                                background: "rgba(34,197,94,.08)",
+                                border: "1px solid rgba(34,197,94,.2)",
+                                color: "#22c55e",
+                                padding: 14,
+                                borderRadius: 12,
+                                marginBottom: 20,
+                            }}
+                        >
+                            ✅ An administrator has responded to your feedback.
+                        </div>
+                    )}
+
+                    {/* Timeline */}
+                    <div
+                        style={{
+                            marginBottom: 24,
+                            padding: 16,
+                            borderRadius: 12,
+                            background: "var(--bg-input)",
+                        }}
+                    >
+                        <div
+                            style={{
+                                fontWeight: 600,
+                                marginBottom: 12,
+                            }}
+                        >
+                            Status Timeline
+                        </div>
+
+                        <div
+                            style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: 8,
+                                color: "var(--text-muted)",
+                            }}
+                        >
+                            <div>✓ Feedback Submitted</div>
+
+                            {(feedback.status === "Reviewed" ||
+                                feedback.status === "Commented") && (
+                                    <div>✓ Reviewed by Admin</div>
+                                )}
+
+                            {feedback.status === "Commented" && (
+                                <div>✓ Admin Response Sent</div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* User Feedback */}
+                    <div style={{ marginBottom: 20 }}>
+                        <div
+                            style={{
+                                fontWeight: 600,
+                                marginBottom: 10,
+                            }}
+                        >
+                            Your Feedback
+                        </div>
+
+                        <div
+                            style={{
+                                background: "var(--bg-input)",
+                                border: "1px solid var(--border)",
+                                borderRadius: 14,
+                                padding: 16,
+                                whiteSpace: "pre-wrap",
+                                lineHeight: 1.7,
+                            }}
+                        >
+                            {feedback.description}
+                        </div>
+                    </div>
+
+                    {/* Admin Comment */}
+                    <div>
+                        <div
+                            style={{
+                                fontWeight: 600,
+                                marginBottom: 10,
+                            }}
+                        >
+                            Admin Response
+                        </div>
+
+                        {feedback.adminComment ? (
+                            <div
+                                style={{
+                                    background:
+                                        "rgb(35, 34, 32)",
+                                    border:
+                                        "1px solid rgba(34,197,94,0.2)",
+                                    borderRadius: 14,
+                                    padding: 16,
+                                    whiteSpace: "pre-wrap",
+                                    lineHeight: 1.7,
+                                }}
+                            >
+                                {feedback.adminComment}
+                            </div>
+                        ) : (
+                            <div
+                                style={{
+                                    border: "1px dashed var(--border)",
+                                    borderRadius: 14,
+                                    padding: 20,
+                                    textAlign: "center",
+                                    color: "var(--text-muted)",
+                                }}
+                            >
+                                ⏳ No response from the admin team.
+                            </div>
+                        )}
+                    </div>
                 </div>
 
-                <div className="flex gap-3 mt-4">
-                    <button className="btn btn-primary" onClick={onClose}>
-                        Close
+                {/* Footer */}
+                <div
+                    style={{
+                        padding: "18px 24px",
+                        borderTop: "1px solid var(--border)",
+                        display: "flex",
+                        justifyContent: "flex-end",
+                    }}
+                >
+                    <button
+                        className="btn btn-primary"
+                        onClick={onClose}
+                    >
+                        Done
                     </button>
                 </div>
             </div>

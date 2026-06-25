@@ -45,7 +45,7 @@ namespace PropertyMatch.API.Migrations
 
                     b.HasKey("UserId");
 
-                    b.ToTable("Agents");
+                    b.ToTable("Agents", (string)null);
                 });
 
             modelBuilder.Entity("PropertyMatch.API.Models.AvailabilityException", b =>
@@ -75,9 +75,6 @@ namespace PropertyMatch.API.Migrations
                     b.Property<string>("Reason")
                         .HasColumnType("text");
 
-                    b.Property<int>("SlotDurationMinutes")
-                        .HasColumnType("integer");
-
                     b.Property<string>("StartTime")
                         .HasColumnType("text");
 
@@ -95,7 +92,7 @@ namespace PropertyMatch.API.Migrations
                     b.HasIndex("ExceptionFrom", "ExceptionTo")
                         .HasDatabaseName("IX_AvailabilityExceptions_ExceptionFrom_ExceptionTo");
 
-                    b.ToTable("AvailabilityExceptions");
+                    b.ToTable("AvailabilityExceptions", (string)null);
                 });
 
             modelBuilder.Entity("PropertyMatch.API.Models.AvailabilityTemplate", b =>
@@ -151,7 +148,7 @@ namespace PropertyMatch.API.Migrations
                     b.HasIndex("AgentId", "ListingId")
                         .HasDatabaseName("IX_AvailabilityTemplates_AgentId_ListingId");
 
-                    b.ToTable("AvailabilityTemplates");
+                    b.ToTable("AvailabilityTemplates", (string)null);
                 });
 
             modelBuilder.Entity("PropertyMatch.API.Models.Conversation", b =>
@@ -190,7 +187,7 @@ namespace PropertyMatch.API.Migrations
                     b.HasIndex("TenantId", "ListingId")
                         .IsUnique();
 
-                    b.ToTable("Conversations");
+                    b.ToTable("Conversations", (string)null);
                 });
 
             modelBuilder.Entity("PropertyMatch.API.Models.EmailVerification", b =>
@@ -219,7 +216,7 @@ namespace PropertyMatch.API.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("EmailVerifications");
+                    b.ToTable("EmailVerifications", (string)null);
                 });
 
             modelBuilder.Entity("PropertyMatch.API.Models.FavouriteListing", b =>
@@ -237,7 +234,7 @@ namespace PropertyMatch.API.Migrations
 
                     b.HasIndex("ListingId");
 
-                    b.ToTable("FavouriteListings");
+                    b.ToTable("FavouriteListings", (string)null);
                 });
 
             modelBuilder.Entity("PropertyMatch.API.Models.Feedback", b =>
@@ -264,7 +261,7 @@ namespace PropertyMatch.API.Migrations
 
                     b.HasIndex("TenantId");
 
-                    b.ToTable("Feedbacks");
+                    b.ToTable("Feedbacks", (string)null);
                 });
 
             modelBuilder.Entity("PropertyMatch.API.Models.LifestyleTemplate", b =>
@@ -292,7 +289,7 @@ namespace PropertyMatch.API.Migrations
 
                     b.HasIndex("TenantId");
 
-                    b.ToTable("LifestyleTemplates");
+                    b.ToTable("LifestyleTemplates", (string)null);
                 });
 
             modelBuilder.Entity("PropertyMatch.API.Models.Listing", b =>
@@ -352,7 +349,7 @@ namespace PropertyMatch.API.Migrations
 
                     b.HasIndex("Status");
 
-                    b.ToTable("Listings");
+                    b.ToTable("Listings", (string)null);
                 });
 
             modelBuilder.Entity("PropertyMatch.API.Models.ListingImage", b =>
@@ -379,7 +376,7 @@ namespace PropertyMatch.API.Migrations
 
                     b.HasIndex("ListingId");
 
-                    b.ToTable("ListingImages");
+                    b.ToTable("ListingImages", (string)null);
                 });
 
             modelBuilder.Entity("PropertyMatch.API.Models.Message", b =>
@@ -414,7 +411,7 @@ namespace PropertyMatch.API.Migrations
 
                     b.HasIndex("SenderId");
 
-                    b.ToTable("Messages");
+                    b.ToTable("Messages", (string)null);
                 });
 
             modelBuilder.Entity("PropertyMatch.API.Models.Payment", b =>
@@ -451,7 +448,7 @@ namespace PropertyMatch.API.Migrations
 
                     b.HasIndex("AgentId");
 
-                    b.ToTable("Payments");
+                    b.ToTable("Payments", (string)null);
                 });
 
             modelBuilder.Entity("PropertyMatch.API.Models.Report", b =>
@@ -485,7 +482,7 @@ namespace PropertyMatch.API.Migrations
 
                     b.HasIndex("TenantId");
 
-                    b.ToTable("Reports");
+                    b.ToTable("Reports", (string)null);
                 });
 
             modelBuilder.Entity("PropertyMatch.API.Models.Reviews", b =>
@@ -516,7 +513,7 @@ namespace PropertyMatch.API.Migrations
 
                     b.HasIndex("TenantId");
 
-                    b.ToTable("Reviews");
+                    b.ToTable("Reviews", (string)null);
                 });
 
             modelBuilder.Entity("PropertyMatch.API.Models.ScoringConfig", b =>
@@ -541,7 +538,7 @@ namespace PropertyMatch.API.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ScoringConfig");
+                    b.ToTable("ScoringConfig", (string)null);
 
                     b.HasData(
                         new
@@ -568,7 +565,7 @@ namespace PropertyMatch.API.Migrations
 
                     b.HasKey("TenantId", "SearchedAt");
 
-                    b.ToTable("SearchLogs");
+                    b.ToTable("SearchLogs", (string)null);
                 });
 
             modelBuilder.Entity("PropertyMatch.API.Models.User", b =>
@@ -610,7 +607,7 @@ namespace PropertyMatch.API.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
-                    b.ToTable("Users");
+                    b.ToTable("Users", (string)null);
                 });
 
             modelBuilder.Entity("PropertyMatch.API.Models.ViewHistory", b =>
@@ -628,7 +625,7 @@ namespace PropertyMatch.API.Migrations
 
                     b.HasIndex("ListingId");
 
-                    b.ToTable("ViewHistory");
+                    b.ToTable("ViewHistory", (string)null);
                 });
 
             modelBuilder.Entity("PropertyMatch.API.Models.ViewingSchedule", b =>
@@ -653,7 +650,7 @@ namespace PropertyMatch.API.Migrations
 
                     b.HasIndex("TenantId");
 
-                    b.ToTable("ViewingSchedules");
+                    b.ToTable("ViewingSchedules", (string)null);
                 });
 
             modelBuilder.Entity("PropertyMatch.API.Models.Agent", b =>

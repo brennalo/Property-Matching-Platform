@@ -380,7 +380,9 @@ export interface Feedback {
   tenantId: string;
   tenantName: string;
   tenantEmail: string;
+  subject: string;
   description: string;
+  adminComment?: string | null;
   status: string;
   createdAt: string;
 }
