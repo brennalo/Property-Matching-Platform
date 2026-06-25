@@ -216,6 +216,7 @@ public class ListingsController(AppDbContext db, S3Service s3, GroqService groq)
     // ── POST: upload images ──────────────────────────────────────────────────
     [HttpPost("{id}/images")]
     [Authorize(Roles = "Agent")]
+    [RequestSizeLimit(25 * 1024 * 1024)]
     public async Task<IActionResult> UploadImages(Guid id, [FromForm] List<IFormFile> files)
     {
         var userId = User.GetUserId();
@@ -538,6 +539,36 @@ public class ListingsController(AppDbContext db, S3Service s3, GroqService groq)
                     continue;
                 }
 
+                // ── PRE-FLIGHT: Check all image sizes BEFORE token deduction ──
+                var preflightErrors = new List<string>();
+
+                if (!string.IsNullOrEmpty(imageFilenames))
+                {
+                    var filenames = imageFilenames.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    foreach (var filename in filenames)
+                    {
+                        if (imageEntries.TryGetValue(filename, out var entry))
+                        {
+                            if (entry.Length > 20 * 1024 * 1024) // 20MB limit
+                            {
+                                preflightErrors.Add($"Image '{filename}' exceeds 20MB limit.");
+                            }
+                        }
+                        else
+                        {
+                            preflightErrors.Add($"Image file '{filename}' not found in images/ folder.");
+                        }
+                    }
+                }
+
+                // ── If any preflight errors, skip this row ──
+                if (preflightErrors.Count > 0)
+                {
+                    errors.AddRange(preflightErrors.Select(e => $"Row {rowIdx}: {e}"));
+                    continue;
+                }
+
+                // ── Deduct token for this listing ──
                 if (agent.TokenBalance < 1)
                 {
                     errors.Add($"Row {rowIdx}: Insufficient tokens. Skipping.");
@@ -564,21 +595,24 @@ public class ListingsController(AppDbContext db, S3Service s3, GroqService groq)
                 await db.SaveChangesAsync();
                 createdIds.Add(listing.Id);
 
+                // ── Process images (they are now guaranteed to be under the limit) ──
                 if (!string.IsNullOrEmpty(imageFilenames))
                 {
                     var filenames = imageFilenames.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                    var captions = imageCaptions?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) 
-                                ?? Array.Empty<string>();
+                    var captions = imageCaptions?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) ?? Array.Empty<string>();
                     int order = 0;
                     foreach (var filename in filenames)
                     {
                         if (imageEntries.TryGetValue(filename, out var entry))
                         {
                             using var imageStream = entry.Open();
+                            using var memoryStream = new MemoryStream();
+                            await imageStream.CopyToAsync(memoryStream);
+                            memoryStream.Position = 0;
+
                             var contentType = GetContentType(Path.GetExtension(entry.Name));
-                            var url = await s3.UploadImageFromStreamAsync(listing.Id, filename, imageStream, contentType);
-                            
-                            // ── Get the caption for this order index ──
+                            var url = await s3.UploadImageFromStreamAsync(listing.Id, filename, memoryStream, contentType);
+
                             string caption = (order < captions.Length) ? captions[order] : null;
 
                             db.ListingImages.Add(new ListingImage
@@ -586,15 +620,12 @@ public class ListingsController(AppDbContext db, S3Service s3, GroqService groq)
                                 ListingId = listing.Id,
                                 S3Url = url,
                                 DisplayOrder = order,
-                                Caption = caption   // <── now uses the caption
+                                Caption = caption
                             });
                             await db.SaveChangesAsync();
-                            order++;  // increment after assignment
+                            order++;
                         }
-                        else
-                        {
-                            errors.Add($"Row {rowIdx}: Image file '{filename}' not found in images/ folder.");
-                        }
+                        // This should never happen because we already checked in preflight
                     }
                 }
 

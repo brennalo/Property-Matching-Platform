@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { listingsApi, viewHistoryApi } from "../../api";
-import type { Listing, ResidencyType, ImageDto } from "../../types";
+import { listingsApi } from "../../api";
+import type { ResidencyType, ImageDto } from "../../types";
 import {
   ArrowLeft,
   Pencil,
@@ -51,7 +51,6 @@ function ImageLightbox({
 }) {
   const [zoom, setZoom] = useState(1);
   const [showCaption, setShowCaption] = useState(true);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
@@ -67,70 +66,99 @@ function ImageLightbox({
   }, [onClose]);
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="fixed inset-0 bg-black" onClick={onClose} />
+    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 300 }}>
+      {/* Background overlay */}
+      <div className="fixed inset-0 bg-black/90" onClick={onClose} />
+
+      {/* Main container – fixed, full viewport, flex column */}
       <div
-        ref={containerRef}
-        className="fixed inset-0 flex items-center justify-center z-300"
+        className="fixed inset-0 flex flex-col"
+        style={{ zIndex: 301, height: "100vh", maxHeight: "100vh" }}
         onClick={(e) => e.stopPropagation()}
         onWheel={handleWheel}
       >
-        {/* Close button */}
+        {/* Close button – top right */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white rounded-full p-2 z-10"
+          className="btn btn-ghost btn-sm absolute top-4 right-4 z-10"
+          style={{ color: "var(--text)" }}
         >
           <X size={24} />
         </button>
 
-        {/* Zoom controls */}
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 z-10">
-          <button
-            onClick={() => setZoom((z) => Math.max(z - 0.5, 1))}
-            className="bg-white/10 hover:bg-white/20 text-white rounded-lg p-2"
-          >
-            <ZoomOut size={20} />
-          </button>
-          <span className="bg-white/10 text-white rounded-lg px-4 py-2 min-w-max text-sm">
-            {Math.round(zoom * 100)}%
-          </span>
-          <button
-            onClick={() => setZoom((z) => Math.min(z + 0.5, 3))}
-            className="bg-white/10 hover:bg-white/20 text-white rounded-lg p-2"
-          >
-            <ZoomIn size={20} />
-          </button>
-        </div>
-
-        {/* Caption toggle */}
-        {image.caption && (
-          <button
-            onClick={() => setShowCaption(!showCaption)}
-            className="absolute top-16 right-4 bg-white/10 hover:bg-white/20 text-white rounded-lg p-2 z-10"
-          >
-            {showCaption ? <Eye size={20} /> : <EyeOff size={20} />}
-          </button>
-        )}
-
-        {/* Image container */}
-        <div className="relative w-full h-full overflow-auto flex items-center justify-center">
+        {/* Image container – fixed height to force image to fit */}
+        <div
+          className="flex items-center justify-center"
+          style={{
+            height: "calc(100vh - 80px)", // subtract toolbar height + padding
+            overflow: "hidden",
+            padding: "16px",
+            paddingTop: "60px", // space for close button
+          }}
+        >
           <img
             src={image.url}
             alt="Zoomed"
             style={{
-              objectFit: "contain",
               maxWidth: "100%",
               maxHeight: "100%",
+              width: "auto",
+              height: "auto",
+              objectFit: "contain",
               transform: `scale(${zoom})`,
               transition: "transform 0.2s ease",
             }}
-            onClick={(e) => e.stopPropagation()}
+            draggable={false}
           />
         </div>
 
-        {/* Caption pill at bottom */}
+        {/* Bottom toolbar – always visible */}
+        <div
+          className="flex items-center justify-center gap-3 p-4 flex-shrink-0"
+          style={{
+            background: "var(--bg-card)",
+            borderTop: "1px solid var(--border)",
+          }}
+        >
+          <button
+            onClick={() => setZoom((z) => Math.max(z - 0.5, 1))}
+            className="btn btn-outline btn-sm"
+          >
+            <ZoomOut size={18} />
+          </button>
+          <span className="text-sm text-muted min-w-[40px] text-center">
+            {Math.round(zoom * 100)}%
+          </span>
+          <button
+            onClick={() => setZoom((z) => Math.min(z + 0.5, 3))}
+            className="btn btn-outline btn-sm"
+          >
+            <ZoomIn size={18} />
+          </button>
+          {image.caption && (
+            <button
+              onClick={() => setShowCaption(!showCaption)}
+              className="btn btn-outline btn-sm flex items-center gap-1"
+            >
+              {showCaption ? <Eye size={18} /> : <EyeOff size={18} />}
+              <span className="hidden sm:inline text-xs">
+                {showCaption ? "Hide" : "Show"} Caption
+              </span>
+            </button>
+          )}
+        </div>
+
+        {/* Caption pill */}
         {image.caption && showCaption && (
-          <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-black/70 text-white px-4 py-2 rounded-full text-sm max-w-xs text-center pointer-events-none">
+          <div
+            className="absolute left-1/2 transform -translate-x-1/2 px-4 py-2 rounded-full text-sm max-w-xs text-center pointer-events-none"
+            style={{
+              bottom: "calc(60px + 16px)",
+              background: "rgba(0,0,0,0.8)",
+              color: "white",
+              border: "1px solid var(--border)",
+            }}
+          >
             {image.caption}
           </div>
         )}
@@ -434,8 +462,19 @@ export default function AgentListingDetailPage() {
       setUploadingFiles([]);
       showToast("Images uploaded successfully!");
     },
-    onError: (e: any) =>
-      showToast(e.response?.data?.message ?? "Upload failed", "error"),
+    onError: (e: any) => {
+      let errorMessage = "Upload failed";
+      if (e.response?.data) {
+        errorMessage =
+          e.response.data.message ||
+          e.response.data.title ||
+          e.response.data.error ||
+          "Upload failed";
+      } else if (e.message) {
+        errorMessage = e.message;
+      }
+      showToast(errorMessage, "error");
+    },
   });
 
   const reorderImagesMut = useMutation({
@@ -735,7 +774,7 @@ export default function AgentListingDetailPage() {
                 marginTop: 4,
               }}
             >
-              Max 5MB each, JPG/PNG/WebP. Total max 15 images.
+              Max 20MB each, JPG/PNG/WebP. Total max 15 images.
             </p>
             <input
               ref={fileInputRef}
