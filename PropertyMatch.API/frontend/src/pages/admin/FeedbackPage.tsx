@@ -199,7 +199,7 @@ export default function AdminFeedbackPage() {
                                         )}
                                     </div>
 
-                                    <h2
+                                    <div
                                         style={{
                                             margin: "16px 0 10px",
                                             fontSize: "1.15rem",
@@ -207,7 +207,7 @@ export default function AdminFeedbackPage() {
                                         }}
                                     >
                                         {f.subject}
-                                    </h2>
+                                    </div>
 
                                     <p
                                         style={{

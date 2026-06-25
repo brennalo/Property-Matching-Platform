@@ -314,6 +314,16 @@ textarea {
   color: var(--text-muted);
 }
 
+.badge-blue {
+    background: rgba(74, 144, 226, 0.15);
+    color: #4a90e2;
+}
+
+.badge-purple {
+    background: rgba(138, 99, 210, 0.15);
+    color: #8a63d2;
+}
+
 /* ── Score bars ─────────────────────────────────────────────────────────────── */
 .score-bar-wrap {
   display: flex;

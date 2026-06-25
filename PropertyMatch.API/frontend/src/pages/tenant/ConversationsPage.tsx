@@ -19,6 +19,7 @@ export default function ConversationsPage() {
   const [showReport, setShowReport] = useState(false);
   const [reportTarget, setReportTarget] = useState<ConversationSummaryResponse | null>(null);
   const [reportText, setReportText] = useState("");
+  const [reportFiles, setReportFiles] = useState<File[]>([]);
   const [showReportSuccess, setShowReportSuccess] = useState(false);
   const [toast, setToast] = useState<{
     msg: string;
@@ -60,16 +61,25 @@ export default function ConversationsPage() {
         item: "agent",
         itemId: reportTarget!.agentId,
         description: reportText,
+        files: reportFiles,
       }),
     onSuccess: () => {
       setShowReport(false);
       setReportTarget(null);
       setReportText("");
+      setReportFiles([]);
       setShowReportSuccess(true);
     },
     onError: (e: any) =>
       showToast(e.response?.data?.message ?? "Failed to submit report.", "error"),
   });
+
+  const closeReportModal = () => {
+    setShowReport(false);
+    setReportTarget(null);
+    setReportText("");
+    setReportFiles([]);
+  };
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -344,7 +354,7 @@ export default function ConversationsPage() {
 
       {/* Report Modal */}
       {showReport && reportTarget && (
-        <div className="modal-overlay" onClick={() => setShowReport(false)}>
+              <div className="modal-overlay" onClick={closeReportModal}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h2 style={{ marginBottom: 8 }}>Report Agent</h2>
             <p style={{ color: "var(--text-muted)", marginBottom: 16 }}>
@@ -360,16 +370,55 @@ export default function ConversationsPage() {
             />
 
             <div className="flex gap-3 mt-4">
-              <button className="btn btn-outline" onClick={() => setShowReport(false)}>
+              <button className="btn btn-outline" onClick={closeReportModal}>
                 Cancel
               </button>
               <button
                 className="btn btn-danger"
-                disabled={!reportText.trim() || reportMut.isPending}
+                disabled={!reportText.trim() || reportFiles.length < 1 || reportFiles.length > 3 || reportMut.isPending}
                 onClick={() => reportMut.mutate()}
               >
                 {reportMut.isPending ? <span className="spinner" /> : "Submit Report"}
               </button>
+            </div>
+
+            <div className="form-group mt-4">
+              <label className="form-label">Evidence Images</label>
+              <input
+                className="input"
+                type="file"
+                multiple
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(e) => {
+                  const selected = Array.from(e.target.files ?? []);
+
+                  if (selected.length > 3) {
+                    showToast("You can upload up to 3 images only.", "error");
+                    e.target.value = "";
+                    return;
+                  }
+
+                  setReportFiles(selected);
+                }}
+              />
+
+              {reportFiles.length > 0 && (
+                <ul
+                  style={{
+                    marginTop: 8,
+                    fontSize: "0.8rem",
+                    color: "var(--text-muted)",
+                  }}
+                >
+                  {reportFiles.map((file) => (
+                    <li key={file.name}>{file.name}</li>
+                  ))}
+                </ul>
+              )}
+
+              <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>
+                  Required. You can upload up to 3 files at once (JPG, PNG, or WebP only).
+              </p>
             </div>
           </div>
         </div>

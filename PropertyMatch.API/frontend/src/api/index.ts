@@ -422,12 +422,35 @@ export const feedbackApi = {
 
 //── Report ───────────────────────────────────────────────────────
 export const reportApi = {
-    submit: (data: { item: "listing" | "agent"; itemId: string; description: string }) =>
-        api.post("/reports", data),
+    submit: (data: {
+        item: "listing" | "agent";
+        itemId: string;
+        description: string;
+        files: File[];
+    }) => {
+        const form = new FormData();
+
+        form.append("item", data.item);
+        form.append("itemId", data.itemId);
+        form.append("description", data.description);
+
+        data.files.forEach((file) => {
+            form.append("files", file);
+        });
+
+        return api.post("/reports", form, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+        });
+    },
 
     getAll: () =>
         api.get("/reports/admin"),
 
     updateStatus: (id: string, status: string) =>
         api.patch(`/reports/${id}/status`, { status }),
+
+    blockAgent: (id: string) =>
+        api.patch(`/reports/${id}/block-agent`),
 };

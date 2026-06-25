@@ -1,12 +1,53 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { reportApi } from "../../api";
 import type { Report } from "../../types";
 
+const statusBadge = (status: string) => {
+    if (status === "Reviewed") return "badge-green";
+    if (status === "Rejected") return "badge-red";
+    return "badge-amber";
+};
+
+const typeBadge = (type: string) => {
+    if (type === "agent") return "badge-blue";
+    if (type === "listing") return "badge-purple";
+    return "badge-amber";
+};
+
+function getInitials(name: string) {
+    return name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase();
+}
+
+function timeAgo(dateString: string) {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (diff < 60) return "just now";
+
+    const minutes = Math.floor(diff / 60);
+    if (minutes < 60) return `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
+
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hour${hours > 1 ? "s" : ""} ago`;
+
+    const days = Math.floor(hours / 24);
+    if (days < 365) return `${days} day${days > 1 ? "s" : ""} ago`;
+
+    const years = Math.floor(days / 365);
+    return `${years} year${years > 1 ? "s" : ""} ago`;
+}
+
 export default function AdminReportsPage() {
-    const qc = useQueryClient();
     const [selectedReport, setSelectedReport] = useState<Report | null>(null);
     const [filter, setFilter] = useState<"" | "listing" | "agent">("");
+    const qc = useQueryClient();
     const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
     const showToast = (msg: string, type: "success" | "error" = "success") => {
@@ -14,28 +55,45 @@ export default function AdminReportsPage() {
         setTimeout(() => setToast(null), 3000);
     };
 
+    const statusMut = useMutation({
+        mutationFn: ({ id, status }: { id: string; status: string }) =>
+            reportApi.updateStatus(id, status),
+        onSuccess: (_, variables) => {
+            qc.invalidateQueries({ queryKey: ["admin-reports"] });
+            setSelectedReport((prev) =>
+                prev && prev.id === variables.id
+                    ? { ...prev, status: variables.status }
+                    : prev
+            );
+            showToast("Report status updated.");
+        },
+        onError: (e: any) =>
+            showToast(e.response?.data?.message ?? "Failed to update report.", "error"),
+    });
+
+    const blockAgentMut = useMutation({
+        mutationFn: (id: string) => reportApi.blockAgent(id),
+        onSuccess: (_, id) => {
+            qc.invalidateQueries({ queryKey: ["admin-reports"] });
+            setSelectedReport((prev) =>
+                prev && prev.id === id
+                    ? { ...prev, status: "Reviewed" }
+                    : prev
+            );
+            showToast("Agent blocked and report marked as reviewed.");
+        },
+        onError: (e: any) =>
+            showToast(e.response?.data?.message ?? "Failed to block agent.", "error"),
+    });
+
     const { data: reports = [], isLoading } = useQuery<Report[]>({
         queryKey: ["admin-reports"],
         queryFn: () => reportApi.getAll().then((r) => r.data),
     });
 
-    const reportStatusMut = useMutation({
-        mutationFn: ({ id, status }: { id: string; status: string }) =>
-            reportApi.updateStatus(id, status),
-        onSuccess: () => {
-            qc.invalidateQueries({ queryKey: ["admin-reports"] });
-            showToast("Report status updated.");
-        },
-        onError: (e: any) =>
-            showToast(e.response?.data?.message ?? "Failed to update report status.", "error"),
-    });
-
     const filteredReports = filter
         ? reports.filter((r) => r.item === filter)
         : reports;
-
-    const statusBadge = (status: string) =>
-        status === "Reviewed" ? "badge-green" : "badge-amber";
 
     return (
         <div>
@@ -49,7 +107,11 @@ export default function AdminReportsPage() {
                         className={`btn btn-sm ${filter === item ? "btn-primary" : "btn-outline"}`}
                         onClick={() => setFilter(item)}
                     >
-                        {item === "listing" ? "Listing Reports" : item === "agent" ? "Agent Reports" : "All Reports"}
+                        {item === "listing"
+                            ? "Listing Reports"
+                            : item === "agent"
+                                ? "Agent Reports"
+                                : "All Reports"}
                     </button>
                 ))}
             </div>
@@ -61,20 +123,86 @@ export default function AdminReportsPage() {
             ) : filteredReports.length === 0 ? (
                 <div className="empty-state">No reports submitted yet</div>
             ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
                     {filteredReports.map((r) => (
                         <div
-                            className="card"
                             key={r.id}
-                            style={{ cursor: "pointer" }}
+                            className="card"
+                            style={{
+                                cursor: "pointer",
+                                padding: 22,
+                                borderRadius: 18,
+                            }}
                             onClick={() => setSelectedReport(r)}
                         >
-                            <div className="flex items-center justify-between gap-3">
+                            <div style={{ display: "flex", gap: 16 }}>
+                                <div
+                                    style={{
+                                        width: 52,
+                                        height: 52,
+                                        borderRadius: "50%",
+                                        flexShrink: 0,
+                                        background: "var(--bg-input)",
+                                        color: "var(--accent)",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        fontWeight: 700,
+                                        fontSize: "1rem",
+                                    }}
+                                >
+                                    {getInitials(r.tenantName)}
+                                </div>
+
                                 <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            justifyContent: "space-between",
+                                            gap: 12,
+                                            alignItems: "flex-start",
+                                        }}
+                                    >
+                                        <div
+                                            style={{
+                                                display: "flex",
+                                                gap: 8,
+                                                alignItems: "center",
+                                                flexWrap: "wrap",
+                                                fontSize: "0.9rem",
+                                            }}
+                                        >
+                                            <strong>{r.tenantName}</strong>
+                                            <span style={{ color: "var(--text-muted)" }}><span>&bull;</span></span>
+                                            <span style={{ color: "var(--text-muted)" }}>
+                                                {timeAgo(r.createdAt)}
+                                            </span>
+                                            <span className={`badge ${typeBadge(r.item)}`}>
+                                                {r.item.toUpperCase()}
+                                            </span>
+                                            {r.status !== "Open" && (
+                                                <span className={`badge ${statusBadge(r.status)}`}>
+                                                    {r.status}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        style={{
+                                            margin: "16px 0 10px",
+                                            fontSize: "1.15rem",
+                                            fontWeight: 600,
+                                        }}
+                                    >
+                                        {r.itemName}
+                                    </div>
+
                                     <p
                                         style={{
-                                            marginTop: 8,
-                                            marginBottom: 8,
+                                            margin: 0,
+                                            color: "var(--text-muted)",
+                                            lineHeight: 1.6,
                                             display: "-webkit-box",
                                             WebkitLineClamp: 2,
                                             WebkitBoxOrient: "vertical",
@@ -83,51 +211,6 @@ export default function AdminReportsPage() {
                                     >
                                         {r.description}
                                     </p>
-
-                                    <div
-                                        style={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            gap: "8px",
-                                            fontSize: "0.8rem",
-                                            color: "var(--text-muted)",
-                                            flexWrap: "wrap",
-                                        }}
-                                    >
-                                        <span>
-                                            Target: {r.itemName} - From: {r.tenantName} ({r.tenantEmail}) - {" "}
-                                            {new Date(r.createdAt).toLocaleString("en-MY")}
-                                        </span>
-
-                                        <span className="badge badge-red">
-                                            {r.item.toUpperCase()}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="flex gap-2 items-center" onClick={(e) => e.stopPropagation()}>
-
-                                    <span className={`badge ${statusBadge(r.status)}`}>
-                                        {r.status}
-                                    </span>
-
-                                    {/*{r.status !== "Reviewed" ? (*/}
-                                    {/*    <button*/}
-                                    {/*        className="btn btn-sm btn-primary"*/}
-                                    {/*        disabled={reportStatusMut.isPending}*/}
-                                    {/*        onClick={() => reportStatusMut.mutate({ id: r.id, status: "Reviewed" })}*/}
-                                    {/*    >*/}
-                                    {/*        Mark Reviewed*/}
-                                    {/*    </button>*/}
-                                    {/*) : (*/}
-                                    {/*    <button*/}
-                                    {/*        className="btn btn-sm btn-outline"*/}
-                                    {/*        disabled={reportStatusMut.isPending}*/}
-                                    {/*        onClick={() => reportStatusMut.mutate({ id: r.id, status: "Open" })}*/}
-                                    {/*    >*/}
-                                    {/*        Reopen*/}
-                                    {/*    </button>*/}
-                                    {/*)}*/}
                                 </div>
                             </div>
                         </div>
@@ -136,9 +219,19 @@ export default function AdminReportsPage() {
             )}
 
             {selectedReport && (
-                <ReportModal report={selectedReport} onClose={() => setSelectedReport(null)} />
+                <ReportModal
+                    report={selectedReport}
+                    onClose={() => setSelectedReport(null)}
+                    onReject={() =>
+                        statusMut.mutate({ id: selectedReport.id, status: "Rejected" })
+                    }
+                    onMarkReviewed={() =>
+                        statusMut.mutate({ id: selectedReport.id, status: "Reviewed" })
+                    }
+                    onBlockAgent={() => blockAgentMut.mutate(selectedReport.id)}
+                    loading={statusMut.isPending || blockAgentMut.isPending}
+                />
             )}
-
             {toast && <div className={`toast toast-${toast.type}`}>{toast.msg}</div>}
         </div>
     );
@@ -147,116 +240,74 @@ export default function AdminReportsPage() {
 function ReportModal({
     report,
     onClose,
+    onReject,
+    onMarkReviewed,
+    onBlockAgent,
+    loading,
 }: {
     report: Report;
     onClose: () => void;
+    onReject: () => void;
+    onMarkReviewed: () => void;
+    onBlockAgent: () => void;
+    loading: boolean;
 }) {
-    const statusBadge =
-        report.status === "Reviewed"
-            ? "badge-green"
-            : "badge-amber";
-
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div
                 className="modal"
                 onClick={(e) => e.stopPropagation()}
-                style={{
-                    maxWidth: 720,
-                    padding: 0,
-                    overflow: "hidden",
-                }}
+                style={{ maxWidth: 720, padding: 0, overflow: "hidden" }}
             >
-                {/* Header */}
                 <div
                     style={{
                         padding: "20px 24px",
-                        borderBottom: "1px solid var(--border-color)",
+                        borderBottom: "1px solid var(--border)",
                     }}
                 >
                     <div className="flex items-start justify-between gap-4">
                         <div>
-                            <h2 style={{ margin: 0 }}>
+                            <h2 style={{ margin: 0, marginBottom: 8 }}>
                                 Report Details
                             </h2>
-
-                            <div
-                                style={{
-                                    marginTop: 8,
-                                    fontSize: "0.85rem",
-                                    color: "var(--text-muted)",
-                                }}
-                            >
-                                Submitted{" "}
-                                {new Date(
-                                    report.createdAt
-                                ).toLocaleString("en-MY")}
+                            <div style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
+                                From: {report.tenantName} ({report.tenantEmail}) <span>&bull;</span>{" "}
+                                {timeAgo(report.createdAt)}
                             </div>
                         </div>
 
-                        <span
-                            className={`badge ${statusBadge}`}
-                        >
-                            {report.status}
-                        </span>
+                        {report.status !== "Open" && (
+                            <span className={`badge ${statusBadge(report.status)}`}>
+                                {report.status}
+                            </span>
+                        )}
                     </div>
                 </div>
 
-                {/* Body */}
-                <div
-                    style={{
-                        padding: 24,
-                        maxHeight: "65vh",
-                        overflowY: "auto",
-                    }}
-                >
-                    {/* Report Information */}
+                <div style={{ padding: 24, maxHeight: "65vh", overflowY: "auto" }}>
                     <div
                         style={{
                             display: "grid",
-                            gridTemplateColumns:
-                                "repeat(auto-fit, minmax(220px, 1fr))",
+                            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
                             gap: 16,
                             marginBottom: 24,
                         }}
                     >
-                        <InfoCard
-                            label="Report Type"
-                            value={report.item.toUpperCase()}
-                        />
-
-                        <InfoCard
-                            label="Reported Target"
-                            value={report.itemName}
-                        />
-
-                        <InfoCard
-                            label="Reporter"
-                            value={report.tenantName}
-                        />
-
-                        <InfoCard
-                            label="Email"
-                            value={report.tenantEmail}
-                        />
+                        <InfoCard label="Report Type" value={report.item.toUpperCase()} />
+                        <InfoCard label="Reported Target" value={report.itemName} />
+                        <InfoCard label="Reporter" value={report.tenantName} />
+                        <InfoCard label="Email" value={report.tenantEmail} />
                     </div>
 
-                    {/* Description */}
                     <div>
-                        <div
-                            style={{
-                                fontWeight: 600,
-                                marginBottom: 10,
-                            }}
-                        >
+                        <div style={{ fontWeight: 600, marginBottom: 10 }}>
                             Description
                         </div>
 
                         <div
                             style={{
                                 background: "var(--bg-input)",
-                                border:
-                                    "1px solid var(--border-color)",
+                                border: "1px solid var(--border)",
                                 borderRadius: 12,
                                 padding: 16,
                                 whiteSpace: "pre-wrap",
@@ -266,21 +317,82 @@ function ReportModal({
                             {report.description}
                         </div>
                     </div>
+
+                    <div style={{ marginTop: 18 }}>
+                        <div style={{ fontWeight: 600, marginBottom: 10 }}>
+                            Evidence Images
+                        </div>
+
+                        {report.evidenceImageUrls?.length > 0 ? (
+                            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                                {report.evidenceImageUrls.map((url) => (
+                                    <a key={url} href={url} target="_blank" rel="noreferrer">
+                                        <img
+                                            src={url}
+                                            alt="Report evidence"
+                                            style={{
+                                                width: 130,
+                                                height: 95,
+                                                objectFit: "cover",
+                                                borderRadius: 8,
+                                                border: "1px solid var(--border)",
+                                            }}
+                                        />
+                                    </a>
+                                ))}
+                            </div>
+                        ) : (
+                            <p style={{ color: "var(--text-muted)" }}>
+                                No evidence image uploaded.
+                            </p>
+                        )}
+                    </div>
                 </div>
 
-                {/* Footer */}
                 <div
                     style={{
                         padding: "16px 24px",
-                        borderTop: "1px solid var(--border-color)",
+                        borderTop: "1px solid var(--border)",
                         display: "flex",
-                        justifyContent: "flex-end",
+                        justifyContent: "space-between",
+                        gap: 12,
                     }}
                 >
-                    <button
-                        className="btn btn-primary"
-                        onClick={onClose}
-                    >
+                    {report.status === "Open" ? (
+                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                            <button
+                                className="btn btn-outline"
+                                disabled={loading}
+                                onClick={onReject}
+                            >
+                                Reject Report
+                            </button>
+
+                            {report.item === "listing" && (
+                                <button
+                                    className="btn btn-primary"
+                                    disabled={loading}
+                                    onClick={onMarkReviewed}
+                                >
+                                    Mark as Reviewed
+                                </button>
+                            )}
+
+                            {report.item === "agent" && (
+                                <button
+                                    className="btn btn-danger"
+                                    disabled={loading}
+                                    onClick={onBlockAgent}
+                                >
+                                    Block Agent
+                                </button>
+                            )}
+                        </div>
+                    ) : (
+                        <div />
+                    )}
+
+                    <button className="btn btn-primary" onClick={onClose}>
                         Close
                     </button>
                 </div>
@@ -300,7 +412,7 @@ function InfoCard({
         <div
             style={{
                 background: "var(--bg-input)",
-                border: "1px solid var(--border-color)",
+                border: "1px solid var(--border)",
                 borderRadius: 10,
                 padding: 12,
             }}
@@ -317,12 +429,7 @@ function InfoCard({
                 {label}
             </div>
 
-            <div
-                style={{
-                    fontWeight: 500,
-                    wordBreak: "break-word",
-                }}
-            >
+            <div style={{ fontWeight: 500, wordBreak: "break-word" }}>
                 {value}
             </div>
         </div>

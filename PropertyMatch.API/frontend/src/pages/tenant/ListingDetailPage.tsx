@@ -1811,6 +1811,7 @@ export default function ListingDetailPage() {
     const [showSchedule, setShowSchedule] = useState(false);
     const [showReport, setShowReport] = useState(false);
     const [reportText, setReportText] = useState("");
+    const [reportFiles, setReportFiles] = useState<File[]>([]);
     const [showReportSuccess, setShowReportSuccess] = useState(false);
     const [toast, setToast] = useState<{
         msg: string;
@@ -1894,10 +1895,12 @@ export default function ListingDetailPage() {
                 item: "listing",
                 itemId: listing.id,
                 description: reportText,
+                files: reportFiles,
             }),
         onSuccess: () => {
             setShowReport(false);
             setReportText("");
+            setReportFiles([]);
             setShowReportSuccess(true);
         },
         onError: (e: any) =>
@@ -2321,11 +2324,36 @@ export default function ListingDetailPage() {
                             </button>
                             <button
                                 className="btn btn-danger"
-                                disabled={!reportText.trim() || reportMut.isPending}
+                                disabled={!reportText.trim() || reportFiles.length < 1 || reportFiles.length > 3 || reportMut.isPending}
                                 onClick={() => reportMut.mutate()}
                             >
                                 {reportMut.isPending ? <span className="spinner" /> : "Submit Report"}
                             </button>
+                        </div>
+
+                        <div className="form-group mt-4">
+                            <label className="form-label">Evidence Images</label>
+                            <input
+                                className="input"
+                                type="file"
+                                multiple
+                                accept="image/jpeg,image/png,image/webp"
+                                onChange={(e) => {
+                                    const selected = Array.from(e.target.files ?? []);
+
+                                    if (selected.length > 3) {
+                                        showToast("You can upload up to 3 images only.", "error");
+                                        e.target.value = "";
+                                        return;
+                                    }
+
+                                    setReportFiles(selected);
+                                }}
+                            />
+
+                            <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>
+                                Required. You can upload up to 3 files at once (JPG, PNG, or WebP only).
+                            </p>
                         </div>
                     </div>
                 </div>
