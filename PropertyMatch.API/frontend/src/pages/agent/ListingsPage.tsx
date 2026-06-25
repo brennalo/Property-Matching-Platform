@@ -701,7 +701,17 @@ function ImageUploadModal({
       await listingsApi.uploadImages(listing.id, files);
       setSuccess(true);
     } catch (e: any) {
-      setError(e.response?.data?.message ?? "Upload failed");
+      let errorMessage = "Upload failed";
+      if (e.response?.data) {
+        errorMessage =
+          e.response.data.message ||
+          e.response.data.title ||
+          e.response.data.error ||
+          "Upload failed";
+      } else if (e.message) {
+        errorMessage = e.message;
+      }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -754,7 +764,7 @@ function ImageUploadModal({
               <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
                 {files.length > 0
                   ? `${files.length} file(s) selected`
-                  : "Click to select images (JPG, PNG, WebP · max 5MB each)"}
+                  : "Click to select images (JPG, PNG, WebP · max 20MB each)"}
               </p>
               <input
                 id="img-upload"
@@ -854,19 +864,19 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const json = XLSX.utils.sheet_to_json(sheet) as any[];
 
-      const listings: BatchListingRow[] = json.map((row) => ({
-        PropertyName: row["PropertyName"] || row["Property Name"] || "",
-        Bedrooms: parseInt(row["Bedrooms"] || "0"),
-        Bathrooms: parseInt(row["Bathrooms"] || "0"),
-        Toilets: parseInt(row["Toilets"] || "0"),
-        Address: row["Address"] || "",
-        Price: parseFloat(row["Price"] || "0"),
-        Type: row["Type"] || "Condo",
-        Latitude: parseFloat(row["Latitude"] || row["Lat"] || "0"),
-        Longitude: parseFloat(row["Longitude"] || row["Lng"] || "0"),
-        Description: row["Description"] || "",
-        Amenities: row["Amenities"] || "",
-      }));
+      // const listings: BatchListingRow[] = json.map((row) => ({
+      //   PropertyName: row["PropertyName"] || row["Property Name"] || "",
+      //   Bedrooms: parseInt(row["Bedrooms"] || "0"),
+      //   Bathrooms: parseInt(row["Bathrooms"] || "0"),
+      //   Toilets: parseInt(row["Toilets"] || "0"),
+      //   Address: row["Address"] || "",
+      //   Price: parseFloat(row["Price"] || "0"),
+      //   Type: row["Type"] || "Condo",
+      //   Latitude: parseFloat(row["Latitude"] || row["Lat"] || "0"),
+      //   Longitude: parseFloat(row["Longitude"] || row["Lng"] || "0"),
+      //   Description: row["Description"] || "",
+      //   Amenities: row["Amenities"] || "",
+      // }));
 
       setFiles([file]);
     } catch (e: any) {
@@ -939,8 +949,6 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
       Longitude: 101.6953,
       Description: "A nice condominium with pool and gym",
       Amenities: "Air conditioner, Bed, Fridge",
-      ImageFilenames: "example1.jpg, example2.png",
-      ImageCaptions: "Spacious living room, Modern kitchen",
     });
 
     const allowedTypes = [

@@ -16,6 +16,7 @@ public class S3Service
     private readonly bool _useS3;
     private readonly string _uploadPath;
     private readonly string? _bucket;
+    private const int MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20MB
 
     public S3Service(AppDbContext db, IConfiguration config, IWebHostEnvironment env, IAmazonS3? s3Client = null)
     {
@@ -60,8 +61,8 @@ public class S3Service
             if (!allowed.Contains(file.ContentType))
                 throw new InvalidOperationException($"File type {file.ContentType} not allowed");
 
-            if (file.Length > 5 * 1024 * 1024)
-                throw new InvalidOperationException("File exceeds 5MB limit");
+            if (file.Length > MAX_FILE_SIZE_BYTES)
+                throw new InvalidOperationException($"File {file.FileName} exceeds 20MB limit");
 
             var ext = Path.GetExtension(file.FileName);
             var fileName = $"{Guid.NewGuid()}{ext}";
@@ -79,11 +80,11 @@ public class S3Service
                     Key = key,
                     InputStream = stream,
                     ContentType = file.ContentType,
-                    CannedACL = S3CannedACL.PublicRead
+
                 };
 
                 await _s3Client.PutObjectAsync(uploadRequest);
-                url = $"https://{_bucket}.s3.amazonaws.com/{key}";
+                url = $"https://{_bucket}.s3.ap-southeast-5.amazonaws.com/{key}";
             }
             else
             {
@@ -205,10 +206,10 @@ public class S3Service
             Key = key,
             InputStream = stream,
             ContentType = contentType,
-            CannedACL = S3CannedACL.PublicRead
+
         };
         await _s3Client.PutObjectAsync(uploadRequest);
-        url = $"https://{_bucket}.s3.amazonaws.com/{key}";
+        url = $"https://{_bucket}.s3.ap-southeast-5.amazonaws.com/{key}";
     }
     else
     {
