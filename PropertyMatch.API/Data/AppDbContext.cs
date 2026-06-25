@@ -27,6 +27,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<Feedback> Feedbacks => Set<Feedback>();
     public DbSet<Report> Reports => Set<Report>();
+    public DbSet<ReportEvidenceImage> ReportEvidenceImages => Set<ReportEvidenceImage>();
     public DbSet<ScoringConfig> ScoringConfig => Set<ScoringConfig>();
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -250,5 +251,10 @@ mb.Entity<Models.Review>()
         mb.Entity<Report>()
             .HasIndex(r => new { r.Item, r.ItemId });
 
+        mb.Entity<ReportEvidenceImage>()
+            .HasOne(i => i.Report)
+            .WithMany(r => r.EvidenceImages)
+            .HasForeignKey(i => i.ReportId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

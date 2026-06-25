@@ -979,6 +979,7 @@ public class ReportsController(AppDbContext db) : ControllerBase
     {
         var reports = await db.Reports
             .Include(r => r.Tenant)
+            .Include(r => r.EvidenceImages)
             .OrderByDescending(r => r.CreatedAt)
             .ToListAsync();
 
@@ -1014,7 +1015,11 @@ public class ReportsController(AppDbContext db) : ControllerBase
                 itemName,
                 r.Description,
                 r.Status,
-                r.CreatedAt
+                r.CreatedAt,
+                r.EvidenceImages
+                    .Where(i => i.S3Url != null)
+                    .Select(i => i.S3Url!)
+                    .ToList()
             ));
         }
 

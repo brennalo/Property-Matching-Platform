@@ -249,7 +249,7 @@ function ReportModal({
                                 marginBottom: 10,
                             }}
                         >
-                            Report Description
+                            Description
                         </div>
 
                         <div

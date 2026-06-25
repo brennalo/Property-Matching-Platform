@@ -417,4 +417,5 @@ export interface Report {
     description: string;
     status: string;
     createdAt: string;
+    evidenceImageUrls: string[];
 }

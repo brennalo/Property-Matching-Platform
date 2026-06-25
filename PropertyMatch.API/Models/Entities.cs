@@ -343,6 +343,17 @@ public class Report
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public User Tenant { get; set; } = null!;
+
+    public ICollection<ReportEvidenceImage> EvidenceImages { get; set; } = [];
+}
+public class ReportEvidenceImage
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid ReportId { get; set; }
+    public string S3Url { get; set; } = "";
+    public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
+
+    public Report Report { get; set; } = null!;
 }
 
 public class ScoringConfig

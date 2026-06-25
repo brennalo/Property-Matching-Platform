@@ -369,7 +369,8 @@ public record ReportResponse(
     string ItemName,
     string Description,
     string Status,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    List<string> EvidenceImageUrls
 );
 
 public record UpdateReportStatusRequest(string Status);
