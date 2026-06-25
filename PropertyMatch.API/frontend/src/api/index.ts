@@ -76,15 +76,16 @@ export const listingsApi = {
         amenities?: string;
     }) => api.post<{ id: string; message: string }>("/listings", data),
 
-    generateDescription: (data: {
-        name: string;
-        rooms: number;
-        toilets: number;
-        address: string;
-        residencyType: string;
-        price: number;
-        extraDetails?: string
-    }) => api.post<{ description: string }>('/listings/generate-description', data),
+  generateDescription: (data: {
+    name: string;
+    rooms: number;
+    toilets: number;
+    address: string;
+    residencyType: string;
+    price: number;
+    extraDetails?: string;
+  }) =>
+    api.post<{ description: string }>("/listings/generate-description", data),
 
   update: (
     id: string,
@@ -113,6 +114,12 @@ export const listingsApi = {
   // Batch upload (XLSX)
   batchCreate: (listings: BatchListingRow[]) =>
     api.post("/listings/batch", listings),
+
+  // Batch Zip Upload
+  batchZipUpload: (formData: FormData) =>
+    api.post("/listings/batch-zip", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
 
   // Reorder images
   reorderImages: (
@@ -194,9 +201,6 @@ export const availabilityApi = {
       startTime: string;
       endTime: string;
       slotDurationMinutes?: number;
-      validFrom?: string | null;
-      validTo?: string | null;
-      listingId?: string | null;
     }>,
   ) => api.post("/availability/templates", templates),
 

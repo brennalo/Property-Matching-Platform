@@ -185,4 +185,42 @@ public class S3Service
         _db.ListingImages.Remove(image);
         await _db.SaveChangesAsync();
     }
+
+    public async Task<string> UploadImageFromStreamAsync(
+    Guid listingId,
+    string filename,
+    Stream stream,
+    string contentType)
+{
+    var ext = Path.GetExtension(filename);
+    var safeName = $"{Guid.NewGuid()}{ext}";
+    string url;
+
+    if (_useS3 && _s3Client != null)
+    {
+        var key = $"listings/{listingId}/{safeName}";
+        var uploadRequest = new PutObjectRequest
+        {
+            BucketName = _bucket,
+            Key = key,
+            InputStream = stream,
+            ContentType = contentType,
+            CannedACL = S3CannedACL.PublicRead
+        };
+        await _s3Client.PutObjectAsync(uploadRequest);
+        url = $"https://{_bucket}.s3.amazonaws.com/{key}";
+    }
+    else
+    {
+        // Local fallback
+        var uploadsFolder = Path.Combine(_env.WebRootPath, "uploads", listingId.ToString());
+        Directory.CreateDirectory(uploadsFolder);
+        var filePath = Path.Combine(uploadsFolder, safeName);
+        using var fileStream = new FileStream(filePath, FileMode.Create);
+        await stream.CopyToAsync(fileStream);
+        url = $"/uploads/{listingId}/{safeName}";
+    }
+
+    return url;
+}
 }

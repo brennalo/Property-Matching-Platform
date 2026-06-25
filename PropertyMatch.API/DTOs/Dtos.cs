@@ -56,7 +56,11 @@ public record BatchListingRequest(
     string Amenities);
 
 public record BatchListingResponse(
-    int SuccessCount, int FailureCount, List<string> Errors);
+    int SuccessCount,
+    int FailureCount,
+    List<string> Errors,
+    List<Guid> CreatedIds = null!
+);
 
 // Image DTO with caption
 public record ImageDto(
@@ -152,10 +156,7 @@ public record AvailabilityTemplateRequest(
     int DayOfWeek,
     string StartTime,
     string EndTime,
-    int? SlotDurationMinutes = null,
-    DateTime? ValidFrom = null,
-    DateTime? ValidTo = null,
-    Guid? ListingId = null
+    int? SlotDurationMinutes = null
 );
 
 public record AvailabilityTemplateResponse(
@@ -164,9 +165,6 @@ public record AvailabilityTemplateResponse(
     string StartTime,
     string EndTime,
     int SlotDurationMinutes,
-    DateTime? ValidFrom,
-    DateTime? ValidTo,
-    Guid? ListingId,
     bool IsActive,
     DateTime CreatedAt
 );
