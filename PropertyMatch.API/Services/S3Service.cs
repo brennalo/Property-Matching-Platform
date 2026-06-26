@@ -49,7 +49,10 @@ public class S3Service
     {
         var allowed = new[] { "image/jpeg", "image/png", "image/webp" };
         var urls = new List<string>();
-        var order = _db.ListingImages.Count(i => i.ListingId == listingId);
+        var maxOrder = _db.ListingImages
+            .Where(i => i.ListingId == listingId)
+            .Max(i => (int?)i.DisplayOrder) ?? -1;
+        var order = maxOrder + 1;
 
         // Enforce 15-image cap
         var totalAfterUpload = order + files.Count();
