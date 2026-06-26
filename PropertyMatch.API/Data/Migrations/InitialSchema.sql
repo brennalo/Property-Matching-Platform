@@ -103,11 +103,8 @@ CREATE TABLE IF NOT EXISTS "AvailabilityTemplates" (
     "StartTime" VARCHAR(5)  NOT NULL,
     "EndTime"   VARCHAR(5)  NOT NULL,
     "SlotDurationMinutes" INT NOT NULL DEFAULT 60,
-    "ValidFrom" DATE        NULL,
-    "ValidTo"   DATE        NULL,
     "IsActive"  BOOLEAN NOT NULL DEFAULT TRUE,
     "CreatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    "UpdatedAt" TIMESTAMPTZ NULL
 );
 CREATE INDEX IF NOT EXISTS idx_availabilitytemplates_agentid ON "AvailabilityTemplates"("AgentId");
 CREATE INDEX IF NOT EXISTS idx_availabilitytemplates_agentid_listingid ON "AvailabilityTemplates"("AgentId", "ListingId");

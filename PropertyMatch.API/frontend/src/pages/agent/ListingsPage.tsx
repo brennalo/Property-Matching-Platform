@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { listingsApi, paymentsApi } from "../../api";
+import api, { listingsApi, paymentsApi } from "../../api";
 import type {
   Listing,
   ResidencyType,
@@ -21,6 +21,7 @@ import {
   Download,
   Coins,
   Sparkles,
+  MapPin,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
@@ -35,6 +36,9 @@ const RESIDENCY_TYPES: ResidencyType[] = [
   "SharedRoom",
 ];
 
+// ──────────────────────────────────────────────────────────────
+// 1. Status Badge
+// ──────────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: Listing["status"] }) {
   const map: Record<string, string> = {
     Active: "badge-green",
@@ -53,22 +57,57 @@ function StatusBadge({ status }: { status: Listing["status"] }) {
   return (
     <span className={`badge ${map[status] ?? "badge-grey"}`}>
       {icons[status]}{" "}
-        {status === "PendingPayment" ? "Pending (Legacy)" : status}
+      {status === "PendingPayment" ? "Pending (Legacy)" : status}
     </span>
   );
 }
 
+// ──────────────────────────────────────────────────────────────
+// 2. Listing Form Modal (UPDATED with Map Picker)
+// ──────────────────────────────────────────────────────────────
+
+// Helper: reverse geocode
+function reverseGeocode(lat: number, lng: number): Promise<string> {
+  return new Promise((resolve) => {
+    const geocoder = new (window as any).google.maps.Geocoder();
+    geocoder.geocode(
+      { location: { lat, lng } },
+      (results: any[], status: string) => {
+        resolve(
+          status === "OK" && results[0] ? results[0].formatted_address : "",
+        );
+      },
+    );
+  });
+}
+
+// Helper: Google Maps ready hook
+function useGoogleMapsReady() {
+  const [ready, setReady] = useState(!!(window as any).__gmapsReady);
+  useEffect(() => {
+    if ((window as any).__gmapsReady) return;
+    const iv = setInterval(() => {
+      if ((window as any).__gmapsReady) {
+        clearInterval(iv);
+        setReady(true);
+      }
+    }, 150);
+    return () => clearInterval(iv);
+  }, []);
+  return ready;
+}
+
 interface ListingFormData {
-    name: string
-    rooms: string
-    toilets: string
-    lat: string
-    lng: string
-    address: string
-    residencyType: ResidencyType
-    price: string
-    description: string
-    amenities: string
+  name: string;
+  rooms: string;
+  toilets: string;
+  lat: string;
+  lng: string;
+  address: string;
+  residencyType: ResidencyType;
+  price: string;
+  description: string;
+  amenities: string;
 }
 
 function ListingFormModal({
@@ -82,90 +121,223 @@ function ListingFormModal({
   onClose: () => void;
   loading: boolean;
 }) {
-    const [form, setForm] = useState<ListingFormData>({
-        name: initial?.name ?? '',
-        rooms: initial?.rooms?.toString() ?? '',
-        toilets: initial?.toilets?.toString() ?? '',
-        lat: initial?.lat?.toString() ?? '',
-        lng: initial?.lng?.toString() ?? '',
-        address: initial?.address ?? '',
-        residencyType: initial?.residencyType ?? 'Condo',
-        price: initial?.price?.toString() ?? '',
-        description: initial?.description ?? '',
-        amenities: initial?.amenities ?? '',
-    })
-    const [generating, setGenerating] = useState(false)
-    const [genError, setGenError] = useState('')
+  const mapsReady = useGoogleMapsReady();
 
-    const COMMON_AMENITIES = [
-        'Air Conditioner', 'Bed', 'Fridge', 'Water Heater',
-        'Washing Machine', 'WiFi', 'TV', 'Microwave', 'Wardrobe', 'Sofa'
-    ]
+  // ── Form state (non-location) ──
+  const [form, setForm] = useState({
+    name: initial?.name ?? "",
+    rooms: initial?.rooms?.toString() ?? "",
+    toilets: initial?.toilets?.toString() ?? "",
+    residencyType: initial?.residencyType ?? ("Condo" as ResidencyType),
+    price: initial?.price?.toString() ?? "",
+    description: initial?.description ?? "",
+    amenities: initial?.amenities ?? "",
+  });
 
-    const initialAmenities = form.amenities
-        ? form.amenities.split(',').map(a => a.trim()).filter(Boolean)
-        : []
+  // ── Location state ──
+  const [location, setLocation] = useState<{
+    address: string;
+    lat: number | null;
+    lng: number | null;
+  }>({
+    address: initial?.address ?? "",
+    lat: initial?.lat ?? null,
+    lng: initial?.lng ?? null,
+  });
 
-    const [selectedAmenities, setSelectedAmenities] = useState<string[]>(
-        initialAmenities.filter(a => COMMON_AMENITIES.includes(a))
-    )
-    const [customAmenities, setCustomAmenities] = useState<string[]>(
-        initialAmenities.filter(a => !COMMON_AMENITIES.includes(a))
-    )
-    const [customInput, setCustomInput] = useState('')
+  // ── Refs for map and autocomplete ──
+  const mapDivRef = useRef<HTMLDivElement>(null);
+  const addressInputRef = useRef<HTMLInputElement>(null);
+  const mapRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
+  const autocompleteRef = useRef<any>(null);
 
-    const toggleAmenity = (item: string) => {
-        setSelectedAmenities(prev =>
-            prev.includes(item) ? prev.filter(a => a !== item) : [...prev, item]
-        )
+  const COMMON_AMENITIES = [
+    "Air Conditioner",
+    "Bed",
+    "Fridge",
+    "Water Heater",
+    "Washing Machine",
+    "WiFi",
+    "TV",
+    "Microwave",
+    "Wardrobe",
+    "Sofa",
+  ];
+
+  const initialAmenities = form.amenities
+    ? form.amenities
+        .split(",")
+        .map((a) => a.trim())
+        .filter(Boolean)
+    : [];
+
+  const [selectedAmenities, setSelectedAmenities] = useState<string[]>(
+    initialAmenities.filter((a) => COMMON_AMENITIES.includes(a)),
+  );
+  const [customAmenities, setCustomAmenities] = useState<string[]>(
+    initialAmenities.filter((a) => !COMMON_AMENITIES.includes(a)),
+  );
+  const [customInput, setCustomInput] = useState("");
+
+  const toggleAmenity = (item: string) => {
+    setSelectedAmenities((prev) =>
+      prev.includes(item) ? prev.filter((a) => a !== item) : [...prev, item],
+    );
+  };
+
+  const addCustomAmenity = () => {
+    const trimmed = customInput.trim();
+    if (trimmed && !customAmenities.includes(trimmed)) {
+      setCustomAmenities((prev) => [...prev, trimmed]);
+      setCustomInput("");
+    }
+  };
+
+  // Keep form.amenities in sync whenever selections change
+  const syncAmenities = (selected: string[], custom: string[]) => {
+    const combined = [...selected, ...custom].join(", ");
+    updateForm("amenities", combined);
+  };
+
+  const removeCustomAmenity = (item: string) => {
+    setCustomAmenities((prev) => prev.filter((a) => a !== item));
+  };
+  useEffect(() => {
+    syncAmenities(selectedAmenities, customAmenities);
+  }, [selectedAmenities, customAmenities]);
+
+  // ── AI Description Generator ──
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState("");
+
+  const handleGenerateDescription = async () => {
+    if (!form.name || !location.address || !form.price) {
+      setGenError("Fill in name, address, and price first.");
+      return;
+    }
+    setGenerating(true);
+    setGenError("");
+    try {
+      const { data } = await listingsApi.generateDescription({
+        name: form.name,
+        rooms: parseInt(form.rooms) || 0,
+        toilets: parseInt(form.toilets) || 0,
+        address: location.address,
+        residencyType: form.residencyType,
+        price: parseFloat(form.price) || 0,
+        extraDetails: form.description.trim() || undefined,
+      });
+      setForm((f) => ({ ...f, description: data.description }));
+    } catch (e: any) {
+      setGenError(
+        e.response?.data?.message ?? "Failed to generate description.",
+      );
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const updateForm = (k: keyof typeof form, v: any) =>
+    setForm((f) => ({ ...f, [k]: v }));
+
+  const coordsSet = location.lat != null && location.lng != null;
+
+  // ── Initialise map and autocomplete ──
+  useEffect(() => {
+    if (!mapsReady || !mapDivRef.current) return;
+
+    const center =
+      location.lat && location.lng
+        ? { lat: location.lat, lng: location.lng }
+        : { lat: 3.1478, lng: 101.6953 };
+
+    const map = new (window as any).google.maps.Map(mapDivRef.current, {
+      center,
+      zoom: 14,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+      gestureHandling: "greedy",
+    });
+    mapRef.current = map;
+
+    if (location.lat && location.lng) {
+      markerRef.current = new (window as any).google.maps.Marker({
+        position: center,
+        map,
+        draggable: true,
+      });
     }
 
-    const addCustomAmenity = () => {
-        const trimmed = customInput.trim()
-        if (trimmed && !customAmenities.includes(trimmed)) {
-            setCustomAmenities(prev => [...prev, trimmed])
-            setCustomInput('')
+    map.addListener("click", async (e: any) => {
+      if (!e.latLng) return;
+      const lat = e.latLng.lat();
+      const lng = e.latLng.lng();
+      if (markerRef.current) {
+        markerRef.current.setPosition(e.latLng);
+      } else {
+        markerRef.current = new window.google.maps.Marker({
+          position: e.latLng,
+          map,
+          draggable: true,
+        });
+      }
+      const addr = await reverseGeocode(lat, lng);
+      setLocation({ address: addr, lat, lng });
+      if (addressInputRef.current) addressInputRef.current.value = addr;
+    });
+
+    // Drag end listener
+    markerRef.current?.addListener("dragend", async () => {
+      const pos = markerRef.current?.getPosition();
+      if (!pos) return;
+      const lat = pos.lat();
+      const lng = pos.lng();
+      const addr = await reverseGeocode(lat, lng);
+      setLocation({ address: addr, lat, lng });
+      if (addressInputRef.current) addressInputRef.current.value = addr;
+    });
+
+    // Autocomplete
+    if (addressInputRef.current) {
+      const ac = new window.google.maps.places.Autocomplete(
+        addressInputRef.current,
+        {
+          componentRestrictions: { country: "my" },
+          fields: ["formatted_address", "geometry"],
+        },
+      );
+      autocompleteRef.current = ac;
+      ac.addListener("place_changed", () => {
+        const place = ac.getPlace();
+        if (!place?.geometry?.location) return;
+        const lat = place.geometry.location.lat();
+        const lng = place.geometry.location.lng();
+        const addr =
+          place.formatted_address ?? addressInputRef.current?.value ?? "";
+        setLocation({ address: addr, lat, lng });
+        const pos = { lat, lng };
+        if (markerRef.current) {
+          markerRef.current.setPosition(pos);
+        } else {
+          markerRef.current = new window.google.maps.Marker({
+            position: pos,
+            map,
+            draggable: true,
+          });
         }
+        map.panTo(pos);
+        map.setZoom(16);
+      });
     }
 
-    const removeCustomAmenity = (item: string) => {
-        setCustomAmenities(prev => prev.filter(a => a !== item))
-    }
-    useEffect(() => {
-        syncAmenities(selectedAmenities, customAmenities)
-    }, [selectedAmenities, customAmenities])
+    setTimeout(() => window.google.maps.event.trigger(map, "resize"), 100);
 
-    // Keep form.amenities in sync whenever selections change
-    const syncAmenities = (selected: string[], custom: string[]) => {
-        const combined = [...selected, ...custom].join(', ')
-        upd('amenities', combined)
-    }
-
-    const handleGenerateDescription = async () => {
-        if (!form.name || !form.address || !form.price) {
-            setGenError('Fill in name, address, and price first.')
-            return
-        }
-        setGenerating(true)
-        setGenError('')
-        try {
-            const { data } = await listingsApi.generateDescription({
-                name: form.name,
-                rooms: parseInt(form.rooms) || 0,
-                toilets: parseInt(form.toilets) || 0,
-                address: form.address,
-                residencyType: form.residencyType,
-                price: parseFloat(form.price) || 0,
-                extraDetails: form.description.trim() || undefined,
-            })
-            upd('description', data.description)
-        } catch (e: any) {
-            setGenError(e.response?.data?.message ?? 'Failed to generate description.')
-        } finally {
-            setGenerating(false)
-        }
-    }
-  const upd = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+    return () => {
+      autocompleteRef.current = null;
+    };
+  }, [mapsReady]);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -175,16 +347,18 @@ function ListingFormModal({
         </h2>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {/* Property Name */}
           <div className="form-group">
             <label className="form-label">Property Name</label>
             <input
               className="input"
               value={form.name}
-              onChange={(e) => upd("name", e.target.value)}
+              onChange={(e) => updateForm("name", e.target.value)}
               placeholder="e.g. Skyline Residences Unit 12A"
             />
           </div>
 
+          {/* Rooms / Toilets */}
           <div className="form-grid">
             <div className="form-group">
               <label className="form-label">Bedrooms</label>
@@ -194,7 +368,7 @@ function ListingFormModal({
                 min={1}
                 max={10}
                 value={form.rooms}
-                onChange={(e) => upd("rooms", e.target.value)}
+                onChange={(e) => updateForm("rooms", e.target.value)}
               />
             </div>
             <div className="form-group">
@@ -205,190 +379,308 @@ function ListingFormModal({
                 min={1}
                 max={10}
                 value={form.toilets}
-                onChange={(e) => upd("toilets", e.target.value)}
+                onChange={(e) => updateForm("toilets", e.target.value)}
               />
             </div>
           </div>
 
+          {/* ── LOCATION PICKER ── */}
           <div className="form-group">
-            <label className="form-label">Full Address</label>
+            <label className="form-label">Address / Location</label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ position: "relative", flex: 1 }}>
+                <input
+                  ref={addressInputRef}
+                  className="input"
+                  type="text"
+                  autoComplete="off"
+                  placeholder={
+                    mapsReady ? "Search for an address…" : "Loading maps…"
+                  }
+                  defaultValue={location.address}
+                  onInput={() => {
+                    if (location.lat != null) {
+                      setLocation((loc) => ({ ...loc, lat: null, lng: null }));
+                    }
+                  }}
+                  style={{ paddingRight: coordsSet ? 34 : undefined }}
+                />
+                {coordsSet && (
+                  <CheckCircle2
+                    size={16}
+                    style={{
+                      position: "absolute",
+                      right: 10,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      color: "var(--accent)",
+                      pointerEvents: "none",
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+            {coordsSet && (
+              <p
+                style={{
+                  fontSize: "0.75rem",
+                  color: "var(--accent)",
+                  marginTop: 5,
+                }}
+              >
+                ✓ Location confirmed · {location.lat!.toFixed(5)},{" "}
+                {location.lng!.toFixed(5)}
+              </p>
+            )}
+            <p
+              style={{
+                fontSize: "0.75rem",
+                color: "var(--text-dim)",
+                marginTop: 5,
+              }}
+            >
+              Type an address and select from the dropdown, or click directly on
+              the map below.
+            </p>
+          </div>
+
+          {/* ── MAP ── */}
+          <div
+            ref={mapDivRef}
+            style={{
+              width: "100%",
+              height: 280,
+              borderRadius: 10,
+              border: "1px solid var(--border)",
+              background: "var(--bg-input)",
+              marginTop: 4,
+            }}
+          />
+
+          {/* Residency Type */}
+          <div className="form-group">
+            <label className="form-label">Property Type</label>
+            <select
+              className="select"
+              value={form.residencyType}
+              onChange={(e) => updateForm("residencyType", e.target.value)}
+            >
+              {RESIDENCY_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Price */}
+          <div className="form-group">
+            <label className="form-label">Monthly Rent (RM)</label>
             <input
               className="input"
-              value={form.address}
-              onChange={(e) => upd("address", e.target.value)}
-              placeholder="e.g. Jalan Ampang, 50450 Kuala Lumpur"
+              type="number"
+              min={0}
+              step={50}
+              value={form.price}
+              onChange={(e) => updateForm("price", e.target.value)}
+              placeholder="e.g. 2500"
             />
           </div>
 
-          <div className="form-grid">
-            <div className="form-group">
-              <label className="form-label">Latitude</label>
+          <div className="form-group">
+            <label className="form-label">Amenities</label>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 8,
+                marginBottom: 10,
+              }}
+            >
+              {COMMON_AMENITIES.map((item) => (
+                <label
+                  key={item}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "6px 10px",
+                    borderRadius: 8,
+                    border: "1px solid",
+                    cursor: "pointer",
+                    fontSize: "0.8rem",
+                    borderColor: selectedAmenities.includes(item)
+                      ? "var(--accent)"
+                      : "var(--border)",
+                    background: selectedAmenities.includes(item)
+                      ? "var(--accent-dim)"
+                      : "var(--bg-input)",
+                    color: selectedAmenities.includes(item)
+                      ? "var(--accent)"
+                      : "var(--text-muted)",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedAmenities.includes(item)}
+                    onChange={() => toggleAmenity(item)}
+                    style={{ display: "none" }}
+                  />
+                  {item}
+                </label>
+              ))}
+            </div>
+
+            <div style={{ display: "flex", gap: 8 }}>
               <input
                 className="input"
-                type="number"
-                step="any"
-                value={form.lat}
-                onChange={(e) => upd("lat", e.target.value)}
-                placeholder="e.g. 3.1478"
+                value={customInput}
+                onChange={(e) => setCustomInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addCustomAmenity();
+                  }
+                }}
+                placeholder="Add custom amenity (e.g. Balcony) and press Enter"
               />
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={addCustomAmenity}
+              >
+                Add
+              </button>
             </div>
-            <div className="form-group">
-              <label className="form-label">Longitude</label>
-              <input
-                className="input"
-                type="number"
-                step="any"
-                value={form.lng}
-                onChange={(e) => upd("lng", e.target.value)}
-                placeholder="e.g. 101.6953"
-              />
-            </div>
-          </div>
-          <p
-            style={{
-              fontSize: "0.78rem",
-              color: "var(--text-dim)",
-              marginTop: -8,
-            }}
-          >
-            💡 Right-click on Google Maps → "What's here?" to get coordinates
-          </p>
 
-                  <div className="form-group">
-                      <label className="form-label">Property Type</label>
-                      <select
-                          className="select"
-                          value={form.residencyType}
-                          onChange={(e) => upd("residencyType", e.target.value)}
-                      >
-                          {RESIDENCY_TYPES.map((t) => (
-                              <option key={t} value={t}>
-                                  {t}
-                              </option>
-                          ))}
-                      </select>
-                  </div>
-
-                  <div className="form-group">
-                      <label className="form-label">Amenities</label>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-                          {COMMON_AMENITIES.map(item => (
-                              <label
-                                  key={item}
-                                  style={{
-                                      display: 'flex', alignItems: 'center', gap: 6,
-                                      padding: '6px 10px', borderRadius: 8,
-                                      border: '1px solid', cursor: 'pointer',
-                                      fontSize: '0.8rem',
-                                      borderColor: selectedAmenities.includes(item) ? 'var(--accent)' : 'var(--border)',
-                                      background: selectedAmenities.includes(item) ? 'var(--accent-dim)' : 'var(--bg-input)',
-                                      color: selectedAmenities.includes(item) ? 'var(--accent)' : 'var(--text-muted)',
-                                  }}>
-                                  <input
-                                      type="checkbox"
-                                      checked={selectedAmenities.includes(item)}
-                                      onChange={() => toggleAmenity(item)}
-                                      style={{ display: 'none' }}
-                                  />
-                                  {item}
-                              </label>
-                          ))}
-                      </div>
-
-                      <div style={{ display: 'flex', gap: 8 }}>
-                          <input
-                              className="input"
-                              value={customInput}
-                              onChange={e => setCustomInput(e.target.value)}
-                              onKeyDown={e => {
-                                  if (e.key === 'Enter') {
-                                      e.preventDefault()
-                                      addCustomAmenity()
-                                  }
-                              }}
-                              placeholder="Add custom amenity (e.g. Balcony) and press Enter"
-                          />
-                          <button
-                              type="button"
-                              className="btn btn-outline btn-sm"
-                              onClick={addCustomAmenity}
-                          >
-                              Add
-                          </button>
-                      </div>
-
-                      {customAmenities.length > 0 && (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-                              {customAmenities.map(item => (
-                                  <span
-                                      key={item}
-                                      style={{
-                                          display: 'flex', alignItems: 'center', gap: 6,
-                                          padding: '4px 10px', borderRadius: 99,
-                                          background: 'var(--accent-dim)', color: 'var(--accent)',
-                                          fontSize: '0.78rem',
-                                      }}>
-                                      {item}
-                                      <span
-                                          onClick={() => removeCustomAmenity(item)}
-                                          style={{ cursor: 'pointer', fontWeight: 700 }}>
-                                          ×
-                                      </span>
-                                  </span>
-                              ))}
-                          </div>
-                      )}
-                  </div>
-
-                  <div className="form-group">
-                      <label className="form-label">Monthly Rent (RM)</label>
-                      <input className="input" type="number" min={0} step={50} value={form.price}
-                          onChange={e => upd('price', e.target.value)} placeholder="e.g. 2500" />
-                  </div>
-
-                  <div className="form-group" style={{ marginBottom: 16 }}>
-                      <div className="flex items-center justify-between" style={{ marginBottom: 6 }}>
-                          <label className="form-label" style={{ margin: 0 }}>Description (type notes, then click Generate to expand)</label>
-                          <button
-                              type="button"
-                              className="btn btn-outline btn-sm"
-                              onClick={handleGenerateDescription}
-                              disabled={generating}>
-                              {generating
-                                  ? <span className="spinner" />
-                                  : <><Sparkles size={13} /> Generate with AI</>}
-                          </button>
-                      </div>
-                      <textarea className="input" rows={4} value={form.description}
-                          onChange={e => upd('description', e.target.value)}
-                          placeholder="Type any details you want included (e.g. near LRT, renovated kitchen), then click 'Generate with AI' to expand into a full description or click 'Generate with AI' for suggestions" />
-                      {genError && <p style={{ color: 'var(--red)', fontSize: '0.8rem', marginTop: 6, marginBottom: 0 }}>{genError}</p>}
-                  </div>
-        </div>
-
-        <div className="flex gap-3 mt-5">
-          <button className="btn btn-outline" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            className="btn btn-primary"
-            onClick={() => onSave(form)}
-            disabled={!form.name || !form.address || !form.price || loading}
-          >
-            {loading ? (
-              <span className="spinner" />
-            ) : initial ? (
-              "Save Changes"
-            ) : (
-              "Create Listing"
+            {customAmenities.length > 0 && (
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 6,
+                  marginTop: 10,
+                }}
+              >
+                {customAmenities.map((item) => (
+                  <span
+                    key={item}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "4px 10px",
+                      borderRadius: 99,
+                      background: "var(--accent-dim)",
+                      color: "var(--accent)",
+                      fontSize: "0.78rem",
+                    }}
+                  >
+                    {item}
+                    <span
+                      onClick={() => removeCustomAmenity(item)}
+                      style={{ cursor: "pointer", fontWeight: 700 }}
+                    >
+                      ×
+                    </span>
+                  </span>
+                ))}
+              </div>
             )}
-          </button>
+          </div>
+          {/* Description + AI */}
+          <div className="form-group" style={{ marginBottom: 16 }}>
+            <div
+              className="flex items-center justify-between"
+              style={{ marginBottom: 6 }}
+            >
+              <label className="form-label" style={{ margin: 0 }}>
+                Description (type notes, then click Generate to expand)
+              </label>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={handleGenerateDescription}
+                disabled={generating}
+              >
+                {generating ? (
+                  <span className="spinner" />
+                ) : (
+                  <>
+                    <Sparkles size={13} /> Generate with AI
+                  </>
+                )}
+              </button>
+            </div>
+            <textarea
+              className="input"
+              rows={4}
+              value={form.description}
+              onChange={(e) => updateForm("description", e.target.value)}
+              placeholder="Type any details you want included (e.g. near LRT, renovated kitchen), then click 'Generate with AI' to expand into a full description or click 'Generate with AI' for suggestions"
+            />
+            {genError && (
+              <p
+                style={{
+                  color: "var(--red)",
+                  fontSize: "0.8rem",
+                  marginTop: 6,
+                  marginBottom: 0,
+                }}
+              >
+                {genError}
+              </p>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3 mt-5">
+            <button className="btn btn-outline" onClick={onClose}>
+              Cancel
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                const data: ListingFormData = {
+                  name: form.name,
+                  rooms: form.rooms,
+                  toilets: form.toilets,
+                  lat: location.lat?.toString() ?? "",
+                  lng: location.lng?.toString() ?? "",
+                  address: location.address,
+                  residencyType: form.residencyType,
+                  price: form.price,
+                  description: form.description,
+                  amenities: form.amenities,
+                };
+                onSave(data);
+              }}
+              disabled={
+                !form.name ||
+                !location.address ||
+                !form.price ||
+                loading ||
+                !coordsSet
+              }
+            >
+              {loading ? (
+                <span className="spinner" />
+              ) : initial ? (
+                "Save Changes"
+              ) : (
+                "Create Listing"
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
+// ──────────────────────────────────────────────────────────────
+// 3. Image Upload Modal
+// ──────────────────────────────────────────────────────────────
 function ImageUploadModal({
   listing,
   onClose,
@@ -409,7 +701,17 @@ function ImageUploadModal({
       await listingsApi.uploadImages(listing.id, files);
       setSuccess(true);
     } catch (e: any) {
-      setError(e.response?.data?.message ?? "Upload failed");
+      let errorMessage = "Upload failed";
+      if (e.response?.data) {
+        errorMessage =
+          e.response.data.message ||
+          e.response.data.title ||
+          e.response.data.error ||
+          "Upload failed";
+      } else if (e.message) {
+        errorMessage = e.message;
+      }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -462,7 +764,7 @@ function ImageUploadModal({
               <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
                 {files.length > 0
                   ? `${files.length} file(s) selected`
-                  : "Click to select images (JPG, PNG, WebP · max 5MB each)"}
+                  : "Click to select images (JPG, PNG, WebP · max 20MB each)"}
               </p>
               <input
                 id="img-upload"
@@ -531,12 +833,17 @@ function ImageUploadModal({
   );
 }
 
+// ──────────────────────────────────────────────────────────────
+// 4. Batch Upload Modal
+// ──────────────────────────────────────────────────────────────
 function BatchUploadModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [createdIds, setCreatedIds] = useState<string[]>([]);
+  const [imageTarget, setImageTarget] = useState<Listing | null>(null);
   const [toast, setToast] = useState<{
     msg: string;
     type: "success" | "error";
@@ -544,32 +851,32 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
 
   const showToast = (msg: string, type: "success" | "error" = "success") => {
     setToast({ msg, type });
-    setTimeout(() => setToast(null), 10000);
+    setTimeout(() => setToast(null), 3000);
   };
 
+  // ── Excel file handling ────────────────────────────────
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     try {
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data, { type: "array" });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const json = XLSX.utils.sheet_to_json(sheet) as any[];
 
-      const listings: BatchListingRow[] = json.map((row) => ({
-        PropertyName: row["PropertyName"] || row["Property Name"] || "",
-        Bedrooms: parseInt(row["Bedrooms"] || "0"),
-        Bathrooms: parseInt(row["Bathrooms"] || "0"),
-        Toilets: parseInt(row["Toilets"] || "0"),
-        Address: row["Address"] || "",
-        Price: parseFloat(row["Price"] || "0"),
-        Type: row["Type"] || "Condo",
-        Latitude: parseFloat(row["Latitude"] || row["Lat"] || "0"),
-        Longitude: parseFloat(row["Longitude"] || row["Lng"] || "0"),
-        Description: row["Description"] || "",
-        Amenities: row["Amenities"] || "",
-      }));
+      // const listings: BatchListingRow[] = json.map((row) => ({
+      //   PropertyName: row["PropertyName"] || row["Property Name"] || "",
+      //   Bedrooms: parseInt(row["Bedrooms"] || "0"),
+      //   Bathrooms: parseInt(row["Bathrooms"] || "0"),
+      //   Toilets: parseInt(row["Toilets"] || "0"),
+      //   Address: row["Address"] || "",
+      //   Price: parseFloat(row["Price"] || "0"),
+      //   Type: row["Type"] || "Condo",
+      //   Latitude: parseFloat(row["Latitude"] || row["Lat"] || "0"),
+      //   Longitude: parseFloat(row["Longitude"] || row["Lng"] || "0"),
+      //   Description: row["Description"] || "",
+      //   Amenities: row["Amenities"] || "",
+      // }));
 
       setFiles([file]);
     } catch (e: any) {
@@ -579,7 +886,6 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
 
   const handleUpload = async () => {
     if (!files.length) return;
-
     try {
       const data = await files[0].arrayBuffer();
       const workbook = XLSX.read(data, { type: "array" });
@@ -603,6 +909,7 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
       setLoading(true);
       const res = await listingsApi.batchCreate(listings);
       setResult(res.data);
+      setCreatedIds(res.data.createdIds || []);
       setSuccess(true);
       qc.invalidateQueries({ queryKey: ["my-listings"] });
     } catch (e: any) {
@@ -615,8 +922,6 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
   const downloadTemplate = async () => {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Listings");
-
-    // Define columns – include Description and Amenities
     worksheet.columns = [
       { header: "PropertyName", key: "PropertyName", width: 25 },
       { header: "Bedrooms", key: "Bedrooms", width: 10 },
@@ -629,9 +934,9 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
       { header: "Longitude", key: "Longitude", width: 15 },
       { header: "Description", key: "Description", width: 40 },
       { header: "Amenities", key: "Amenities", width: 30 },
+      { header: "ImageFilenames", key: "ImageFilenames", width: 30 },
+      { header: "ImageCaptions", key: "ImageCaptions", width: 30 },
     ];
-
-    // Example row with all fields
     worksheet.addRow({
       PropertyName: "Example Property",
       Bedrooms: 3,
@@ -643,10 +948,9 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
       Latitude: 3.1478,
       Longitude: 101.6953,
       Description: "A nice condominium with pool and gym",
-      Amenities: "Air conditioner, Bed, Fridge, Water Heater",
+      Amenities: "Air conditioner, Bed, Fridge",
     });
 
-    // Data validation for Type column (column G = 7)
     const allowedTypes = [
       "Landed",
       "Condo",
@@ -654,7 +958,7 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
       "Townhouse",
       "Studio",
       "MasterRoom",
-      "SharedRoom", // updated list
+      "SharedRoom",
     ];
     for (let row = 2; row <= 100; row++) {
       const cell = worksheet.getCell(`G${row}`);
@@ -679,6 +983,56 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
     URL.revokeObjectURL(link.href);
   };
 
+  // ── ZIP upload handling ────────────────────────────────
+  const handleZipUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append("file", file);
+    setLoading(true);
+    try {
+      const res = await listingsApi.batchZipUpload(formData);
+      setResult(res.data);
+      setCreatedIds(res.data.createdIds || []);
+      setSuccess(true);
+      qc.invalidateQueries({ queryKey: ["my-listings"] });
+    } catch (e: any) {
+      showToast(e.response?.data?.message ?? "ZIP upload failed", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const downloadZipTemplate = async () => {
+    try {
+      const res = await api.get("/listings/batch-template-zip", {
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "batch_template.zip";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch {
+      showToast("Failed to download ZIP template", "error");
+    }
+  };
+
+  // ── Query for created listings ──
+  const { data: newListings } = useQuery({
+    queryKey: ["batch-listings", createdIds],
+    queryFn: () =>
+      Promise.all(
+        createdIds.map((id) => listingsApi.getById(id).then((r) => r.data)),
+      ),
+    enabled: createdIds.length > 0,
+    staleTime: 60000,
+  });
+
+  // ── Render ──
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -690,7 +1044,7 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
             marginBottom: 20,
           }}
         >
-          Import multiple listings from an Excel file
+          Import multiple listings from an Excel file or a ZIP archive.
         </p>
 
         <div
@@ -704,11 +1058,14 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
             color: "var(--accent)",
           }}
         >
-          ⚠️ <strong>Images not supported in batch mode.</strong> Upload images
-          individually after importing listings.
+          ⚠️ <strong>Images not supported in plain Excel batch mode.</strong>{" "}
+          Upload images individually after import.
           <br />
-          ⚠️ <strong>Amenities</strong> should be entered as a comma‑separated
-          list (e.g., "Air conditioner, Bed, Fridge").
+          ⚠️ <strong>Amenities</strong> should be comma‑separated (e.g., "Air
+          conditioner, Bed, Fridge").
+          <br />
+          ⚠️ For images, use the <strong>ZIP upload</strong> (Excel + images
+          folder) below.
         </div>
 
         {success ? (
@@ -744,12 +1101,55 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
                 ))}
               </div>
             )}
-            <button className="btn btn-primary" onClick={onClose}>
-              Done
-            </button>
+
+            {newListings && newListings.length > 0 && (
+              <div style={{ marginTop: 16, textAlign: "left" }}>
+                <h4 style={{ marginBottom: 8 }}>
+                  Add images to your listings:
+                </h4>
+                <div
+                  style={{ display: "flex", flexDirection: "column", gap: 8 }}
+                >
+                  {newListings.map((l) => (
+                    <div
+                      key={l.id}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "8px 12px",
+                        background: "var(--bg-input)",
+                        borderRadius: 6,
+                      }}
+                    >
+                      <span style={{ fontWeight: 500 }}>{l.name}</span>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={() => setImageTarget(l)}
+                      >
+                        <ImagePlus size={14} /> Add Images
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  className="btn btn-outline"
+                  style={{ marginTop: 12 }}
+                  onClick={onClose}
+                >
+                  Done
+                </button>
+              </div>
+            )}
+            {(!newListings || newListings.length === 0) && (
+              <button className="btn btn-primary" onClick={onClose}>
+                Done
+              </button>
+            )}
           </div>
         ) : (
           <>
+            {/* Excel upload section */}
             <div
               style={{
                 border: "2px dashed var(--border-hi)",
@@ -779,9 +1179,9 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
                 onChange={handleFileSelect}
               />
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-3" style={{ marginBottom: 20 }}>
               <button className="btn btn-outline" onClick={downloadTemplate}>
-                Download Template
+                Download Excel Template
               </button>
               <button
                 className="btn btn-primary"
@@ -792,13 +1192,67 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
                 {loading ? <span className="spinner" /> : "Upload & Import"}
               </button>
             </div>
+
+            <div
+              style={{ borderTop: "1px solid var(--border)", paddingTop: 16 }}
+            >
+              <p
+                style={{
+                  fontSize: "0.85rem",
+                  color: "var(--text-muted)",
+                  marginBottom: 12,
+                }}
+              >
+                <strong>Or upload a ZIP with Excel + images:</strong>
+              </p>
+              <div className="flex gap-3">
+                <button
+                  className="btn btn-outline"
+                  onClick={downloadZipTemplate}
+                >
+                  Download ZIP Template
+                </button>
+                <button
+                  className="btn btn-outline"
+                  onClick={() => document.getElementById("zip-upload")?.click()}
+                >
+                  Upload ZIP
+                </button>
+                <input
+                  id="zip-upload"
+                  type="file"
+                  accept=".zip"
+                  style={{ display: "none" }}
+                  onChange={handleZipUpload}
+                />
+              </div>
+            </div>
           </>
+        )}
+
+        {imageTarget && (
+          <ImageUploadModal
+            listing={imageTarget}
+            onClose={() => {
+              setImageTarget(null);
+              qc.invalidateQueries({
+                queryKey: ["batch-listings", createdIds],
+              });
+            }}
+          />
+        )}
+
+        {toast && (
+          <div className={`toast toast-${toast.type}`}>{toast.msg}</div>
         )}
       </div>
     </div>
   );
 }
 
+// ──────────────────────────────────────────────────────────────
+// 5. Main Agent Listings Page
+// ──────────────────────────────────────────────────────────────
 export default function AgentListingsPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -826,24 +1280,25 @@ export default function AgentListingsPage() {
     queryFn: () => paymentsApi.getTokenBalance().then((r) => r.data),
   });
 
-    const createMut = useMutation({
-        mutationFn: (data: ListingFormData) => listingsApi.create({
-            name: data.name,
-            rooms: parseInt(data.rooms),
-            toilets: parseInt(data.toilets),
-            lat: parseFloat(data.lat),
-            lng: parseFloat(data.lng),
-            address: data.address,
-            residencyType: data.residencyType,
-            price: parseFloat(data.price),
-            description: data.description,
-            amenities: data.amenities || undefined,
-        }),
-        onSuccess: () => {
-            qc.invalidateQueries({ queryKey: ["my-listings"] });
-            setShowForm(false);
-            showToast("Listing created and is now active!");
-        },
+  const createMut = useMutation({
+    mutationFn: (data: ListingFormData) =>
+      listingsApi.create({
+        name: data.name,
+        rooms: parseInt(data.rooms),
+        toilets: parseInt(data.toilets),
+        lat: parseFloat(data.lat),
+        lng: parseFloat(data.lng),
+        address: data.address,
+        residencyType: data.residencyType,
+        price: parseFloat(data.price),
+        description: data.description,
+        amenities: data.amenities || undefined,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["my-listings"] });
+      setShowForm(false);
+      showToast("Listing created and is now active!");
+    },
     onError: (e: any) =>
       showToast(
         e.response?.data?.message ?? "Failed to create listing",
@@ -851,20 +1306,20 @@ export default function AgentListingsPage() {
       ),
   });
 
-    const updateMut = useMutation({
-        mutationFn: ({ id, data }: { id: string; data: ListingFormData }) =>
-            listingsApi.update(id, {
-                name: data.name,
-                rooms: parseInt(data.rooms),
-                toilets: parseInt(data.toilets),
-                lat: parseFloat(data.lat),
-                lng: parseFloat(data.lng),
-                address: data.address,
-                residencyType: data.residencyType,
-                price: parseFloat(data.price),
-                description: data.description || undefined,
-                amenities: data.amenities || undefined,
-            }),
+  const updateMut = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: ListingFormData }) =>
+      listingsApi.update(id, {
+        name: data.name,
+        rooms: parseInt(data.rooms),
+        toilets: parseInt(data.toilets),
+        lat: parseFloat(data.lat),
+        lng: parseFloat(data.lng),
+        address: data.address,
+        residencyType: data.residencyType,
+        price: parseFloat(data.price),
+        description: data.description || undefined,
+        amenities: data.amenities || undefined,
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["my-listings"] });
       setEditTarget(null);
@@ -1030,9 +1485,9 @@ export default function AgentListingsPage() {
               style={{ cursor: "pointer" }}
             >
               <div className="flex gap-4 items-start">
-                {l.imageUrls && l.imageUrls.length > 0 ? (
-                    <img
-                        src={l.imageUrls[0]}
+                {l.images && l.images.length > 0 ? (
+                  <img
+                    src={l.images[0].url}
                     alt={l.name}
                     style={{
                       width: 100,
@@ -1103,49 +1558,49 @@ export default function AgentListingsPage() {
                   }}
                   onClick={(e) => e.stopPropagation()}
                 >
-                          {l.status === "Active" && (
-                              <button
-                                  className="btn btn-primary btn-sm"
-                                  onClick={() =>
-                                      statusMut.mutate({ id: l.id, status: "Booked" })
-                                  }
-                              >
-                                  Mark as Booked
-                              </button>
-                          )}
-                          {l.status === "Booked" && (
-                              <button
-                                  className="btn btn-success btn-sm"
-                                  onClick={() =>
-                                      statusMut.mutate({ id: l.id, status: "Active" })
-                                  }
-                              >
-                                  Mark as Active
-                              </button>
-                          )}
-                          <button
-                              className="btn btn-ghost btn-sm"
-                              onClick={() => {
-                                  if (!canCreateListing) {
-                                      showToast(getApprovalMessage(), "error");
-                                      return;
-                                  }
-                                  setEditTarget(l);
-                                  setShowForm(true);
-                              }}
-                          >
-                              <Pencil size={13} />
-                          </button>
-                          <button
-                              className="btn btn-danger btn-sm"
-                              disabled={deleteMut.isPending}
-                              onClick={() => {
-                                  if (confirm(`Delete "${l.name}"?`))
-                                      deleteMut.mutate(l.id);
-                              }}
-                          >
-                              <Trash2 size={13} />
-                          </button>
+                  {l.status === "Active" && (
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={() =>
+                        statusMut.mutate({ id: l.id, status: "Booked" })
+                      }
+                    >
+                      Mark as Booked
+                    </button>
+                  )}
+                  {l.status === "Booked" && (
+                    <button
+                      className="btn btn-success btn-sm"
+                      onClick={() =>
+                        statusMut.mutate({ id: l.id, status: "Active" })
+                      }
+                    >
+                      Mark as Active
+                    </button>
+                  )}
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => {
+                      if (!canCreateListing) {
+                        showToast(getApprovalMessage(), "error");
+                        return;
+                      }
+                      setEditTarget(l);
+                      setShowForm(true);
+                    }}
+                  >
+                    <Pencil size={13} />
+                  </button>
+                  <button
+                    className="btn btn-danger btn-sm"
+                    disabled={deleteMut.isPending}
+                    onClick={() => {
+                      if (confirm(`Delete "${l.name}"?`))
+                        deleteMut.mutate(l.id);
+                    }}
+                  >
+                    <Trash2 size={13} />
+                  </button>
                 </div>
               </div>
             </div>

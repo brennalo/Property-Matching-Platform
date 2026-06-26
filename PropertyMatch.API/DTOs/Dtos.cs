@@ -56,7 +56,11 @@ public record BatchListingRequest(
     string Amenities);
 
 public record BatchListingResponse(
-    int SuccessCount, int FailureCount, List<string> Errors);
+    int SuccessCount,
+    int FailureCount,
+    List<string> Errors,
+    List<Guid> CreatedIds = null!
+);
 
 // Image DTO with caption
 public record ImageDto(
@@ -152,10 +156,7 @@ public record AvailabilityTemplateRequest(
     int DayOfWeek,
     string StartTime,
     string EndTime,
-    int? SlotDurationMinutes = null,
-    DateTime? ValidFrom = null,
-    DateTime? ValidTo = null,
-    Guid? ListingId = null
+    int? SlotDurationMinutes = null
 );
 
 public record AvailabilityTemplateResponse(
@@ -164,9 +165,6 @@ public record AvailabilityTemplateResponse(
     string StartTime,
     string EndTime,
     int SlotDurationMinutes,
-    DateTime? ValidFrom,
-    DateTime? ValidTo,
-    Guid? ListingId,
     bool IsActive,
     DateTime CreatedAt
 );
@@ -339,17 +337,20 @@ public record UpdateReviewRequest(
     string ReviewText
 );
 // ── Feedback ────────────────────────────
-public record CreateFeedbackRequest(string Description);
+public record CreateFeedbackRequest(string Subject, string Description);
 public record FeedbackResponse(
     Guid Id,
     Guid TenantId,
     string TenantName,
     string TenantEmail,
+    string Subject,
     string Description,
+    string? AdminComment,
     string Status,
     DateTime CreatedAt
 );
 public record UpdateFeedbackStatusRequest(string Status);
+public record UpdateFeedbackCommentRequest(string AdminComment);
 
 // ── Reports ────────────────────────────
 public record CreateReportRequest(
@@ -368,7 +369,8 @@ public record ReportResponse(
     string ItemName,
     string Description,
     string Status,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    List<string> EvidenceImageUrls
 );
 
 public record UpdateReportStatusRequest(string Status);

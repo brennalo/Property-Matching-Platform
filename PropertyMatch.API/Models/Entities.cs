@@ -109,7 +109,6 @@ public class Listing
     public Agent Agent { get; set; } = null!;
     public ICollection<ListingImage> Images { get; set; } = [];
     public ICollection<ViewingSchedule> ViewingSchedules { get; set; } = [];
-    public ICollection<AvailabilityTemplate> AvailabilityTemplates { get; set; } = new List<AvailabilityTemplate>();
     public ICollection<AvailabilityException> AvailabilityExceptions { get; set; } = new List<AvailabilityException>();
     public ICollection<FavouriteListing> FavouritedBy { get; set; } = [];
     public ICollection<Conversation> Conversations { get; set; } = [];
@@ -135,22 +134,18 @@ public class AvailabilityTemplate
 {
     public Guid Id { get; set; }
     public Guid AgentId { get; set; }
-    public Guid? ListingId { get; set; } // null = agent-level default
+
 
     public int DayOfWeek { get; set; } // 0=Sunday, 1=Monday, ..., 6=Saturday
     public string StartTime { get; set; } = "09:00"; // HH:mm
     public string EndTime { get; set; } = "17:00";
     public int SlotDurationMinutes { get; set; } = 60;
 
-    public DateTime? ValidFrom { get; set; } // null = indefinite
-    public DateTime? ValidTo { get; set; }   // null = indefinite
-
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime? UpdatedAt { get; set; }
 
     public Agent? Agent { get; set; }
-    public Listing? Listing { get; set; }
+
 }
 
 // ── Agent Availability Exception────────────────────────────────────────────────────────
@@ -328,10 +323,11 @@ public class Feedback
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TenantId { get; set; }
+    public string Subject { get; set; } = "";
     public string Description { get; set; } = "";
+    public string? AdminComment { get; set; }
     public string Status { get; set; } = "Open";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
     public User Tenant { get; set; } = null!;
 } // push?
 
@@ -347,6 +343,17 @@ public class Report
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public User Tenant { get; set; } = null!;
+
+    public ICollection<ReportEvidenceImage> EvidenceImages { get; set; } = [];
+}
+public class ReportEvidenceImage
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid ReportId { get; set; }
+    public string S3Url { get; set; } = "";
+    public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
+
+    public Report Report { get; set; } = null!;
 }
 
 public class ScoringConfig

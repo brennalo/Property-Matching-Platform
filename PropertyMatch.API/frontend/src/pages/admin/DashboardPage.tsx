@@ -1,4 +1,5 @@
 // frontend/src/pages/admin/DashboardPage.tsx
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { adminApi } from "../../api";
 import {
@@ -26,6 +27,37 @@ import {
   TrendingUp,
   Coins,
 } from "lucide-react";
+
+/**
+ * Checks whether Google Maps has finished loading.
+ * Custom hook used to detect when the Google Maps API is available.
+ * It continuously checks the loading status and updates the component
+ */
+declare global {
+    interface Window {
+        google: any;
+        __gmapsReady: boolean;
+    }
+}
+
+function useGoogleMaps() {
+    const [ready, setReady] = useState(!!window.__gmapsReady);
+
+    useEffect(() => {
+        if (window.__gmapsReady) return;
+
+        const iv = setInterval(() => {
+            if (window.__gmapsReady) {
+                clearInterval(iv);
+                setReady(true);
+            }
+        }, 150);
+
+        return () => clearInterval(iv);
+    }, []);
+
+    return ready;
+}
 
 // Types for analytics data
 interface TopListing {
@@ -63,6 +95,13 @@ interface ConversionRate {
   totalListings: number;
   paidListings: number;
   conversionRate: number;
+}
+
+interface SearchDemandLocation {
+    workplaceAddress: string;
+    lat: number;
+    lng: number;
+    searchCount: number;
 }
 
 // Stat card component
@@ -199,6 +238,119 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
+/* Search Demand-location map*/
+function SearchDemandMap({
+    locations,
+    mapsReady,
+}: {
+    locations: SearchDemandLocation[];
+    mapsReady: boolean;
+}) {
+    const mapDivRef = useRef<HTMLDivElement>(null);
+    const mapRef = useRef<any>(null);
+    const overlaysRef = useRef<any[]>([]);
+
+    useEffect(() => {
+        if (!mapsReady || !mapDivRef.current || mapRef.current) return;
+
+        mapRef.current = new window.google.maps.Map(mapDivRef.current, {
+            center: { lat: 3.139, lng: 101.6869 },
+            zoom: 11,
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: true,
+        });
+    }, [mapsReady]);
+
+    useEffect(() => {
+        if (!mapsReady || !mapRef.current) return;
+
+        overlaysRef.current.forEach((o) => o.setMap(null));
+        overlaysRef.current = [];
+
+        const bounds = new window.google.maps.LatLngBounds();
+
+        locations.forEach((x) => {
+            const pos = { lat: x.lat, lng: x.lng };
+            bounds.extend(pos);
+
+            const radius = Math.min(1500, 250 + x.searchCount * 120);
+
+            const circle = new window.google.maps.Circle({
+                map: mapRef.current,
+                center: pos,
+                radius,
+                strokeColor: "#e8a045",
+                strokeOpacity: 0.7,
+                strokeWeight: 2,
+                fillColor: "#e8a045",
+                fillOpacity: 0.18,
+            });
+
+            const marker = new window.google.maps.Marker({
+                position: pos,
+                map: mapRef.current,
+                label: {
+                    text: String(x.searchCount),
+                    color: "#fff",
+                    fontWeight: "700",
+                },
+                title: x.workplaceAddress,
+            });
+
+            const info = new window.google.maps.InfoWindow({
+                content: `
+                    <div style="
+                      font-family:sans-serif;
+                      font-size:13px;
+                      color:#111827;
+                      min-width:180px;
+                      line-height:1.5;
+                    ">
+                    <div style="
+                      font-weight:700;
+                      color:#111827;
+                      margin-bottom:4px;
+                    ">
+                      ${x.workplaceAddress}
+                    </div>
+
+                    <div style="
+                      color:#e8a045;
+                      font-weight:600;
+                    ">
+                      🔍 ${x.searchCount} tenant search(es)
+                    </div>
+                  </div>
+                `,
+            });
+
+            marker.addListener("click", () => info.open(mapRef.current, marker));
+            circle.addListener("click", () => info.open(mapRef.current, marker));
+
+            overlaysRef.current.push(circle, marker);
+        });
+
+        if (locations.length > 0) {
+            mapRef.current.fitBounds(bounds);
+        }
+    }, [mapsReady, locations]);
+
+    return mapsReady ? (
+        <div
+            ref={mapDivRef}
+            style={{
+                width: "100%",
+                height: 360,
+                borderRadius: 12,
+                border: "1px solid var(--border)",
+            }}
+        />
+    ) : (
+        <div style={{ height: 360 }}>Loading map…</div>
+    );
+}
+
 export default function AdminDashboardPage() {
   // Basic analytics (existing)
   const { data: stats, isLoading: statsLoading } = useQuery({
@@ -248,10 +400,12 @@ export default function AdminDashboardPage() {
     queryFn: () => adminApi.getTokenBuying().then(r => r.data),
   });
 
-  const { data: demandLocations = [] } = useQuery({
-    queryKey: ["demandLocations"],
-    queryFn: () => adminApi.getDemandLocations().then(r => r.data),
+  const { data: searchDemandLocations = [] } = useQuery<SearchDemandLocation[]>({
+    queryKey: ["searchDemandLocations"],
+    queryFn: () => adminApi.getSearchDemandLocations().then(r => r.data),
   });
+
+  const mapsReady = useGoogleMaps();
 
   if (statsLoading)
     return (
@@ -285,6 +439,19 @@ export default function AdminDashboardPage() {
     <div>
       <h1 className="page-title">Analytics Dashboard</h1>
       <p className="page-sub">Platform overview with advanced metrics</p>
+
+      {/* High demand location showing map */}
+      <div className="card mb-6">
+        <h3>Tenant Search Demand Location Map</h3>
+        <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: 12 }}>
+        Larger circles show workplace areas searched more often by tenants.
+        </p>
+
+        <SearchDemandMap
+        locations={searchDemandLocations}
+        mapsReady={mapsReady}
+        />
+      </div>
 
       {/* Existing KPI cards */}
       <div className="grid-3 mb-6">
@@ -534,40 +701,6 @@ export default function AdminDashboardPage() {
           </div>
         ) : (
           <p>No agent data yet</p>
-        )}
-      </div>
-
-      {/* High Demand Locations Table */}
-      <div className="card">
-        <h3>High Demand Locations</h3>
-
-        {demandLocations.length === 0 ? (
-            <p>No booking demand data yet</p>
-        ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ borderBottom: "2px solid var(--border)" }}>
-                <th style={{ textAlign: "left", padding: 8 }}>Property</th>
-                <th style={{ textAlign: "left", padding: 8 }}>Address</th>
-                <th style={{ textAlign: "right", padding: 8 }}>Schedules</th>
-                <th style={{ textAlign: "right", padding: 8 }}>Confirmed</th>
-                <th style={{ textAlign: "right", padding: 8 }}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {demandLocations.map((x: any) => (
-                  <tr key={x.listingId} style={{ borderBottom: "1px solid var(--border)" }}>
-                  <td style={{ padding: 8 }}>{x.listingName}</td>
-                  <td style={{ padding: 8 }}>{x.address}</td>
-                  <td style={{ padding: 8, textAlign: "right" }}>{x.scheduleCount}</td>
-                  <td style={{ padding: 8, textAlign: "right" }}>{x.confirmedCount}</td>
-                  <td style={{ padding: 8, textAlign: "right" }}>
-                      {x.isBooked ? "Booked" : "Available"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         )}
       </div>
     </div>

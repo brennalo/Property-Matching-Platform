@@ -27,6 +27,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<Feedback> Feedbacks => Set<Feedback>();
     public DbSet<Report> Reports => Set<Report>();
+    public DbSet<ReportEvidenceImage> ReportEvidenceImages => Set<ReportEvidenceImage>();
     public DbSet<ScoringConfig> ScoringConfig => Set<ScoringConfig>();
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -78,12 +79,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         .HasOne(t => t.Agent)
         .WithMany(a => a.AvailabilityTemplates)
         .HasForeignKey(t => t.AgentId)
-        .OnDelete(DeleteBehavior.Cascade);
-
-    mb.Entity<AvailabilityTemplate>()
-        .HasOne(t => t.Listing)
-        .WithMany(l => l.AvailabilityTemplates)
-        .HasForeignKey(t => t.ListingId)
         .OnDelete(DeleteBehavior.Cascade);
 
     mb.Entity<AvailabilityTemplate>()
@@ -143,8 +138,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         mb.Entity<Listing>().HasIndex(l => l.Status);
         mb.Entity<Listing>().HasIndex(l => l.AgentId);
         mb.Entity<AvailabilityTemplate>()
-    .HasIndex(t => new { t.AgentId, t.ListingId })
-    .HasDatabaseName("IX_AvailabilityTemplates_AgentId_ListingId");
+            .HasIndex(t => new { t.AgentId})
+            .HasDatabaseName("IX_AvailabilityTemplates_AgentId");
 
         mb.Entity<AvailabilityTemplate>()
             .HasIndex(t => t.DayOfWeek)
@@ -256,5 +251,10 @@ mb.Entity<Models.Review>()
         mb.Entity<Report>()
             .HasIndex(r => new { r.Item, r.ItemId });
 
+        mb.Entity<ReportEvidenceImage>()
+            .HasOne(i => i.Report)
+            .WithMany(r => r.EvidenceImages)
+            .HasForeignKey(i => i.ReportId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

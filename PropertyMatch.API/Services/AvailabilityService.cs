@@ -7,158 +7,81 @@ namespace PropertyMatch.API.Services;
 
 public class AvailabilityService(AppDbContext db)
 {
+    // ── Tenant: get available slots ──────────────────────────────────────
     public async Task<List<AvailableSlotDto>> GetAvailableSlotsAsync(
-    Guid listingId,
-    DateTime fromDate,
-    DateTime toDate)
-{
-    var listing = await db.Listings
-        .Include(l => l.Agent)
-        .FirstOrDefaultAsync(l => l.Id == listingId);
-
-    if (listing == null || listing.Agent == null)
-        return new List<AvailableSlotDto>();
-
-    var agentId = listing.Agent.UserId;
-
-    // Use date-only for query ranges
-    var from = fromDate.Date;
-    var to = toDate.Date;
-
-    var templates = await db.AvailabilityTemplates
-        .Where(t => t.AgentId == agentId
-                    && t.IsActive
-                    && (t.ListingId == null || t.ListingId == listingId)
-                    && (t.ValidFrom == null || t.ValidFrom.Value.Date <= to)
-                    && (t.ValidTo == null || t.ValidTo.Value.Date >= from))
-        .ToListAsync();
-
-    var exceptions = await db.AvailabilityExceptions
-        .Where(e => e.AgentId == agentId
-                    && (e.ListingId == null || e.ListingId == listingId)
-                    && e.ExceptionTo.Date >= from
-                    && e.ExceptionFrom.Date <= to)
-        .ToListAsync();
-
-    Console.WriteLine($"Loaded {exceptions.Count} exceptions for agent {agentId}");
-
-    var slots = new List<AvailableSlotDto>();
-
-    for (var date = from; date <= to; date = date.AddDays(1))
+        Guid listingId,
+        DateTime fromDate,
+        DateTime toDate)
     {
-        var dateToCheck = date.Date;
+        var listing = await db.Listings
+            .Include(l => l.Agent)
+            .FirstOrDefaultAsync(l => l.Id == listingId);
 
-        var exception = exceptions
-            .FirstOrDefault(e => e.ListingId == listingId && e.ExceptionFrom.Date <= dateToCheck && e.ExceptionTo.Date >= dateToCheck)
-            ?? exceptions
-            .FirstOrDefault(e => e.ListingId == null && e.ExceptionFrom.Date <= dateToCheck && e.ExceptionTo.Date >= dateToCheck);
-
-        if (exception != null)
-        {
-            if (exception.Type == ExceptionType.Blocked)
-                continue;
-
-            if (!string.IsNullOrEmpty(exception.StartTime) && !string.IsNullOrEmpty(exception.EndTime))
-            {
-                var duration = exception.SlotDurationMinutes > 0 ? exception.SlotDurationMinutes : 60;
-                var slotsForDay = GenerateSlotsFromTimeRange(dateToCheck, exception.StartTime, exception.EndTime, duration);
-                slots.AddRange(slotsForDay);
-                continue;
-            }
-        }
-
-        var template = templates
-            .FirstOrDefault(t => t.ListingId == listingId
-                                 && t.DayOfWeek == (int)dateToCheck.DayOfWeek
-                                 && (t.ValidFrom == null || t.ValidFrom.Value.Date <= dateToCheck)
-                                 && (t.ValidTo == null || t.ValidTo.Value.Date >= dateToCheck))
-            ?? templates
-            .FirstOrDefault(t => t.ListingId == null
-                                 && t.DayOfWeek == (int)dateToCheck.DayOfWeek
-                                 && (t.ValidFrom == null || t.ValidFrom.Value.Date <= dateToCheck)
-                                 && (t.ValidTo == null || t.ValidTo.Value.Date >= dateToCheck));
-
-        if (template != null)
-        {
-            var slotsForDay = GenerateSlotsFromTemplate(dateToCheck, template);
-            slots.AddRange(slotsForDay);
-        }
-    }
-
-    return slots;
-}
-
-    private List<AvailableSlotDto> GenerateSlotsFromTimeRange(DateTime date, string startTime, string endTime, int durationMinutes)
-    {
-        var slots = new List<AvailableSlotDto>();
-        var start = TimeSpan.Parse(startTime);
-        var end = TimeSpan.Parse(endTime);
-        var duration = TimeSpan.FromMinutes(durationMinutes);
-
-        for (var time = start; time < end; time = time.Add(duration))
-        {
-            slots.Add(new AvailableSlotDto(
-                date,
-                time.ToString(@"hh\:mm"),
-                time.Add(duration).ToString(@"hh\:mm"),
-                false
-            ));
-        }
-        return slots;
-    }
-
-    private List<AvailableSlotDto> GenerateSlotsFromTemplate(DateTime date, AvailabilityTemplate template)
-    {
-        var slots = new List<AvailableSlotDto>();
-        var start = TimeSpan.Parse(template.StartTime);
-        var end = TimeSpan.Parse(template.EndTime);
-        var duration = TimeSpan.FromMinutes(template.SlotDurationMinutes);
-
-        for (var time = start; time < end; time = time.Add(duration))
-        {
-            slots.Add(new AvailableSlotDto(
-                date,
-                time.ToString(@"hh\:mm"),
-                time.Add(duration).ToString(@"hh\:mm"),
-                false
-            ));
-        }
-        return slots;
-    }
-
-    private List<AvailableSlotDto> HandleException(DateTime date, AvailabilityException exception)
-    {
-        if (exception.Type == ExceptionType.Blocked)
+        if (listing == null || listing.Agent == null)
             return new List<AvailableSlotDto>();
 
-        if (!string.IsNullOrEmpty(exception.StartTime) && !string.IsNullOrEmpty(exception.EndTime))
-        {
-            var slots = new List<AvailableSlotDto>();
-            var start = TimeSpan.Parse(exception.StartTime);
-            var end = TimeSpan.Parse(exception.EndTime);
-            var duration = TimeSpan.FromMinutes(exception.SlotDurationMinutes); // uses stored duration
+        var agentId = listing.Agent.UserId;
+        var from = fromDate.Date;
+        var to = toDate.Date;
 
-            for (var time = start; time < end; time = time.Add(duration))
+        // Get agent‑wide templates (no ListingId)
+        var templates = await db.AvailabilityTemplates
+            .Where(t => t.AgentId == agentId && t.IsActive)
+            .ToListAsync();
+
+        var exceptions = await db.AvailabilityExceptions
+            .Where(e => e.AgentId == agentId
+                        && (e.ListingId == null || e.ListingId == listingId)
+                        && e.ExceptionTo.Date >= from
+                        && e.ExceptionFrom.Date <= to)
+            .ToListAsync();
+
+        var slots = new List<AvailableSlotDto>();
+
+        for (var date = from; date <= to; date = date.AddDays(1))
+        {
+            var dateToCheck = date.Date;
+
+            // Check for exception (per‑listing or global)
+            var exception = exceptions
+                .FirstOrDefault(e => e.ListingId == listingId && e.ExceptionFrom.Date <= dateToCheck && e.ExceptionTo.Date >= dateToCheck)
+                ?? exceptions
+                .FirstOrDefault(e => e.ListingId == null && e.ExceptionFrom.Date <= dateToCheck && e.ExceptionTo.Date >= dateToCheck);
+
+            if (exception != null)
             {
-                slots.Add(new AvailableSlotDto(
-                    date,
-                    time.ToString(@"hh\:mm"),
-                    time.Add(duration).ToString(@"hh\:mm"),
-                    false
-                ));
+                if (exception.Type == ExceptionType.Blocked)
+                    continue;
+
+                if (!string.IsNullOrEmpty(exception.StartTime) && !string.IsNullOrEmpty(exception.EndTime))
+                {
+                    var duration = exception.SlotDurationMinutes > 0 ? exception.SlotDurationMinutes : 60;
+                    var slotsForDay = GenerateSlotsFromTimeRange(dateToCheck, exception.StartTime, exception.EndTime, duration);
+                    slots.AddRange(slotsForDay);
+                    continue;
+                }
             }
-            return slots;
+
+            // ── Use agent‑level template (no ListingId) ──
+            var template = templates
+                .FirstOrDefault(t => t.DayOfWeek == (int)dateToCheck.DayOfWeek);
+
+            if (template != null)
+            {
+                var slotsForDay = GenerateSlotsFromTemplate(dateToCheck, template);
+                slots.AddRange(slotsForDay);
+            }
         }
 
-        return new List<AvailableSlotDto>();
+        return slots;
     }
 
+    // ── Agent: get summary ──────────────────────────────────────────────
     public async Task<AgentAvailabilitySummaryResponse> GetAgentSummaryAsync(Guid agentId)
     {
         var templates = await db.AvailabilityTemplates
             .Where(t => t.AgentId == agentId && t.IsActive)
             .OrderBy(t => t.DayOfWeek)
-            .ThenBy(t => t.ListingId == null ? 0 : 1)
             .ThenBy(t => t.StartTime)
             .Select(t => new AvailabilityTemplateResponse(
                 t.Id,
@@ -166,9 +89,6 @@ public class AvailabilityService(AppDbContext db)
                 t.StartTime,
                 t.EndTime,
                 t.SlotDurationMinutes,
-                t.ValidFrom,
-                t.ValidTo,
-                t.ListingId,
                 t.IsActive,
                 t.CreatedAt
             ))
@@ -194,17 +114,18 @@ public class AvailabilityService(AppDbContext db)
         return new AgentAvailabilitySummaryResponse(templates, exceptions);
     }
 
+    // ── Agent: add templates ─────────────────────────────────────────────
     public async Task AddTemplatesAsync(Guid agentId, List<AvailabilityTemplateRequest> requests)
     {
-        // Delete all existing agent‑level templates (ListingId == null)
+        // Templates are now agent‑wide – no per‑listing variants.
+        // Remove existing templates for this agent (optional, but matches previous logic).
         var existingTemplates = db.AvailabilityTemplates
-            .Where(t => t.AgentId == agentId && t.ListingId == null);
+            .Where(t => t.AgentId == agentId);
         db.AvailabilityTemplates.RemoveRange(existingTemplates);
         await db.SaveChangesAsync();
 
         foreach (var req in requests)
         {
-            // Skip invalid entries
             if (string.IsNullOrEmpty(req.StartTime) || string.IsNullOrEmpty(req.EndTime))
                 continue;
             if (req.StartTime.CompareTo(req.EndTime) >= 0)
@@ -213,13 +134,10 @@ public class AvailabilityService(AppDbContext db)
             var template = new AvailabilityTemplate
             {
                 AgentId = agentId,
-                ListingId = req.ListingId,
                 DayOfWeek = req.DayOfWeek,
                 StartTime = req.StartTime,
                 EndTime = req.EndTime,
                 SlotDurationMinutes = req.SlotDurationMinutes ?? 60,
-                ValidFrom = req.ValidFrom.HasValue ? DateTime.SpecifyKind(req.ValidFrom.Value, DateTimeKind.Utc) : null,
-                ValidTo = req.ValidTo.HasValue ? DateTime.SpecifyKind(req.ValidTo.Value, DateTimeKind.Utc) : null,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow
             };
@@ -228,6 +146,7 @@ public class AvailabilityService(AppDbContext db)
         await db.SaveChangesAsync();
     }
 
+    // ── Agent: add exceptions ─────────────────────────────────────────────
     public async Task AddExceptionsAsync(Guid agentId, List<AvailabilityExceptionRequest> requests)
     {
         foreach (var req in requests)
@@ -250,6 +169,7 @@ public class AvailabilityService(AppDbContext db)
         await db.SaveChangesAsync();
     }
 
+    // ── Agent: delete template ────────────────────────────────────────────
     public async Task DeleteTemplateAsync(Guid templateId, Guid agentId)
     {
         var template = await db.AvailabilityTemplates
@@ -261,6 +181,7 @@ public class AvailabilityService(AppDbContext db)
         }
     }
 
+    // ── Agent: delete exception ────────────────────────────────────────────
     public async Task DeleteExceptionAsync(Guid exceptionId, Guid agentId)
     {
         var exception = await db.AvailabilityExceptions
@@ -270,5 +191,30 @@ public class AvailabilityService(AppDbContext db)
             db.AvailabilityExceptions.Remove(exception);
             await db.SaveChangesAsync();
         }
+    }
+
+    // ── Private helpers ──────────────────────────────────────────────────
+    private List<AvailableSlotDto> GenerateSlotsFromTimeRange(DateTime date, string startTime, string endTime, int durationMinutes)
+    {
+        var slots = new List<AvailableSlotDto>();
+        var start = TimeSpan.Parse(startTime);
+        var end = TimeSpan.Parse(endTime);
+        var duration = TimeSpan.FromMinutes(durationMinutes);
+
+        for (var time = start; time < end; time = time.Add(duration))
+        {
+            slots.Add(new AvailableSlotDto(
+                date,
+                time.ToString(@"hh\:mm"),
+                time.Add(duration).ToString(@"hh\:mm"),
+                false
+            ));
+        }
+        return slots;
+    }
+
+    private List<AvailableSlotDto> GenerateSlotsFromTemplate(DateTime date, AvailabilityTemplate template)
+    {
+        return GenerateSlotsFromTimeRange(date, template.StartTime, template.EndTime, template.SlotDurationMinutes);
     }
 }

@@ -16,6 +16,7 @@ public class S3Service
     private readonly bool _useS3;
     private readonly string _uploadPath;
     private readonly string? _bucket;
+    private const int MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20MB
 
     public S3Service(AppDbContext db, IConfiguration config, IWebHostEnvironment env, IAmazonS3? s3Client = null)
     {
@@ -48,7 +49,10 @@ public class S3Service
     {
         var allowed = new[] { "image/jpeg", "image/png", "image/webp" };
         var urls = new List<string>();
-        var order = _db.ListingImages.Count(i => i.ListingId == listingId);
+        var maxOrder = _db.ListingImages
+            .Where(i => i.ListingId == listingId)
+            .Max(i => (int?)i.DisplayOrder) ?? -1;
+        var order = maxOrder + 1;
 
         // Enforce 15-image cap
         var totalAfterUpload = order + files.Count();
@@ -60,8 +64,8 @@ public class S3Service
             if (!allowed.Contains(file.ContentType))
                 throw new InvalidOperationException($"File type {file.ContentType} not allowed");
 
-            if (file.Length > 5 * 1024 * 1024)
-                throw new InvalidOperationException("File exceeds 5MB limit");
+            if (file.Length > MAX_FILE_SIZE_BYTES)
+                throw new InvalidOperationException($"File {file.FileName} exceeds 20MB limit");
 
             var ext = Path.GetExtension(file.FileName);
             var fileName = $"{Guid.NewGuid()}{ext}";
@@ -79,11 +83,11 @@ public class S3Service
                     Key = key,
                     InputStream = stream,
                     ContentType = file.ContentType,
-                    CannedACL = S3CannedACL.PublicRead
+
                 };
 
                 await _s3Client.PutObjectAsync(uploadRequest);
-                url = $"https://{_bucket}.s3.amazonaws.com/{key}";
+                url = $"https://{_bucket}.s3.ap-southeast-5.amazonaws.com/{key}";
             }
             else
             {
@@ -184,5 +188,109 @@ public class S3Service
 
         _db.ListingImages.Remove(image);
         await _db.SaveChangesAsync();
+    }
+
+    public async Task<string> UploadImageFromStreamAsync(
+    Guid listingId,
+    string filename,
+    Stream stream,
+    string contentType)
+{
+    var ext = Path.GetExtension(filename);
+    var safeName = $"{Guid.NewGuid()}{ext}";
+    string url;
+
+    if (_useS3 && _s3Client != null)
+    {
+        var key = $"listings/{listingId}/{safeName}";
+        var uploadRequest = new PutObjectRequest
+        {
+            BucketName = _bucket,
+            Key = key,
+            InputStream = stream,
+            ContentType = contentType,
+
+        };
+        await _s3Client.PutObjectAsync(uploadRequest);
+        url = $"https://{_bucket}.s3.ap-southeast-5.amazonaws.com/{key}";
+    }
+    else
+    {
+        // Local fallback
+        var uploadsFolder = Path.Combine(_env.WebRootPath, "uploads", listingId.ToString());
+        Directory.CreateDirectory(uploadsFolder);
+        var filePath = Path.Combine(uploadsFolder, safeName);
+        using var fileStream = new FileStream(filePath, FileMode.Create);
+        await stream.CopyToAsync(fileStream);
+        url = $"/uploads/{listingId}/{safeName}";
+    }
+
+    return url;
+}
+
+    public async Task<List<string>> UploadReportEvidenceAsync(Guid reportId, IEnumerable<IFormFile> files)
+    {
+        var fileList = files.ToList();
+
+        if (fileList.Count < 1)
+            throw new InvalidOperationException("At least 1 evidence image is required.");
+
+        if (fileList.Count > 3)
+            throw new InvalidOperationException("You can upload up to 3 evidence images only.");
+
+        var allowed = new[] { "image/jpeg", "image/png", "image/webp" };
+        var urls = new List<string>();
+
+        foreach (var file in fileList)
+        {
+            if (!allowed.Contains(file.ContentType))
+                throw new InvalidOperationException("Only JPG, PNG, and WebP images are allowed.");
+
+            if (file.Length > 5 * 1024 * 1024)
+                throw new InvalidOperationException("Each image must not exceed 5MB.");
+
+            var ext = Path.GetExtension(file.FileName);
+            var fileName = $"{Guid.NewGuid()}{ext}";
+            string url;
+
+            if (_useS3 && _s3Client != null)
+            {
+                var key = $"reports/{reportId}/{fileName}";
+
+                using var stream = file.OpenReadStream();
+                await _s3Client.PutObjectAsync(new PutObjectRequest
+                {
+                    BucketName = _bucket,
+                    Key = key,
+                    InputStream = stream,
+                    ContentType = file.ContentType,
+                });
+
+                var region = _config["AWS:Region"] ?? "ap-southeast-5";
+                url = $"https://{_bucket}.s3.{region}.amazonaws.com/{key}";
+            }
+            else
+            {
+                var folder = Path.Combine(_uploadPath, "reports", reportId.ToString());
+                Directory.CreateDirectory(folder);
+
+                var filePath = Path.Combine(folder, fileName);
+                using var stream = new FileStream(filePath, FileMode.Create);
+                await file.CopyToAsync(stream);
+
+                url = $"/uploads/reports/{reportId}/{fileName}";
+            }
+
+            urls.Add(url);
+
+            _db.ReportEvidenceImages.Add(new ReportEvidenceImage
+            {
+                ReportId = reportId,
+                S3Url = url
+            });
+        }
+
+        await _db.SaveChangesAsync();
+        return urls;
     }
 }

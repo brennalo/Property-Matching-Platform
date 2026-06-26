@@ -174,11 +174,8 @@ export interface AvailabilityTemplate {
   startTime: string; // "09:00"
   endTime: string; // "17:00"
   slotDurationMinutes: number;
-  validFrom?: string | null;
-  validTo?: string | null;
   isActive: boolean;
   createdAt: string;
-  listingId?: string | null;
 }
 
 export interface AvailabilityException {
@@ -199,8 +196,6 @@ export interface AvailabilityTemplateRequest {
   startTime: string;
   endTime: string;
   slotDurationMinutes?: number;
-  validFrom?: string | null;
-  validTo?: string | null;
 }
 
 export interface AvailabilityExceptionRequest {
@@ -380,7 +375,9 @@ export interface Feedback {
   tenantId: string;
   tenantName: string;
   tenantEmail: string;
+  subject: string;
   description: string;
+  adminComment?: string | null;
   status: string;
   createdAt: string;
 }
@@ -420,4 +417,5 @@ export interface Report {
     description: string;
     status: string;
     createdAt: string;
+    evidenceImageUrls: string[];
 }

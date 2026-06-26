@@ -76,15 +76,16 @@ export const listingsApi = {
         amenities?: string;
     }) => api.post<{ id: string; message: string }>("/listings", data),
 
-    generateDescription: (data: {
-        name: string;
-        rooms: number;
-        toilets: number;
-        address: string;
-        residencyType: string;
-        price: number;
-        extraDetails?: string
-    }) => api.post<{ description: string }>('/listings/generate-description', data),
+  generateDescription: (data: {
+    name: string;
+    rooms: number;
+    toilets: number;
+    address: string;
+    residencyType: string;
+    price: number;
+    extraDetails?: string;
+  }) =>
+    api.post<{ description: string }>("/listings/generate-description", data),
 
   update: (
     id: string,
@@ -113,6 +114,12 @@ export const listingsApi = {
   // Batch upload (XLSX)
   batchCreate: (listings: BatchListingRow[]) =>
     api.post("/listings/batch", listings),
+
+  // Batch Zip Upload
+  batchZipUpload: (formData: FormData) =>
+    api.post("/listings/batch-zip", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
 
   // Reorder images
   reorderImages: (
@@ -194,9 +201,6 @@ export const availabilityApi = {
       startTime: string;
       endTime: string;
       slotDurationMinutes?: number;
-      validFrom?: string | null;
-      validTo?: string | null;
-      listingId?: string | null;
     }>,
   ) => api.post("/availability/templates", templates),
 
@@ -273,7 +277,7 @@ export const adminApi = {
 
   getTokenBuying: () => api.get("/admin/analytics/token-buying"),
 
-  getDemandLocations: () => api.get("/admin/analytics/demand-locations"),
+    getSearchDemandLocations: () => api.get("/admin/analytics/search-demand-locations"),
 };
 
 export default api;
@@ -403,24 +407,50 @@ export const scoringConfigApi = {
 
 //── Feedback ───────────────────────────────────────────────────────
 export const feedbackApi = {
-  submit: (description: string) => api.post("/feedback", { description }),
+    submit: (subject: string, description: string) => api.post("/feedback", { subject, description }),
 
-  getMine: () => api.get("/feedback/mine"),
+    getMine: () => api.get("/feedback/mine"),
 
-  getAll: () => api.get("/feedback/admin"),
+    getAll: () => api.get("/feedback/admin"),
 
-  updateStatus: (id: string, status: string) =>
-    api.patch(`/feedback/${id}/status`, { status }),
+    updateStatus: (id: string, status: string) => 
+        api.patch(`/feedback/${id}/status`, { status }),
+
+    updateComment: (id: string, adminComment: string) =>
+        api.patch(`/feedback/${id}/comment`, { adminComment }),
 };
 
 //── Report ───────────────────────────────────────────────────────
 export const reportApi = {
-    submit: (data: { item: "listing" | "agent"; itemId: string; description: string }) =>
-        api.post("/reports", data),
+    submit: (data: {
+        item: "listing" | "agent";
+        itemId: string;
+        description: string;
+        files: File[];
+    }) => {
+        const form = new FormData();
+
+        form.append("item", data.item);
+        form.append("itemId", data.itemId);
+        form.append("description", data.description);
+
+        data.files.forEach((file) => {
+            form.append("files", file);
+        });
+
+        return api.post("/reports", form, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+        });
+    },
 
     getAll: () =>
         api.get("/reports/admin"),
 
     updateStatus: (id: string, status: string) =>
         api.patch(`/reports/${id}/status`, { status }),
+
+    blockAgent: (id: string) =>
+        api.patch(`/reports/${id}/block-agent`),
 };
