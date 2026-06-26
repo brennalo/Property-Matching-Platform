@@ -435,7 +435,7 @@ public class ListingsController(AppDbContext db, S3Service s3, GroqService groq)
                 await writer.WriteLineAsync("3. Save the Excel file and keep it inside the ZIP.");
                 await writer.WriteLineAsync();
                 await writer.WriteLineAsync("4. Upload the entire ZIP file on the 'Batch Import' page.");
-                await writer.WriteLineAsync("   - Your listings will be created with 'PendingPayment' status.");
+                await writer.WriteLineAsync("   - Your listings will be created and become Active immediately.");
                 await writer.WriteLineAsync("   - Images will be attached to each listing automatically.");
                 await writer.WriteLineAsync();
                 await writer.WriteLineAsync("5. After import, you can go to each listing to add captions.");

@@ -40,26 +40,23 @@ const RESIDENCY_TYPES: ResidencyType[] = [
 // 1. Status Badge
 // ──────────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: Listing["status"] }) {
-  const map: Record<string, string> = {
-    Active: "badge-green",
-    PendingPayment: "badge-amber",
-    Draft: "badge-grey",
-    Inactive: "badge-red",
-    Booked: "badge-amber",
-  };
-  const icons: Record<string, React.ReactNode> = {
-    Active: <CheckCircle2 size={11} />,
-    PendingPayment: <CreditCard size={11} />,
-    Draft: <Clock size={11} />,
-    Inactive: <Ban size={11} />,
-    Booked: <Ban size={11} />,
-  };
-  return (
-    <span className={`badge ${map[status] ?? "badge-grey"}`}>
-      {icons[status]}{" "}
-      {status === "PendingPayment" ? "Pending (Legacy)" : status}
-    </span>
-  );
+    const map: Record<string, string> = {
+        Active: "badge-green",
+        Draft: "badge-grey",
+        Inactive: "badge-red",
+        Booked: "badge-amber",
+    };
+    const icons: Record<string, React.ReactNode> = {
+        Active: <CheckCircle2 size={11} />,
+        Draft: <Clock size={11} />,
+        Inactive: <Ban size={11} />,
+        Booked: <Ban size={11} />,
+    };
+    return (
+        <span className={`badge ${map[status] ?? "badge-grey"}`}>
+            {icons[status]} {status}
+        </span>
+    );
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -487,107 +484,95 @@ function ListingFormModal({
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Amenities</label>
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 8,
-                marginBottom: 10,
-              }}
-            >
-              {COMMON_AMENITIES.map((item) => (
-                <label
-                  key={item}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "6px 10px",
-                    borderRadius: 8,
-                    border: "1px solid",
-                    cursor: "pointer",
-                    fontSize: "0.8rem",
-                    borderColor: selectedAmenities.includes(item)
-                      ? "var(--accent)"
-                      : "var(--border)",
-                    background: selectedAmenities.includes(item)
-                      ? "var(--accent-dim)"
-                      : "var(--bg-input)",
-                    color: selectedAmenities.includes(item)
-                      ? "var(--accent)"
-                      : "var(--text-muted)",
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedAmenities.includes(item)}
-                    onChange={() => toggleAmenity(item)}
-                    style={{ display: "none" }}
-                  />
-                  {item}
-                </label>
-              ))}
-            </div>
+                  <div className="form-group">
+                      <label className="form-label">Amenities</label>
 
-            <div style={{ display: "flex", gap: 8 }}>
-              <input
-                className="input"
-                value={customInput}
-                onChange={(e) => setCustomInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addCustomAmenity();
-                  }
-                }}
-                placeholder="Add custom amenity (e.g. Balcony) and press Enter"
-              />
-              <button
-                type="button"
-                className="btn btn-outline btn-sm"
-                onClick={addCustomAmenity}
-              >
-                Add
-              </button>
-            </div>
+                      <div
+                          style={{
+                              display: "flex",
+                              flexWrap: "wrap",
+                              gap: 8,
+                              marginBottom: 10,
+                          }}
+                      >
+                          {COMMON_AMENITIES.map((item) => (
+                              <label
+                                  key={item}
+                                  style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 6,
+                                      padding: "6px 10px",
+                                      borderRadius: 8,
+                                      border: "1px solid",
+                                      cursor: "pointer",
+                                      fontSize: "0.8rem",
+                                      borderColor: selectedAmenities.includes(item)
+                                          ? "var(--accent)"
+                                          : "var(--border)",
+                                      background: selectedAmenities.includes(item)
+                                          ? "var(--accent-dim)"
+                                          : "var(--bg-input)",
+                                      color: selectedAmenities.includes(item)
+                                          ? "var(--accent)"
+                                          : "var(--text-muted)",
+                                  }}
+                              >
+                                  <input
+                                      type="checkbox"
+                                      checked={selectedAmenities.includes(item)}
+                                      onChange={() => toggleAmenity(item)}
+                                      style={{ display: "none" }}
+                                  />
+                                  {item}
+                              </label>
+                          ))}
 
-            {customAmenities.length > 0 && (
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: 6,
-                  marginTop: 10,
-                }}
-              >
-                {customAmenities.map((item) => (
-                  <span
-                    key={item}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      padding: "4px 10px",
-                      borderRadius: 99,
-                      background: "var(--accent-dim)",
-                      color: "var(--accent)",
-                      fontSize: "0.78rem",
-                    }}
-                  >
-                    {item}
-                    <span
-                      onClick={() => removeCustomAmenity(item)}
-                      style={{ cursor: "pointer", fontWeight: 700 }}
-                    >
-                      ×
-                    </span>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
+                          {customAmenities.map((item) => (
+                              <label
+                                  key={item}
+                                  onClick={() => removeCustomAmenity(item)}
+                                  style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 6,
+                                      padding: "6px 10px",
+                                      borderRadius: 8,
+                                      border: "1px solid var(--accent)",
+                                      cursor: "pointer",
+                                      fontSize: "0.8rem",
+                                      background: "var(--accent-dim)",
+                                      color: "var(--accent)",
+                                  }}
+                              >
+                                  {item} <span style={{ fontWeight: 700 }}>×</span>
+                              </label>
+                          ))}
+                      </div>
+
+                      <div style={{ display: "flex", gap: 8 }}>
+                          <input
+                              className="input"
+                              value={customInput}
+                              onChange={(e) => setCustomInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                      e.preventDefault();
+                                      addCustomAmenity();
+                                  }
+                              }}
+                              placeholder="Add custom amenity (e.g. Balcony) and press Enter"
+                          />
+                          <button
+                              type="button"
+                              className="btn btn-outline btn-sm"
+                              onClick={addCustomAmenity}
+                          >
+                              Add
+                          </button>
+                      </div>
+                  </div>
+
           {/* Description + AI */}
           <div className="form-group" style={{ marginBottom: 16 }}>
             <div
