@@ -94,7 +94,6 @@ builder.Services.AddScoped<S3Service>();
 builder.Services.AddScoped<GroqService>();
 builder.Services.AddScoped<ResendEmailService>();
 builder.Services.AddScoped<AvailabilityService>();
-builder.Services.AddHostedService<ViewingReminderService>();
 builder.Services.AddHttpClient();
 builder.Services.AddDefaultAWSOptions(builder.Configuration.GetAWSOptions());
 builder.Services.AddAWSService<IAmazonS3>();
