@@ -934,8 +934,6 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
       { header: "Longitude", key: "Longitude", width: 15 },
       { header: "Description", key: "Description", width: 40 },
       { header: "Amenities", key: "Amenities", width: 30 },
-      { header: "ImageFilenames", key: "ImageFilenames", width: 30 },
-      { header: "ImageCaptions", key: "ImageCaptions", width: 30 },
     ];
     worksheet.addRow({
       PropertyName: "Example Property",
