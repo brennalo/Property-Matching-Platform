@@ -11,6 +11,7 @@ using Stripe;
 using OfficeOpenXml;
 using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Http.Features;
+using PropertyMatch.API.Models;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -121,11 +122,28 @@ var awsOptions = app.Services.GetRequiredService<IOptions<AWSOptions>>();
 Console.WriteLine($"AWS Region: {awsOptions.Value.Region}");
 
 // ── Auto-migrate ────────────────────────────────────────────────────────────
-//using (var scope = app.Services.CreateScope())
-//{
-//    var dbCtx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-//    dbCtx.Database.Migrate();
-//}
+using (var scope = app.Services.CreateScope())
+{
+    var dbCtx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await dbCtx.Database.MigrateAsync();
+
+    const string adminEmail = "admin@propertymatch.com";
+    if (!await dbCtx.Users.AnyAsync(u => u.Email == adminEmail))
+    {
+        var adminId = Guid.Parse("00000000-0000-0000-0000-000000000001"); // fixed so it's stable
+        dbCtx.Users.Add(new User
+        {
+            Id = adminId,
+            FullName = "Admin",
+            Email = adminEmail,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123"),
+            Role = UserRole.Admin,
+            Status = UserStatus.Verified,
+            CreatedAt = DateTime.UtcNow,
+        });
+        await dbCtx.SaveChangesAsync();
+    }
+}
 
 app.UseCors("Frontend");
 

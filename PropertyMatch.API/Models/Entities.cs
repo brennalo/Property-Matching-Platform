@@ -42,6 +42,7 @@ public class User
     public ICollection<SearchLog> SearchLogs { get; set; } = [];
     public ICollection<Models.Review> Reviews { get; set; } = new List<Models.Review>();
     public ICollection<Feedback> Feedbacks { get; set; } = [];
+    public ScoringConfig? ScoringConfig { get; set; }
 }
 
 // ── Email Verification ───────────────────────────────────────────────────────
@@ -356,9 +357,12 @@ public class ReportEvidenceImage
 
 public class ScoringConfig
 {
-    public int Id { get; set; } = 1; // singleton row
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid UserId { get; set; }
     public double WeightNumeric { get; set; } = 0.40;
     public double WeightCommute { get; set; } = 0.30;
     public double WeightLifestyle { get; set; } = 0.30;
     public int LifestyleRadiusMeters { get; set; } = 800;
+
+    public User User { get; set; } = null!;
 }

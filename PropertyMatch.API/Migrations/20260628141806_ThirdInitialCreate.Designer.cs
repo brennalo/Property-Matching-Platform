@@ -13,8 +13,8 @@ using PropertyMatch.API.Data;
 namespace PropertyMatch.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260619041243_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20260628141806_ThirdInitialCreate")]
+    partial class ThirdInitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -78,6 +78,9 @@ namespace PropertyMatch.API.Migrations
                     b.Property<string>("Reason")
                         .HasColumnType("text");
 
+                    b.Property<int>("SlotDurationMinutes")
+                        .HasColumnType("integer");
+
                     b.Property<string>("StartTime")
                         .HasColumnType("text");
 
@@ -120,9 +123,6 @@ namespace PropertyMatch.API.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
-                    b.Property<Guid?>("ListingId")
-                        .HasColumnType("uuid");
-
                     b.Property<int>("SlotDurationMinutes")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
@@ -132,24 +132,13 @@ namespace PropertyMatch.API.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("ValidFrom")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("ValidTo")
-                        .HasColumnType("timestamp with time zone");
-
                     b.HasKey("Id");
+
+                    b.HasIndex("AgentId")
+                        .HasDatabaseName("IX_AvailabilityTemplates_AgentId");
 
                     b.HasIndex("DayOfWeek")
                         .HasDatabaseName("IX_AvailabilityTemplates_DayOfWeek");
-
-                    b.HasIndex("ListingId");
-
-                    b.HasIndex("AgentId", "ListingId")
-                        .HasDatabaseName("IX_AvailabilityTemplates_AgentId_ListingId");
 
                     b.ToTable("AvailabilityTemplates");
                 });
@@ -246,6 +235,9 @@ namespace PropertyMatch.API.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("AdminComment")
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -257,10 +249,16 @@ namespace PropertyMatch.API.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
 
                     b.HasIndex("TenantId");
 
@@ -338,12 +336,6 @@ namespace PropertyMatch.API.Migrations
 
                     b.Property<int>("Rooms")
                         .HasColumnType("integer");
-
-                    b.Property<string>("SourcePlatform")
-                        .HasColumnType("text");
-
-                    b.Property<string>("SourceUrl")
-                        .HasColumnType("text");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -489,12 +481,39 @@ namespace PropertyMatch.API.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CreatedAt");
+
                     b.HasIndex("TenantId");
+
+                    b.HasIndex("Item", "ItemId");
 
                     b.ToTable("Reports");
                 });
 
-            modelBuilder.Entity("PropertyMatch.API.Models.Reviews", b =>
+            modelBuilder.Entity("PropertyMatch.API.Models.ReportEvidenceImage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ReportId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("S3Url")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReportId");
+
+                    b.ToTable("ReportEvidenceImages");
+                });
+
+            modelBuilder.Entity("PropertyMatch.API.Models.Review", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -503,11 +522,15 @@ namespace PropertyMatch.API.Migrations
                     b.Property<Guid>("AgentId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("ConversationId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<decimal>("Ratings")
-                        .HasColumnType("numeric");
+                    b.Property<int>("Rating")
+                        .HasColumnType("integer")
+                        .HasColumnName("Ratings");
 
                     b.Property<string>("ReviewText")
                         .IsRequired()
@@ -516,13 +539,61 @@ namespace PropertyMatch.API.Migrations
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("ViewingScheduleId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AgentId");
 
-                    b.HasIndex("TenantId");
+                    b.HasIndex("ConversationId");
 
-                    b.ToTable("Reviews");
+                    b.HasIndex("ViewingScheduleId");
+
+                    b.HasIndex("TenantId", "ConversationId")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_Reviews_Tenant_Conversation")
+                        .HasFilter("\"ConversationId\" IS NOT NULL");
+
+                    b.HasIndex("TenantId", "ViewingScheduleId")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_Reviews_Tenant_ViewingSchedule")
+                        .HasFilter("\"ViewingScheduleId\" IS NOT NULL");
+
+                    b.ToTable("Reviews", t =>
+                        {
+                            t.HasCheckConstraint("CK_Reviews_Source", "(\"ViewingScheduleId\" IS NOT NULL AND \"ConversationId\" IS NULL) OR (\"ViewingScheduleId\" IS NULL AND \"ConversationId\" IS NOT NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("PropertyMatch.API.Models.ScoringConfig", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("LifestyleRadiusMeters")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<double>("WeightCommute")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("WeightLifestyle")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("WeightNumeric")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_ScoringConfig_UserId");
+
+                    b.ToTable("ScoringConfig");
                 });
 
             modelBuilder.Entity("PropertyMatch.API.Models.SearchLog", b =>
@@ -604,14 +675,18 @@ namespace PropertyMatch.API.Migrations
 
             modelBuilder.Entity("PropertyMatch.API.Models.ViewingSchedule", b =>
                 {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("ListingId")
                         .HasColumnType("uuid");
 
-                    b.Property<DateTime>("ScheduledAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<string>("Reason")
                         .HasColumnType("text");
+
+                    b.Property<DateTime>("ScheduledAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -620,9 +695,13 @@ namespace PropertyMatch.API.Migrations
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
 
-                    b.HasKey("ListingId", "ScheduledAt");
+                    b.HasKey("Id");
 
                     b.HasIndex("TenantId");
+
+                    b.HasIndex("ListingId", "ScheduledAt")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_ViewingSchedules_ListingId_ScheduledAt");
 
                     b.ToTable("ViewingSchedules");
                 });
@@ -664,14 +743,7 @@ namespace PropertyMatch.API.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("PropertyMatch.API.Models.Listing", "Listing")
-                        .WithMany("AvailabilityTemplates")
-                        .HasForeignKey("ListingId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
                     b.Navigation("Agent");
-
-                    b.Navigation("Listing");
                 });
 
             modelBuilder.Entity("PropertyMatch.API.Models.Conversation", b =>
@@ -734,7 +806,7 @@ namespace PropertyMatch.API.Migrations
             modelBuilder.Entity("PropertyMatch.API.Models.Feedback", b =>
                 {
                     b.HasOne("PropertyMatch.API.Models.User", "Tenant")
-                        .WithMany()
+                        .WithMany("Feedbacks")
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -816,7 +888,18 @@ namespace PropertyMatch.API.Migrations
                     b.Navigation("Tenant");
                 });
 
-            modelBuilder.Entity("PropertyMatch.API.Models.Reviews", b =>
+            modelBuilder.Entity("PropertyMatch.API.Models.ReportEvidenceImage", b =>
+                {
+                    b.HasOne("PropertyMatch.API.Models.Report", "Report")
+                        .WithMany("EvidenceImages")
+                        .HasForeignKey("ReportId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Report");
+                });
+
+            modelBuilder.Entity("PropertyMatch.API.Models.Review", b =>
                 {
                     b.HasOne("PropertyMatch.API.Models.Agent", "Agent")
                         .WithMany("Reviews")
@@ -824,15 +907,40 @@ namespace PropertyMatch.API.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("PropertyMatch.API.Models.Conversation", "Conversation")
+                        .WithMany("Reviews")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("PropertyMatch.API.Models.User", "Tenant")
-                        .WithMany()
+                        .WithMany("Reviews")
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("PropertyMatch.API.Models.ViewingSchedule", "ViewingSchedule")
+                        .WithMany("Reviews")
+                        .HasForeignKey("ViewingScheduleId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Agent");
 
+                    b.Navigation("Conversation");
+
                     b.Navigation("Tenant");
+
+                    b.Navigation("ViewingSchedule");
+                });
+
+            modelBuilder.Entity("PropertyMatch.API.Models.ScoringConfig", b =>
+                {
+                    b.HasOne("PropertyMatch.API.Models.User", "User")
+                        .WithOne("ScoringConfig")
+                        .HasForeignKey("PropertyMatch.API.Models.ScoringConfig", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("PropertyMatch.API.Models.SearchLog", b =>
@@ -902,13 +1010,13 @@ namespace PropertyMatch.API.Migrations
             modelBuilder.Entity("PropertyMatch.API.Models.Conversation", b =>
                 {
                     b.Navigation("Messages");
+
+                    b.Navigation("Reviews");
                 });
 
             modelBuilder.Entity("PropertyMatch.API.Models.Listing", b =>
                 {
                     b.Navigation("AvailabilityExceptions");
-
-                    b.Navigation("AvailabilityTemplates");
 
                     b.Navigation("Conversations");
 
@@ -921,6 +1029,11 @@ namespace PropertyMatch.API.Migrations
                     b.Navigation("ViewingSchedules");
                 });
 
+            modelBuilder.Entity("PropertyMatch.API.Models.Report", b =>
+                {
+                    b.Navigation("EvidenceImages");
+                });
+
             modelBuilder.Entity("PropertyMatch.API.Models.User", b =>
                 {
                     b.Navigation("Agent");
@@ -931,7 +1044,13 @@ namespace PropertyMatch.API.Migrations
 
                     b.Navigation("FavouriteListings");
 
+                    b.Navigation("Feedbacks");
+
                     b.Navigation("LifestyleTemplates");
+
+                    b.Navigation("Reviews");
+
+                    b.Navigation("ScoringConfig");
 
                     b.Navigation("SearchLogs");
 
@@ -940,6 +1059,11 @@ namespace PropertyMatch.API.Migrations
                     b.Navigation("ViewHistory");
 
                     b.Navigation("ViewingSchedules");
+                });
+
+            modelBuilder.Entity("PropertyMatch.API.Models.ViewingSchedule", b =>
+                {
+                    b.Navigation("Reviews");
                 });
 #pragma warning restore 612, 618
         }

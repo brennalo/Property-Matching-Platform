@@ -165,6 +165,14 @@ export default function ScoringConfigPage() {
     const { data, isLoading } = useQuery({
         queryKey: ['scoring-config'],
         queryFn: () => scoringConfigApi.get().then(r => r.data),
+        placeholderData: {
+            id: '',
+            userId: '',
+            weightNumeric: 0.40,
+            weightCommute: 0.30,
+            weightLifestyle: 0.30,
+            lifestyleRadiusMeters: 800,
+        },
     })
 
     useEffect(() => {
