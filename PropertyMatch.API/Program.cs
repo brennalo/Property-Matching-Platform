@@ -8,8 +8,23 @@ using PropertyMatch.API.Data;
 using PropertyMatch.API.Middleware;
 using PropertyMatch.API.Services;
 using Stripe;
+using OfficeOpenXml;
+using Microsoft.Extensions.Options;
+using Microsoft.AspNetCore.Http.Features;
+using PropertyMatch.API.Models;
+
 
 var builder = WebApplication.CreateBuilder(args);
+// Read from appsettings.json, but allow overrides from environment variables
+// Load configuration
+builder.Configuration
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true)
+    .AddEnvironmentVariables();
+
+
+// Set EPPlus license for non‑commercial use
+ExcelPackage.License.SetNonCommercialPersonal("PropertyMatch");
 
 // ── Database ───────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<AppDbContext>(opt =>
@@ -65,6 +80,10 @@ if (useS3)
     builder.Services.AddAWSService<IAmazonS3>();
 }
 
+
+
+// Add AWS services
+
 // ── Application Services ───────────────────────────────────────────────────
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddScoped<MatchingService>();
@@ -75,12 +94,20 @@ builder.Services.AddScoped<S3Service>();
 builder.Services.AddScoped<GroqService>();
 builder.Services.AddScoped<ResendEmailService>();
 builder.Services.AddScoped<AvailabilityService>();
-builder.Services.AddHostedService<ViewingReminderService>();
 builder.Services.AddHttpClient();
+builder.Services.AddDefaultAWSOptions(builder.Configuration.GetAWSOptions());
+builder.Services.AddAWSService<IAmazonS3>();
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.ValueLengthLimit = int.MaxValue;
+    options.MultipartBodyLengthLimit = 25 * 1024 * 1024; // 25MB
+    options.MemoryBufferThreshold = int.MaxValue;
+});
 
 builder.Services.AddControllers()
     .AddJsonOptions(opts =>
     {
+        opts.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
         opts.JsonSerializerOptions.Converters.Add(
             new System.Text.Json.Serialization.JsonStringEnumConverter());
     });
@@ -90,11 +117,32 @@ StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
 
 var app = builder.Build();
 
+// Debug: check if AWS config loaded
+var awsOptions = app.Services.GetRequiredService<IOptions<AWSOptions>>();
+Console.WriteLine($"AWS Region: {awsOptions.Value.Region}");
+
 // ── Auto-migrate ────────────────────────────────────────────────────────────
 using (var scope = app.Services.CreateScope())
 {
     var dbCtx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    dbCtx.Database.Migrate();
+    await dbCtx.Database.MigrateAsync();
+
+    const string adminEmail = "admin@propertymatch.com";
+    if (!await dbCtx.Users.AnyAsync(u => u.Email == adminEmail))
+    {
+        var adminId = Guid.Parse("00000000-0000-0000-0000-000000000001"); // fixed so it's stable
+        dbCtx.Users.Add(new User
+        {
+            Id = adminId,
+            FullName = "Admin",
+            Email = adminEmail,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123"),
+            Role = UserRole.Admin,
+            Status = UserStatus.Verified,
+            CreatedAt = DateTime.UtcNow,
+        });
+        await dbCtx.SaveChangesAsync();
+    }
 }
 
 app.UseCors("Frontend");

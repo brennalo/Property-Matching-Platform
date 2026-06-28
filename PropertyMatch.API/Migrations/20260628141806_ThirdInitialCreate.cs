@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace PropertyMatch.API.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class ThirdInitialCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -79,7 +79,9 @@ namespace PropertyMatch.API.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     TenantId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Subject = table.Column<string>(type: "text", nullable: false),
                     Description = table.Column<string>(type: "text", nullable: false),
+                    AdminComment = table.Column<string>(type: "text", nullable: true),
                     Status = table.Column<string>(type: "text", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
@@ -139,6 +141,28 @@ namespace PropertyMatch.API.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "ScoringConfig",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    WeightNumeric = table.Column<double>(type: "double precision", nullable: false),
+                    WeightCommute = table.Column<double>(type: "double precision", nullable: false),
+                    WeightLifestyle = table.Column<double>(type: "double precision", nullable: false),
+                    LifestyleRadiusMeters = table.Column<int>(type: "integer", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ScoringConfig", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ScoringConfig_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "SearchLogs",
                 columns: table => new
                 {
@@ -154,6 +178,30 @@ namespace PropertyMatch.API.Migrations
                         column: x => x.TenantId,
                         principalTable: "Users",
                         principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "AvailabilityTemplates",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    AgentId = table.Column<Guid>(type: "uuid", nullable: false),
+                    DayOfWeek = table.Column<int>(type: "integer", nullable: false),
+                    StartTime = table.Column<string>(type: "text", nullable: false),
+                    EndTime = table.Column<string>(type: "text", nullable: false),
+                    SlotDurationMinutes = table.Column<int>(type: "integer", nullable: false, defaultValue: 60),
+                    IsActive = table.Column<bool>(type: "boolean", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AvailabilityTemplates", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_AvailabilityTemplates_Agents_AgentId",
+                        column: x => x.AgentId,
+                        principalTable: "Agents",
+                        principalColumn: "UserId",
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -174,9 +222,7 @@ namespace PropertyMatch.API.Migrations
                     Amenities = table.Column<string>(type: "text", nullable: true),
                     Description = table.Column<string>(type: "text", nullable: true),
                     Status = table.Column<string>(type: "text", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    SourceUrl = table.Column<string>(type: "text", nullable: true),
-                    SourcePlatform = table.Column<string>(type: "text", nullable: true)
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -214,29 +260,21 @@ namespace PropertyMatch.API.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Reviews",
+                name: "ReportEvidenceImages",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    AgentId = table.Column<Guid>(type: "uuid", nullable: false),
-                    TenantId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Ratings = table.Column<decimal>(type: "numeric", nullable: false),
-                    ReviewText = table.Column<string>(type: "text", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    ReportId = table.Column<Guid>(type: "uuid", nullable: false),
+                    S3Url = table.Column<string>(type: "text", nullable: false),
+                    UploadedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Reviews", x => x.Id);
+                    table.PrimaryKey("PK_ReportEvidenceImages", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_Reviews_Agents_AgentId",
-                        column: x => x.AgentId,
-                        principalTable: "Agents",
-                        principalColumn: "UserId",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_Reviews_Users_TenantId",
-                        column: x => x.TenantId,
-                        principalTable: "Users",
+                        name: "FK_ReportEvidenceImages_Reports_ReportId",
+                        column: x => x.ReportId,
+                        principalTable: "Reports",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -254,6 +292,7 @@ namespace PropertyMatch.API.Migrations
                     StartTime = table.Column<string>(type: "text", nullable: true),
                     EndTime = table.Column<string>(type: "text", nullable: true),
                     Reason = table.Column<string>(type: "text", nullable: true),
+                    SlotDurationMinutes = table.Column<int>(type: "integer", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
@@ -267,40 +306,6 @@ namespace PropertyMatch.API.Migrations
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_AvailabilityExceptions_Listings_ListingId",
-                        column: x => x.ListingId,
-                        principalTable: "Listings",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "AvailabilityTemplates",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    AgentId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ListingId = table.Column<Guid>(type: "uuid", nullable: true),
-                    DayOfWeek = table.Column<int>(type: "integer", nullable: false),
-                    StartTime = table.Column<string>(type: "text", nullable: false),
-                    EndTime = table.Column<string>(type: "text", nullable: false),
-                    SlotDurationMinutes = table.Column<int>(type: "integer", nullable: false, defaultValue: 60),
-                    ValidFrom = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    ValidTo = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    IsActive = table.Column<bool>(type: "boolean", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_AvailabilityTemplates", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_AvailabilityTemplates_Agents_AgentId",
-                        column: x => x.AgentId,
-                        principalTable: "Agents",
-                        principalColumn: "UserId",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_AvailabilityTemplates_Listings_ListingId",
                         column: x => x.ListingId,
                         principalTable: "Listings",
                         principalColumn: "Id",
@@ -418,6 +423,7 @@ namespace PropertyMatch.API.Migrations
                 name: "ViewingSchedules",
                 columns: table => new
                 {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
                     ListingId = table.Column<Guid>(type: "uuid", nullable: false),
                     ScheduledAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     TenantId = table.Column<Guid>(type: "uuid", nullable: false),
@@ -426,7 +432,7 @@ namespace PropertyMatch.API.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_ViewingSchedules", x => new { x.ListingId, x.ScheduledAt });
+                    table.PrimaryKey("PK_ViewingSchedules", x => x.Id);
                     table.ForeignKey(
                         name: "FK_ViewingSchedules_Listings_ListingId",
                         column: x => x.ListingId,
@@ -470,6 +476,49 @@ namespace PropertyMatch.API.Migrations
                         onDelete: ReferentialAction.Restrict);
                 });
 
+            migrationBuilder.CreateTable(
+                name: "Reviews",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    AgentId = table.Column<Guid>(type: "uuid", nullable: false),
+                    TenantId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Ratings = table.Column<int>(type: "integer", nullable: false),
+                    ReviewText = table.Column<string>(type: "text", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    ViewingScheduleId = table.Column<Guid>(type: "uuid", nullable: true),
+                    ConversationId = table.Column<Guid>(type: "uuid", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Reviews", x => x.Id);
+                    table.CheckConstraint("CK_Reviews_Source", "(\"ViewingScheduleId\" IS NOT NULL AND \"ConversationId\" IS NULL) OR (\"ViewingScheduleId\" IS NULL AND \"ConversationId\" IS NOT NULL)");
+                    table.ForeignKey(
+                        name: "FK_Reviews_Agents_AgentId",
+                        column: x => x.AgentId,
+                        principalTable: "Agents",
+                        principalColumn: "UserId",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Reviews_Conversations_ConversationId",
+                        column: x => x.ConversationId,
+                        principalTable: "Conversations",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_Reviews_Users_TenantId",
+                        column: x => x.TenantId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Reviews_ViewingSchedules_ViewingScheduleId",
+                        column: x => x.ViewingScheduleId,
+                        principalTable: "ViewingSchedules",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
+                });
+
             migrationBuilder.CreateIndex(
                 name: "IX_AvailabilityExceptions_AgentId_ListingId",
                 table: "AvailabilityExceptions",
@@ -486,19 +535,14 @@ namespace PropertyMatch.API.Migrations
                 column: "ListingId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_AvailabilityTemplates_AgentId_ListingId",
+                name: "IX_AvailabilityTemplates_AgentId",
                 table: "AvailabilityTemplates",
-                columns: new[] { "AgentId", "ListingId" });
+                column: "AgentId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_AvailabilityTemplates_DayOfWeek",
                 table: "AvailabilityTemplates",
                 column: "DayOfWeek");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_AvailabilityTemplates_ListingId",
-                table: "AvailabilityTemplates",
-                column: "ListingId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Conversations_AgentId",
@@ -531,6 +575,11 @@ namespace PropertyMatch.API.Migrations
                 name: "IX_FavouriteListings_ListingId",
                 table: "FavouriteListings",
                 column: "ListingId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Feedbacks_CreatedAt",
+                table: "Feedbacks",
+                column: "CreatedAt");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Feedbacks_TenantId",
@@ -573,6 +622,21 @@ namespace PropertyMatch.API.Migrations
                 column: "AgentId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_ReportEvidenceImages_ReportId",
+                table: "ReportEvidenceImages",
+                column: "ReportId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Reports_CreatedAt",
+                table: "Reports",
+                column: "CreatedAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Reports_Item_ItemId",
+                table: "Reports",
+                columns: new[] { "Item", "ItemId" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Reports_TenantId",
                 table: "Reports",
                 column: "TenantId");
@@ -583,9 +647,34 @@ namespace PropertyMatch.API.Migrations
                 column: "AgentId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Reviews_TenantId",
+                name: "IX_Reviews_ConversationId",
                 table: "Reviews",
-                column: "TenantId");
+                column: "ConversationId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Reviews_ViewingScheduleId",
+                table: "Reviews",
+                column: "ViewingScheduleId");
+
+            migrationBuilder.CreateIndex(
+                name: "UQ_Reviews_Tenant_Conversation",
+                table: "Reviews",
+                columns: new[] { "TenantId", "ConversationId" },
+                unique: true,
+                filter: "\"ConversationId\" IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "UQ_Reviews_Tenant_ViewingSchedule",
+                table: "Reviews",
+                columns: new[] { "TenantId", "ViewingScheduleId" },
+                unique: true,
+                filter: "\"ViewingScheduleId\" IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "UQ_ScoringConfig_UserId",
+                table: "ScoringConfig",
+                column: "UserId",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Users_Email",
@@ -602,6 +691,12 @@ namespace PropertyMatch.API.Migrations
                 name: "IX_ViewingSchedules_TenantId",
                 table: "ViewingSchedules",
                 column: "TenantId");
+
+            migrationBuilder.CreateIndex(
+                name: "UQ_ViewingSchedules_ListingId_ScheduledAt",
+                table: "ViewingSchedules",
+                columns: new[] { "ListingId", "ScheduledAt" },
+                unique: true);
         }
 
         /// <inheritdoc />
@@ -635,10 +730,13 @@ namespace PropertyMatch.API.Migrations
                 name: "Payments");
 
             migrationBuilder.DropTable(
-                name: "Reports");
+                name: "ReportEvidenceImages");
 
             migrationBuilder.DropTable(
                 name: "Reviews");
+
+            migrationBuilder.DropTable(
+                name: "ScoringConfig");
 
             migrationBuilder.DropTable(
                 name: "SearchLogs");
@@ -647,10 +745,13 @@ namespace PropertyMatch.API.Migrations
                 name: "ViewHistory");
 
             migrationBuilder.DropTable(
-                name: "ViewingSchedules");
+                name: "Reports");
 
             migrationBuilder.DropTable(
                 name: "Conversations");
+
+            migrationBuilder.DropTable(
+                name: "ViewingSchedules");
 
             migrationBuilder.DropTable(
                 name: "Listings");

@@ -315,36 +315,52 @@ public class BrowseController(AppDbContext db) : ControllerBase
         )));
     }
 
-    [ApiController]
-    [Route("api/admin/scoring-config")]
-    [Authorize(Roles = "Admin")]
-    public class ScoringConfigController(AppDbContext db) : ControllerBase
+}
+
+[ApiController]
+[Route("api/scoring-config")]
+[Authorize(Roles = "Tenant")]
+public class ScoringConfigController(AppDbContext db) : ControllerBase
+{
+    [HttpGet]
+    public async Task<IActionResult> Get()
     {
-        [HttpGet]
-        public async Task<IActionResult> Get()
-        {
-            var cfg = await db.ScoringConfig.FindAsync(1);
-            return Ok(cfg);
-        }
-
-        [HttpPut]
-        public async Task<IActionResult> Update([FromBody] ScoringConfigRequest req)
-        {
-            var total = req.WeightNumeric + req.WeightCommute + req.WeightLifestyle;
-            if (Math.Abs(total - 1.0) > 0.001)
-                return BadRequest("Weights must sum to 1.0");
-
-            var cfg = await db.ScoringConfig.FindAsync(1);
-            cfg!.WeightNumeric = req.WeightNumeric;
-            cfg.WeightCommute = req.WeightCommute;
-            cfg.WeightLifestyle = req.WeightLifestyle;
-            cfg.LifestyleRadiusMeters = req.LifestyleRadiusMeters;
-            await db.SaveChangesAsync();
-            return Ok(cfg);
-        }
+        var userId = User.GetUserId();
+        var cfg = await db.ScoringConfig.FirstOrDefaultAsync(sc => sc.UserId == userId)
+            ?? new ScoringConfig
+            {
+                UserId = userId,
+                WeightNumeric = 0.40,
+                WeightCommute = 0.30,
+                WeightLifestyle = 0.30,
+                LifestyleRadiusMeters = 800
+            };
+        return Ok(cfg);
     }
 
-    public record ScoringConfigRequest(
-        double WeightNumeric, double WeightCommute, double WeightLifestyle,
-        int LifestyleRadiusMeters);
+    [HttpPut]
+    public async Task<IActionResult> Update([FromBody] ScoringConfigRequest req)
+    {
+        var total = req.WeightNumeric + req.WeightCommute + req.WeightLifestyle;
+        if (Math.Abs(total - 1.0) > 0.001)
+            return BadRequest("Weights must sum to 1.0");
+
+        var userId = User.GetUserId();
+        var cfg = await db.ScoringConfig.FirstOrDefaultAsync(sc => sc.UserId == userId);
+        if (cfg == null)
+        {
+            cfg = new ScoringConfig { UserId = userId };
+            db.ScoringConfig.Add(cfg);
+        }
+        cfg.WeightNumeric = req.WeightNumeric;
+        cfg.WeightCommute = req.WeightCommute;
+        cfg.WeightLifestyle = req.WeightLifestyle;
+        cfg.LifestyleRadiusMeters = req.LifestyleRadiusMeters;
+        await db.SaveChangesAsync();
+        return Ok(cfg);
+    }
 }
+
+public record ScoringConfigRequest(
+    double WeightNumeric, double WeightCommute, double WeightLifestyle,
+    int LifestyleRadiusMeters);

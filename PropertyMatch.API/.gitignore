@@ -4,6 +4,7 @@
 .env.production
 appsettings.Development.json
 appsettings.Production.json
+*.ppk
 
 # .NET
 bin/
@@ -28,3 +29,5 @@ dist/
 .vscode/settings.json
 
 wwwroot/assets
+
+PropertyMatch.API/Properties/launchSettings.json

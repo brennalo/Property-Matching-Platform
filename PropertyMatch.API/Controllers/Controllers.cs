@@ -594,27 +594,58 @@ public class AdminController(AppDbContext db) : ControllerBase
         });
     }
 
-    [HttpGet("analytics/demand-locations")]
-    public async Task<IActionResult> GetDemandLocations()
+    [HttpGet("analytics/search-demand-locations")]
+    public async Task<IActionResult> GetSearchDemandLocations()
     {
-        var data = await db.Listings
-            .Where(l => l.ViewingSchedules.Any())
-            .Select(l => new
-            {
-                listingId = l.Id,
-                listingName = l.Name,
-                address = l.Address,
-                lat = l.Lat,
-                lng = l.Lng,
-                scheduleCount = l.ViewingSchedules.Count,
-                confirmedCount = l.ViewingSchedules.Count(v => v.Status == ScheduleStatus.Confirmed),
-                isBooked = l.Status == ListingStatus.Booked
-            })
-            .OrderByDescending(x => x.scheduleCount)
-            .Take(20)
+        var logs = await db.SearchLogs
+            .OrderByDescending(s => s.SearchedAt)
             .ToListAsync();
 
-        return Ok(data);
+        var parsed = logs.Select(s =>
+        {
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(s.Snapshot);
+                var root = doc.RootElement;
+
+                var address = root.TryGetProperty("workplaceAddress", out var addr)
+                    ? addr.GetString()
+                    : "Unknown";
+
+                var lat = root.TryGetProperty("workplaceLat", out var latEl)
+                    ? latEl.GetDouble()
+                    : 0;
+
+                var lng = root.TryGetProperty("workplaceLng", out var lngEl)
+                    ? lngEl.GetDouble()
+                    : 0;
+
+                return new
+                {
+                    Address = address ?? "Unknown",
+                    Lat = Math.Round(lat, 3),
+                    Lng = Math.Round(lng, 3)
+                };
+            }
+            catch
+            {
+                return null;
+            }
+        })
+        .Where(x => x != null && x.Lat != 0 && x.Lng != 0)
+        .GroupBy(x => new { x!.Lat, x.Lng, x.Address })
+        .Select(g => new
+        {
+            workplaceAddress = g.Key.Address,
+            lat = g.Key.Lat,
+            lng = g.Key.Lng,
+            searchCount = g.Count()
+        })
+        .OrderByDescending(x => x.searchCount)
+        .Take(20)
+        .ToList();
+
+        return Ok(parsed);
     }
 }
 
@@ -676,7 +707,6 @@ public class AgentDashboardController(AppDbContext db) : ControllerBase
             .ToListAsync();
 
         int activeListings = listings.Count(l => l.Status == ListingStatus.Active);
-        int pendingPaymentListings = listings.Count(l => l.Status == ListingStatus.PendingPayment);
         int draftListings = listings.Count(l => l.Status == ListingStatus.Draft);
         int inactiveListings = listings.Count(l => l.Status == ListingStatus.Inactive);
 
@@ -721,11 +751,8 @@ public class AgentDashboardController(AppDbContext db) : ControllerBase
             .Select(x => new TopListingDto(x.ListingId, x.ListingName, x.AppointmentCount))
             .ToList();
 
-        // Payment reminder: listings that need payment
-        var pendingPaymentList = listings
-            .Where(l => l.Status == ListingStatus.PendingPayment)
-            .Select(l => new PendingPaymentListingDto(l.Id, l.Name, l.Price, l.CreatedAt))
-            .ToList();
+        // Payment reminder: no longer applicable since tokens deduct upfront
+        var pendingPaymentList = new List<PendingPaymentListingDto>();
 
         // Agent profile
         var profile = new AgentProfileDto(
@@ -737,7 +764,7 @@ public class AgentDashboardController(AppDbContext db) : ControllerBase
 
         return Ok(new AgentDashboardResponse(
             profile,
-            new ListingStatsDto(activeListings, pendingPaymentListings, draftListings, inactiveListings),
+            new ListingStatsDto(activeListings, 0, draftListings, inactiveListings),
             new AppointmentStatsDto(totalAppointments, pendingAppointments, confirmedAppointments, cancelledAppointments),
             upcoming,
             topListings,
@@ -782,12 +809,16 @@ public class FeedbackController(AppDbContext db) : ControllerBase
     {
         var tenantId = User.GetUserId();
 
+        if (string.IsNullOrWhiteSpace(req.Subject))
+            return BadRequest(new { message = "Feedback subject is required." });
+
         if (string.IsNullOrWhiteSpace(req.Description))
             return BadRequest(new { message = "Feedback description is required." });
 
         var feedback = new Feedback
         {
             TenantId = tenantId,
+            Subject = req.Subject.Trim(),
             Description = req.Description.Trim(),
             Status = "Open",
             CreatedAt = DateTime.UtcNow
@@ -814,7 +845,9 @@ public class FeedbackController(AppDbContext db) : ControllerBase
                 f.TenantId,
                 f.Tenant.FullName,
                 f.Tenant.Email,
+                f.Subject,
                 f.Description,
+                f.AdminComment,
                 f.Status,
                 f.CreatedAt
             ))
@@ -835,7 +868,9 @@ public class FeedbackController(AppDbContext db) : ControllerBase
                 f.TenantId,
                 f.Tenant.FullName,
                 f.Tenant.Email,
+                f.Subject,
                 f.Description,
+                f.AdminComment,
                 f.Status,
                 f.CreatedAt
             ))
@@ -851,7 +886,7 @@ public class FeedbackController(AppDbContext db) : ControllerBase
         var feedback = await db.Feedbacks.FindAsync(id);
         if (feedback == null) return NotFound(new { message = "Feedback not found." });
 
-        var allowedStatuses = new[] { "Open", "Reviewed" };
+        var allowedStatuses = new[] { "Open", "Reviewed", "Commented" };
 
         if (!allowedStatuses.Contains(req.Status))
             return BadRequest(new { message = "Invalid feedback status." });
@@ -861,38 +896,69 @@ public class FeedbackController(AppDbContext db) : ControllerBase
 
         return Ok(new { message = $"Feedback marked as {req.Status}." });
     }
+
+    [HttpPatch("{id}/comment")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> UpdateFeedbackComment(
+    Guid id,
+    [FromBody] UpdateFeedbackCommentRequest req)
+    {
+        var feedback = await db.Feedbacks.FindAsync(id);
+
+        if (feedback == null)
+            return NotFound(new { message = "Feedback not found." });
+
+        feedback.AdminComment = req.AdminComment.Trim();
+
+        if (feedback.Status != "Commented")
+            feedback.Status = "Commented";
+
+        await db.SaveChangesAsync();
+
+        return Ok(new { message = "Admin comment saved." });
+    }
 }
 
 // ── Reports ─────────────────────────────────────────────────────────
 [ApiController]
 [Route("api/reports")]
 [Authorize]
-public class ReportsController(AppDbContext db) : ControllerBase
+public class ReportsController(AppDbContext db, S3Service s3) : ControllerBase
 {
     [HttpPost]
     [Authorize(Roles = "Tenant")]
-    public async Task<IActionResult> SubmitReport([FromBody] CreateReportRequest req)
+    public async Task<IActionResult> SubmitReport(
+    [FromForm] string item,
+    [FromForm] Guid itemId,
+    [FromForm] string description,
+    [FromForm] List<IFormFile> files)
     {
         var tenantId = User.GetUserId();
 
-        if (string.IsNullOrWhiteSpace(req.Description))
+        if (string.IsNullOrWhiteSpace(description))
             return BadRequest(new { message = "Report description is required." });
 
-        var item = req.Item.Trim().ToLowerInvariant();
+        if (files == null || files.Count < 1)
+            return BadRequest(new { message = "At least 1 evidence image is required." });
+
+        if (files.Count > 3)
+            return BadRequest(new { message = "You can upload up to 3 evidence images only." });
+
+        item = item.Trim().ToLowerInvariant();
 
         if (item != "listing" && item != "agent")
             return BadRequest(new { message = "Report item must be either listing or agent." });
 
         if (item == "listing")
         {
-            var listingExists = await db.Listings.AnyAsync(l => l.Id == req.ItemId);
+            var listingExists = await db.Listings.AnyAsync(l => l.Id == itemId);
             if (!listingExists)
                 return NotFound(new { message = "Listing not found." });
         }
 
         if (item == "agent")
         {
-            var agentExists = await db.Agents.AnyAsync(a => a.UserId == req.ItemId);
+            var agentExists = await db.Agents.AnyAsync(a => a.UserId == itemId);
             if (!agentExists)
                 return NotFound(new { message = "Agent not found." });
         }
@@ -901,14 +967,26 @@ public class ReportsController(AppDbContext db) : ControllerBase
         {
             TenantId = tenantId,
             Item = item,
-            ItemId = req.ItemId,
-            Description = req.Description.Trim(),
+            ItemId = itemId,
+            Description = description.Trim(),
             Status = "Open",
             CreatedAt = DateTime.UtcNow
         };
 
         db.Reports.Add(report);
         await db.SaveChangesAsync();
+
+        try
+        {
+            await s3.UploadReportEvidenceAsync(report.Id, files);
+        }
+        catch (Exception ex)
+        {
+            db.Reports.Remove(report);
+            await db.SaveChangesAsync();
+
+            return BadRequest(new { message = ex.Message });
+        }
 
         return Ok(new { message = "Report submitted successfully." });
     }
@@ -919,6 +997,7 @@ public class ReportsController(AppDbContext db) : ControllerBase
     {
         var reports = await db.Reports
             .Include(r => r.Tenant)
+            .Include(r => r.EvidenceImages)
             .OrderByDescending(r => r.CreatedAt)
             .ToListAsync();
 
@@ -954,7 +1033,11 @@ public class ReportsController(AppDbContext db) : ControllerBase
                 itemName,
                 r.Description,
                 r.Status,
-                r.CreatedAt
+                r.CreatedAt,
+                r.EvidenceImages
+                    .Where(i => i.S3Url != null)
+                    .Select(i => i.S3Url!)
+                    .ToList()
             ));
         }
 
@@ -968,7 +1051,7 @@ public class ReportsController(AppDbContext db) : ControllerBase
         var report = await db.Reports.FindAsync(id);
         if (report == null) return NotFound(new { message = "Report not found." });
 
-        var allowedStatuses = new[] { "Open", "Reviewed" };
+        var allowedStatuses = new[] { "Open", "Reviewed", "Rejected" };
 
         if (!allowedStatuses.Contains(req.Status))
             return BadRequest(new { message = "Invalid report status." });
@@ -977,5 +1060,36 @@ public class ReportsController(AppDbContext db) : ControllerBase
         await db.SaveChangesAsync();
 
         return Ok(new { message = $"Report marked as {req.Status}." });
+    }
+
+    [HttpPatch("{id}/block-agent")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> BlockReportedAgent(Guid id)
+    {
+        var report = await db.Reports.FindAsync(id);
+
+        if (report == null)
+            return NotFound(new { message = "Report not found." });
+
+        if (report.Item != "agent")
+            return BadRequest(new { message = "Only agent reports can block agents." });
+
+        var agent = await db.Agents
+            .Include(a => a.User)
+            .FirstOrDefaultAsync(a => a.UserId == report.ItemId);
+
+        if (agent == null)
+            return NotFound(new { message = "Agent not found." });
+
+        agent.User.Status = UserStatus.Blocked;
+
+        var listings = db.Listings.Where(l => l.AgentId == agent.UserId);
+        await listings.ForEachAsync(l => l.Status = ListingStatus.Inactive);
+
+        report.Status = "Reviewed";
+
+        await db.SaveChangesAsync();
+
+        return Ok(new { message = "Agent blocked and report marked as reviewed." });
     }
 }

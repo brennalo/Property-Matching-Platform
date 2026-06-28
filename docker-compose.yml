@@ -1,0 +1,9 @@
+﻿version: '3.8'
+services:
+  api:
+    image: 406150524911.dkr.ecr.ap-southeast-1.amazonaws.com/propertymatch:latest
+    ports:
+      - '80:8080'
+    volumes:
+      - ./PropertyMatch.API/appsettings.Production.json:/app/appsettings.Production.json:ro
+    restart: unless-stopped

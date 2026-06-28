@@ -27,6 +27,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<Feedback> Feedbacks => Set<Feedback>();
     public DbSet<Report> Reports => Set<Report>();
+    public DbSet<ReportEvidenceImage> ReportEvidenceImages => Set<ReportEvidenceImage>();
     public DbSet<ScoringConfig> ScoringConfig => Set<ScoringConfig>();
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -73,59 +74,53 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .Property(i => i.Caption)
             .HasMaxLength(30);
 
-    // ── Availability Templates ──────────────────────────────────────────────────
-    mb.Entity<AvailabilityTemplate>()
-        .HasOne(t => t.Agent)
-        .WithMany(a => a.AvailabilityTemplates)
-        .HasForeignKey(t => t.AgentId)
-        .OnDelete(DeleteBehavior.Cascade);
+        // ── Availability Templates ──────────────────────────────────────────────────
+        mb.Entity<AvailabilityTemplate>()
+            .HasOne(t => t.Agent)
+            .WithMany(a => a.AvailabilityTemplates)
+            .HasForeignKey(t => t.AgentId)
+            .OnDelete(DeleteBehavior.Cascade);
 
-    mb.Entity<AvailabilityTemplate>()
-        .HasOne(t => t.Listing)
-        .WithMany(l => l.AvailabilityTemplates)
-        .HasForeignKey(t => t.ListingId)
-        .OnDelete(DeleteBehavior.Cascade);
+        mb.Entity<AvailabilityTemplate>()
+            .Property(t => t.SlotDurationMinutes)
+            .HasDefaultValue(60);
 
-    mb.Entity<AvailabilityTemplate>()
-        .Property(t => t.SlotDurationMinutes)
-        .HasDefaultValue(60);
+        // ── Availability Exceptions ──────────────────────────────────────────────────
+        mb.Entity<AvailabilityException>()
+            .HasOne(e => e.Agent)
+            .WithMany(a => a.AvailabilityExceptions)
+            .HasForeignKey(e => e.AgentId)
+            .OnDelete(DeleteBehavior.Cascade);
 
-    // ── Availability Exceptions ──────────────────────────────────────────────────
-    mb.Entity<AvailabilityException>()
-        .HasOne(e => e.Agent)
-        .WithMany(a => a.AvailabilityExceptions)
-        .HasForeignKey(e => e.AgentId)
-        .OnDelete(DeleteBehavior.Cascade);
+        mb.Entity<AvailabilityException>()
+            .HasOne(e => e.Listing)
+            .WithMany(l => l.AvailabilityExceptions)
+            .HasForeignKey(e => e.ListingId)
+            .OnDelete(DeleteBehavior.Cascade);
 
-    mb.Entity<AvailabilityException>()
-        .HasOne(e => e.Listing)
-        .WithMany(l => l.AvailabilityExceptions)
-        .HasForeignKey(e => e.ListingId)
-        .OnDelete(DeleteBehavior.Cascade);
-
-    mb.Entity<AvailabilityException>()
-        .Property(e => e.Type)
-        .HasConversion<string>();
+        mb.Entity<AvailabilityException>()
+            .Property(e => e.Type)
+            .HasConversion<string>();
 
 
         // ── ViewingSchedule ──────────────────────────────────────────────────
-    mb.Entity<ViewingSchedule>()
-        .HasKey(v => v.Id);   // Id is now the PK
+        mb.Entity<ViewingSchedule>()
+            .HasKey(v => v.Id);   // Id is now the PK
 
-    mb.Entity<ViewingSchedule>()
-        .HasIndex(v => new { v.ListingId, v.ScheduledAt })
-        .IsUnique()
-        .HasDatabaseName("UQ_ViewingSchedules_ListingId_ScheduledAt");
+        mb.Entity<ViewingSchedule>()
+            .HasIndex(v => new { v.ListingId, v.ScheduledAt })
+            .IsUnique()
+            .HasDatabaseName("UQ_ViewingSchedules_ListingId_ScheduledAt");
 
-    mb.Entity<ViewingSchedule>()
-        .HasOne(v => v.Listing)
-        .WithMany(l => l.ViewingSchedules)
-        .HasForeignKey(v => v.ListingId);
+        mb.Entity<ViewingSchedule>()
+            .HasOne(v => v.Listing)
+            .WithMany(l => l.ViewingSchedules)
+            .HasForeignKey(v => v.ListingId);
 
-    mb.Entity<ViewingSchedule>()
-        .HasOne(v => v.Tenant)
-        .WithMany(u => u.ViewingSchedules)
-        .HasForeignKey(v => v.TenantId);
+        mb.Entity<ViewingSchedule>()
+            .HasOne(v => v.Tenant)
+            .WithMany(u => u.ViewingSchedules)
+            .HasForeignKey(v => v.TenantId);
 
         // ── Payment FK → Agent.UserId ─────────────────────────────────────────
         mb.Entity<Payment>()
@@ -143,8 +138,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         mb.Entity<Listing>().HasIndex(l => l.Status);
         mb.Entity<Listing>().HasIndex(l => l.AgentId);
         mb.Entity<AvailabilityTemplate>()
-    .HasIndex(t => new { t.AgentId, t.ListingId })
-    .HasDatabaseName("IX_AvailabilityTemplates_AgentId_ListingId");
+            .HasIndex(t => new { t.AgentId })
+            .HasDatabaseName("IX_AvailabilityTemplates_AgentId");
 
         mb.Entity<AvailabilityTemplate>()
             .HasIndex(t => t.DayOfWeek)
@@ -182,56 +177,65 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasForeignKey(m => m.SenderId)
             .OnDelete(DeleteBehavior.Restrict);
 
-    // ── Reviews ──────────────────────────────────────────────────────────
-mb.Entity<Models.Review>()
-    .HasOne(r => r.Agent)
-    .WithMany(a => a.Reviews)
-    .HasForeignKey(r => r.AgentId)
-    .OnDelete(DeleteBehavior.Cascade);
+        // ── Reviews ──────────────────────────────────────────────────────────
+        mb.Entity<Models.Review>()
+            .HasOne(r => r.Agent)
+            .WithMany(a => a.Reviews)
+            .HasForeignKey(r => r.AgentId)
+            .OnDelete(DeleteBehavior.Cascade);
 
-    mb.Entity<Models.Review>()
-    .Property(r => r.Rating)
-    .HasColumnName("Ratings");
+        mb.Entity<Models.Review>()
+        .Property(r => r.Rating)
+        .HasColumnName("Ratings");
 
-mb.Entity<Models.Review>()
-    .HasOne(r => r.Tenant)
-    .WithMany(u => u.Reviews)
-    .HasForeignKey(r => r.TenantId)
-    .OnDelete(DeleteBehavior.Cascade);
+        mb.Entity<Models.Review>()
+            .HasOne(r => r.Tenant)
+            .WithMany(u => u.Reviews)
+            .HasForeignKey(r => r.TenantId)
+            .OnDelete(DeleteBehavior.Cascade);
 
-mb.Entity<Models.Review>()
-    .HasOne(r => r.ViewingSchedule)
-    .WithMany(vs => vs.Reviews)
-    .HasForeignKey(r => r.ViewingScheduleId)
-    .OnDelete(DeleteBehavior.SetNull);
+        mb.Entity<Models.Review>()
+            .HasOne(r => r.ViewingSchedule)
+            .WithMany(vs => vs.Reviews)
+            .HasForeignKey(r => r.ViewingScheduleId)
+            .OnDelete(DeleteBehavior.SetNull);
 
-mb.Entity<Models.Review>()
-    .HasOne(r => r.Conversation)
-    .WithMany(c => c.Reviews)
-    .HasForeignKey(r => r.ConversationId)
-    .OnDelete(DeleteBehavior.SetNull);
+        mb.Entity<Models.Review>()
+            .HasOne(r => r.Conversation)
+            .WithMany(c => c.Reviews)
+            .HasForeignKey(r => r.ConversationId)
+            .OnDelete(DeleteBehavior.SetNull);
 
-// Unique constraints
-mb.Entity<Models.Review>()
-    .HasIndex(r => new { r.TenantId, r.ViewingScheduleId })
-    .IsUnique()
-    .HasFilter("\"ViewingScheduleId\" IS NOT NULL")
-    .HasDatabaseName("UQ_Reviews_Tenant_ViewingSchedule");
+        // Unique constraints
+        mb.Entity<Models.Review>()
+            .HasIndex(r => new { r.TenantId, r.ViewingScheduleId })
+            .IsUnique()
+            .HasFilter("\"ViewingScheduleId\" IS NOT NULL")
+            .HasDatabaseName("UQ_Reviews_Tenant_ViewingSchedule");
 
-mb.Entity<Models.Review>()
-    .HasIndex(r => new { r.TenantId, r.ConversationId })
-    .IsUnique()
-    .HasFilter("\"ConversationId\" IS NOT NULL")
-    .HasDatabaseName("UQ_Reviews_Tenant_Conversation");
+        mb.Entity<Models.Review>()
+            .HasIndex(r => new { r.TenantId, r.ConversationId })
+            .IsUnique()
+            .HasFilter("\"ConversationId\" IS NOT NULL")
+            .HasDatabaseName("UQ_Reviews_Tenant_Conversation");
 
-// Check constraint
-mb.Entity<Models.Review>()
-    .ToTable(t => t.HasCheckConstraint(
-        "CK_Reviews_Source",
-        "(\"ViewingScheduleId\" IS NOT NULL AND \"ConversationId\" IS NULL) OR " +
-        "(\"ViewingScheduleId\" IS NULL AND \"ConversationId\" IS NOT NULL)"));
-        mb.Entity<ScoringConfig>().HasData(
-            new ScoringConfig { Id = 1 });
+        // Check constraint
+        mb.Entity<Models.Review>()
+            .ToTable(t => t.HasCheckConstraint(
+                "CK_Reviews_Source",
+                "(\"ViewingScheduleId\" IS NOT NULL AND \"ConversationId\" IS NULL) OR " +
+                "(\"ViewingScheduleId\" IS NULL AND \"ConversationId\" IS NOT NULL)"));
+
+        mb.Entity<ScoringConfig>()
+            .HasOne(sc => sc.User)
+            .WithOne(u => u.ScoringConfig)
+            .HasForeignKey<ScoringConfig>(sc => sc.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        mb.Entity<ScoringConfig>()
+            .HasIndex(sc => sc.UserId)
+            .IsUnique()
+            .HasDatabaseName("UQ_ScoringConfig_UserId");
 
         // ── Feedback ──────────────────────────────────────────────────────────
         mb.Entity<Feedback>()
@@ -256,5 +260,10 @@ mb.Entity<Models.Review>()
         mb.Entity<Report>()
             .HasIndex(r => new { r.Item, r.ItemId });
 
+        mb.Entity<ReportEvidenceImage>()
+            .HasOne(i => i.Report)
+            .WithMany(r => r.EvidenceImages)
+            .HasForeignKey(i => i.ReportId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

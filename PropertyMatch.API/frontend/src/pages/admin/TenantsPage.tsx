@@ -129,7 +129,6 @@ function TenantRow({ tenant: t, loading, onAction }: {
                         <span>📧 {t.email}</span>
                         <span>📅 Joined {formatDate(t.createdAt)}</span>
                         <span>👁️ {t.totalViewings} viewing{t.totalViewings !== 1 ? 's' : ''}</span>
-                        <span>⏳ Pending {t.pendingViewings}</span>
                         <span>✅ Confirmed {t.confirmedViewings}</span>
                         <span>❌ Cancelled {t.cancelledViewings}</span>
                         <span>🕒 Last Viewing: {activityText}</span>

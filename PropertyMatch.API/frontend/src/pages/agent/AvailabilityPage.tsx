@@ -135,9 +135,6 @@ export default function AvailabilityPage() {
         startTime: tpl.startTime,
         endTime: tpl.endTime,
         slotDurationMinutes: slotDuration,
-        validFrom: null,
-        validTo: null,
-        listingId: null,
       }));
 
     if (reqs.length === 0) {
