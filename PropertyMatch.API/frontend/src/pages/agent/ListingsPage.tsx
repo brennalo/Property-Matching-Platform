@@ -1291,27 +1291,28 @@ export default function AgentListingsPage() {
       ),
   });
 
-  const updateMut = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: ListingFormData }) =>
-      listingsApi.update(id, {
-        name: data.name,
-        rooms: parseInt(data.rooms),
-        toilets: parseInt(data.toilets),
-        lat: parseFloat(data.lat),
-        lng: parseFloat(data.lng),
-        address: data.address,
-        residencyType: data.residencyType,
-        price: parseFloat(data.price),
-        description: data.description || undefined,
-        amenities: data.amenities || undefined,
-      }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["my-listings"] });
-      setEditTarget(null);
-      showToast("Listing updated!");
-    },
-    onError: () => showToast("Failed to update listing", "error"),
-  });
+    const updateMut = useMutation({
+        mutationFn: ({ id, data }: { id: string; data: ListingFormData }) =>
+            listingsApi.update(id, {
+                name: data.name,
+                rooms: parseInt(data.rooms),
+                toilets: parseInt(data.toilets),
+                lat: parseFloat(data.lat),
+                lng: parseFloat(data.lng),
+                address: data.address,
+                residencyType: data.residencyType,
+                price: parseFloat(data.price),
+                description: data.description || undefined,
+                amenities: data.amenities || undefined,
+            }),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["my-listings"] });
+            setShowForm(false);
+            setEditTarget(null);
+            showToast("Listing updated!");
+        },
+        onError: () => showToast("Failed to update listing", "error"),
+    });
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => listingsApi.delete(id),
