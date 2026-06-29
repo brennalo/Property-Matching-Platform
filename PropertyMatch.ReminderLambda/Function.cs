@@ -77,68 +77,29 @@ public class Function
 
     private async Task SendReminderAsync(ViewingRow v, ILambdaContext context)
     {
-        var malaysiaTime = TimeZoneInfo.ConvertTimeFromUtc(
-            v.ScheduledAt,
-            TimeZoneInfo.FindSystemTimeZoneById("Asia/Kuala_Lumpur"));
-
-        var html = $"""
-            <!DOCTYPE html>
-            <html>
-            <body style="font-family: Arial, sans-serif; background: #0f0f0e; color: #e8e4de; padding: 40px;">
-              <div style="max-width: 520px; margin: 0 auto; background: #1c1b19; border-radius: 12px; padding: 36px; border: 1px solid #2e2d2b;">
-                <h1 style="font-size: 1.6rem; color: #e8a045; margin-bottom: 8px;">PropertyMatch</h1>
-                <h2 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 20px;">Viewing Tomorrow</h2>
-                <p style="color: #b0aa9f; margin-bottom: 24px;">
-                  Hi {v.TenantName}, this is a reminder that your property viewing is
-                  <strong style="color:#e8e4de;">tomorrow</strong>.
-                </p>
-                <table style="width:100%; border-collapse:collapse; margin-bottom:24px;">
-                  <tr>
-                    <td style="color:#6b6560; padding:8px 0; border-bottom:1px solid #2e2d2b; width:40%;">Property</td>
-                    <td style="padding:8px 0; border-bottom:1px solid #2e2d2b;">{v.ListingName}</td>
-                  </tr>
-                  <tr>
-                    <td style="color:#6b6560; padding:8px 0; border-bottom:1px solid #2e2d2b;">Address</td>
-                    <td style="padding:8px 0; border-bottom:1px solid #2e2d2b;">{v.ListingAddress}</td>
-                  </tr>
-                  <tr>
-                    <td style="color:#6b6560; padding:8px 0; border-bottom:1px solid #2e2d2b;">Date</td>
-                    <td style="padding:8px 0; border-bottom:1px solid #2e2d2b;">{malaysiaTime:dddd, d MMMM yyyy}</td>
-                  </tr>
-                  <tr>
-                    <td style="color:#6b6560; padding:8px 0;">Time</td>
-                    <td style="padding:8px 0;">{malaysiaTime:h:mm tt} MYT</td>
-                  </tr>
-                </table>
-                <p style="font-size: 0.8rem; color: #6b6560;">
-                  Please arrive on time. If you need to reschedule, contact the agent directly through PropertyMatch.
-                </p>
-              </div>
-            </body>
-            </html>
-            """;
+        var ec2Url = Environment.GetEnvironmentVariable("EC2_API_URL");
+        var secret = Environment.GetEnvironmentVariable("INTERNAL_SECRET");
 
         var payload = new
         {
-            from = $"PropertyMatch <{_fromEmail}>",
-            to = new[] { v.TenantEmail },
-            subject = "Reminder: Property Viewing Tomorrow",
-            html
+            tenantEmail = v.TenantEmail,
+            tenantName = v.TenantName,
+            listingName = v.ListingName,
+            listingAddress = v.ListingAddress,
+            scheduledAt = v.ScheduledAt
         };
 
-        var request = new HttpRequestMessage(HttpMethod.Post, "https://api.resend.com/emails");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _resendKey);
+        var request = new HttpRequestMessage(
+            HttpMethod.Post, $"{ec2Url}/api/internal/send-reminder");
+        request.Headers.Add("X-Internal-Secret", secret);
         request.Content = new StringContent(
             JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
         var response = await Http.SendAsync(request);
         if (!response.IsSuccessStatusCode)
-        {
-            var err = await response.Content.ReadAsStringAsync();
-            throw new InvalidOperationException($"Resend error for {v.TenantEmail}: {err}");
-        }
+            throw new InvalidOperationException($"EC2 relay failed for {v.TenantEmail}");
 
-        context.Logger.LogInformation($"Reminder sent to {v.TenantEmail}");
+        context.Logger.LogInformation($"Reminder queued for {v.TenantEmail}");
     }
 
     private record ViewingRow(
