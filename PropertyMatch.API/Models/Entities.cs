@@ -1,13 +1,11 @@
-﻿using Microsoft.VisualBasic;
-using Stripe;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace PropertyMatch.API.Models;
 
 public enum UserRole { Tenant, Agent, Admin }
 public enum UserStatus { Pending, Unapproved, Verified, Blocked }
-public enum ListingStatus { Draft, PendingPayment, Active, Inactive, Booked }
+public enum ListingStatus { Draft, Active, Inactive, Booked }
 public enum ScheduleStatus { Pending, Confirmed, Cancelled }
 public enum ResidencyType { Landed, Condo, Apartment, Townhouse, Studio, MasterRoom, SharedRoom }
 public enum TransportMode { Driving, Walking, Transit, Bicycling }
@@ -44,6 +42,7 @@ public class User
     public ICollection<SearchLog> SearchLogs { get; set; } = [];
     public ICollection<Models.Review> Reviews { get; set; } = new List<Models.Review>();
     public ICollection<Feedback> Feedbacks { get; set; } = [];
+    public ScoringConfig? ScoringConfig { get; set; }
 }
 
 // ── Email Verification ───────────────────────────────────────────────────────
@@ -123,7 +122,7 @@ public class ListingImage
     public Guid ListingId { get; set; }
     [Required] public string S3Url { get; set; } = "";
     public int DisplayOrder { get; set; }
-    [MaxLength(30)] public string? Caption { get; set; }  
+    [MaxLength(30)] public string? Caption { get; set; }
 
     public Listing Listing { get; set; } = null!;
 }
@@ -172,7 +171,7 @@ public class AvailabilityException
     public int SlotDurationMinutes { get; set; } = 60;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-   
+
 
     public Agent? Agent { get; set; }
     public Listing? Listing { get; set; }
@@ -198,7 +197,7 @@ public class LifestyleTemplate
 
 public class ViewingSchedule
 {
-    public Guid Id { get; set; } 
+    public Guid Id { get; set; }
     public Guid ListingId { get; set; }
     public DateTime ScheduledAt { get; set; }
     public Guid TenantId { get; set; }
@@ -241,7 +240,7 @@ public class Review
     public int Rating { get; set; }  // 1-5
     public string ReviewText { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    
+
     public Guid? ViewingScheduleId { get; set; }
     public Guid? ConversationId { get; set; }
 
@@ -358,9 +357,12 @@ public class ReportEvidenceImage
 
 public class ScoringConfig
 {
-    public int Id { get; set; } = 1; // singleton row
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid UserId { get; set; }
     public double WeightNumeric { get; set; } = 0.40;
     public double WeightCommute { get; set; } = 0.30;
     public double WeightLifestyle { get; set; } = 0.30;
     public int LifestyleRadiusMeters { get; set; } = 800;
+
+    public User User { get; set; } = null!;
 }

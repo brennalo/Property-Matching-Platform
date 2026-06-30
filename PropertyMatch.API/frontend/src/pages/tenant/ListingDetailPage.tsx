@@ -43,6 +43,7 @@ import {
     Eye,
     EyeOff,
 } from "lucide-react";
+import { ImageLightbox } from "../../components/ImageLightbox";
 
 // ── Google Maps ready state ───────────────────────────────────────────────────
 declare global {
@@ -348,186 +349,7 @@ function ImageGallery({ images, name }: { images: ImageDto[]; name: string }) {
 
             {/* Lightbox for zoomed image */}
             {zoomedImage && (
-                <div
-                    style={{
-                        position: "fixed",
-                        inset: 0,
-                        background: "rgba(0,0,0,0.9)",
-                        zIndex: 300,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                    }}
-                    onClick={() => setZoomedIdx(null)}
-                >
-                    {/* Close button */}
-                    <button
-                        onClick={() => setZoomedIdx(null)}
-                        style={{
-                            position: "absolute",
-                            top: 20,
-                            right: 20,
-                            background: "rgba(255,255,255,0.1)",
-                            border: "none",
-                            borderRadius: "50%",
-                            width: 40,
-                            height: 40,
-                            cursor: "pointer",
-                            color: "white",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            zIndex: 10,
-                        }}
-                    >
-                        <X size={24} />
-                    </button>
-
-                    {/* Zoom controls */}
-                    <div
-                        style={{
-                            position: "absolute",
-                            bottom: 20,
-                            left: "50%",
-                            transform: "translateX(-50%)",
-                            display: "flex",
-                            gap: 12,
-                            zIndex: 10,
-                        }}
-                    >
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setZoom((z) => Math.max(z - 0.5, 1));
-                            }}
-                            style={{
-                                background: "rgba(255,255,255,0.1)",
-                                border: "none",
-                                borderRadius: "50%",
-                                width: 40,
-                                height: 40,
-                                cursor: "pointer",
-                                color: "white",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                            }}
-                        >
-                            <ZoomOut size={20} />
-                        </button>
-                        <div
-                            style={{
-                                background: "rgba(255,255,255,0.1)",
-                                borderRadius: "6px",
-                                padding: "8px 12px",
-                                color: "white",
-                                fontSize: "0.85rem",
-                                minWidth: 60,
-                                textAlign: "center",
-                            }}
-                        >
-                            {Math.round(zoom * 100)}%
-                        </div>
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setZoom((z) => Math.min(z + 0.5, 3));
-                            }}
-                            style={{
-                                background: "rgba(255,255,255,0.1)",
-                                border: "none",
-                                borderRadius: "50%",
-                                width: 40,
-                                height: 40,
-                                cursor: "pointer",
-                                color: "white",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                            }}
-                        >
-                            <ZoomIn size={20} />
-                        </button>
-                    </div>
-
-                    {/* Caption toggle */}
-                    {zoomedImage.caption && (
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setShowCaption(!showCaption);
-                            }}
-                            style={{
-                                position: "absolute",
-                                top: 20,
-                                left: 20,
-                                background: "rgba(255,255,255,0.1)",
-                                border: "none",
-                                borderRadius: "50%",
-                                width: 40,
-                                height: 40,
-                                cursor: "pointer",
-                                color: "white",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                zIndex: 10,
-                            }}
-                        >
-                            {showCaption ? <Eye size={20} /> : <EyeOff size={20} />}
-                        </button>
-                    )}
-
-                    {/* Zoomed image container */}
-                    <div
-                        ref={containerRef}
-                        style={{
-                            position: "relative",
-                            width: "100%",
-                            height: "100%",
-                            overflow: "auto",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        onWheel={handleWheel}
-                    >
-                        <img
-                            src={zoomedImage.url}
-                            alt="Zoomed"
-                            style={{
-                                objectFit: "contain",
-                                maxWidth: "100%",
-                                maxHeight: "100%",
-                                transform: `scale(${zoom})`,
-                                transition: "transform 0.2s ease",
-                            }}
-                        />
-                    </div>
-
-                    {/* Caption pill */}
-                    {zoomedImage.caption && showCaption && (
-                        <div
-                            style={{
-                                position: "absolute",
-                                bottom: 100,
-                                left: "50%",
-                                transform: "translateX(-50%)",
-                                background: "rgba(0,0,0,0.8)",
-                                color: "white",
-                                padding: "12px 20px",
-                                borderRadius: 999,
-                                fontSize: "0.9rem",
-                                maxWidth: 300,
-                                textAlign: "center",
-                                pointerEvents: "none",
-                            }}
-                        >
-                            {zoomedImage.caption}
-                        </div>
-                    )}
-                </div>
+                <ImageLightbox image={zoomedImage} onClose={() => setZoomedIdx(null)} />
             )}
         </>
     );
@@ -661,7 +483,10 @@ function TransitItinerary({ steps: rawSteps }: { steps: TransitStep[] }) {
                                         >
                                             {step.headSign && (
                                                 <span
-                                                    style={{ fontSize: "0.82rem", color: "var(--text)" }}
+                                                    style={{
+                                                        fontSize: "0.82rem",
+                                                        color: "var(--text)",
+                                                    }}
                                                 >
                                                     {step.headSign}
                                                 </span>
@@ -835,7 +660,12 @@ function LifestyleMapCard({
                 Nearby Places (within 800m)
             </h3>
             <div
-                style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}
+                style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 6,
+                    marginBottom: 12,
+                }}
             >
                 {categories.map(([type, count]) => {
                     const color = getPlaceTypeColor(type);
@@ -902,7 +732,11 @@ function LifestyleMapCard({
                 </div>
             )}
             <p
-                style={{ fontSize: "0.74rem", color: "var(--text-dim)", marginTop: 8 }}
+                style={{
+                    fontSize: "0.74rem",
+                    color: "var(--text-dim)",
+                    marginTop: 8,
+                }}
             >
                 Click any marker for its name. Toggle categories above to show/hide.
             </p>
@@ -1096,7 +930,12 @@ function RouteMap({
     return (
         <div>
             <div
-                style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}
+                style={{
+                    display: "flex",
+                    gap: 6,
+                    marginBottom: 12,
+                    flexWrap: "wrap",
+                }}
             >
                 {commuteRoutes.map((r) => (
                     <button
@@ -1818,10 +1657,7 @@ export default function ListingDetailPage() {
         type: "success" | "error";
     } | null>(null);
 
-    const showToast = (
-        msg: string,
-        type: "success" | "error" = "success"
-    ) => {
+    const showToast = (msg: string, type: "success" | "error" = "success") => {
         setToast({ msg, type });
         setTimeout(() => setToast(null), 3000);
     };
@@ -1904,7 +1740,10 @@ export default function ListingDetailPage() {
             setShowReportSuccess(true);
         },
         onError: (e: any) =>
-            showToast(e.response?.data?.message ?? "Failed to submit report.", "error"),
+            showToast(
+                e.response?.data?.message ?? "Failed to submit report.",
+                "error",
+            ),
     });
     const { data: agentProfile } = useQuery({
         queryKey: ["agent-public", agentId],
@@ -1926,11 +1765,12 @@ export default function ListingDetailPage() {
                 style={{ marginBottom: 16 }}
                 onClick={() => navigate(fromBrowse ? "/browse" : "/results")}
             >
-                <ArrowLeft size={14} /> {fromBrowse ? "Back to Browse" : "Back to Results"}
+                <ArrowLeft size={14} />{" "}
+                {fromBrowse ? "Back to Browse" : "Back to Results"}
             </button>
 
-      {/* Use enhanced gallery with images (ImageDto[]) instead of imageUrls */}
-      <ImageGallery images={listing.images ?? []} name={listing.name} />
+            {/* Use enhanced gallery with images (ImageDto[]) instead of imageUrls */}
+            <ImageGallery images={listing.images ?? []} name={listing.name} />
 
             <div
                 style={{
@@ -2009,39 +1849,50 @@ export default function ListingDetailPage() {
                         </div>
                     </div>
 
-                    {!fromBrowse && <div className="card">
-                        <h3
-                            style={{ fontSize: "0.95rem", fontWeight: 600, marginBottom: 14 }}
-                        >
-                            Match Score Breakdown
-                        </h3>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                            <ScoreBar
-                                label="Numeric match (40%)"
-                                value={result.numericScore}
-                                color="#3db8a0"
-                            />
-                            <ScoreBar
-                                label="Commute score (30%)"
-                                value={result.commuteScore}
-                                color="#e8a045"
-                            />
-                            <ScoreBar
-                                label="Lifestyle score (30%)"
-                                value={result.lifestyleScore}
-                                color="#a78bfa"
-                            />
+                    {!fromBrowse && (
+                        <div className="card">
+                            <h3
+                                style={{
+                                    fontSize: "0.95rem",
+                                    fontWeight: 600,
+                                    marginBottom: 14,
+                                }}
+                            >
+                                Match Score Breakdown
+                            </h3>
                             <div
-                                style={{ borderTop: "1px solid var(--border)", paddingTop: 10 }}
+                                style={{ display: "flex", flexDirection: "column", gap: 12 }}
                             >
                                 <ScoreBar
-                                    label="Overall score"
-                                    value={result.totalScore}
-                                    color="var(--text)"
+                                    label="Numeric match (40%)"
+                                    value={result.numericScore}
+                                    color="#3db8a0"
                                 />
+                                <ScoreBar
+                                    label="Commute score (30%)"
+                                    value={result.commuteScore}
+                                    color="#e8a045"
+                                />
+                                <ScoreBar
+                                    label="Lifestyle score (30%)"
+                                    value={result.lifestyleScore}
+                                    color="#a78bfa"
+                                />
+                                <div
+                                    style={{
+                                        borderTop: "1px solid var(--border)",
+                                        paddingTop: 10,
+                                    }}
+                                >
+                                    <ScoreBar
+                                        label="Overall score"
+                                        value={result.totalScore}
+                                        color="var(--text)"
+                                    />
+                                </div>
                             </div>
                         </div>
-                    </div>}
+                    )}
 
                     {Object.keys(result.lifestylePlaces).length > 0 && (
                         <LifestyleMapCard
@@ -2141,12 +1992,49 @@ export default function ListingDetailPage() {
                                             Contact: {agentProfile.contactNo}
                                         </div>
                                     )}
+                                    {agentProfile?.ratings != null && (
+                                        <div
+                                            style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: 4,
+                                                marginTop: 4,
+                                            }}
+                                        >
+                                            {[1, 2, 3, 4, 5].map((star) => (
+                                                <span
+                                                    key={star}
+                                                    style={{
+                                                        color:
+                                                            star <= Math.round(agentProfile.ratings!)
+                                                                ? "#f59e0b"
+                                                                : "var(--border)",
+                                                        fontSize: "0.9rem",
+                                                    }}
+                                                >
+                                                    ★
+                                                </span>
+                                            ))}
+                                            <span
+                                                style={{
+                                                    fontSize: "0.82rem",
+                                                    color: "var(--text-muted)",
+                                                    marginLeft: 2,
+                                                }}
+                                            >
+                                                {agentProfile.ratings.toFixed(1)}
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
-                                <div style={{
-                                    display: "flex", gap: 8, flexWrap: "wrap",
-                                    justifyContent: "flex-start",
-                                    width: "100%",
-                                }}
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        gap: 8,
+                                        flexWrap: "wrap",
+                                        justifyContent: "flex-start",
+                                        width: "100%",
+                                    }}
                                 >
                                     <button
                                         className={`btn ${favStatus?.saved ? "btn-primary" : "btn-outline"}`}
@@ -2216,10 +2104,23 @@ export default function ListingDetailPage() {
                         {listing.description && (
                             <>
                                 <div className="divider" />
-                                <p style={{ fontSize: "0.82rem", fontWeight: 600, marginBottom: 6 }}>
+                                <p
+                                    style={{
+                                        fontSize: "0.82rem",
+                                        fontWeight: 600,
+                                        marginBottom: 6,
+                                    }}
+                                >
                                     Description
                                 </p>
-                                <p style={{ fontSize: "0.82rem", color: "var(--text-muted)", lineHeight: 1.6, margin: 0 }}>
+                                <p
+                                    style={{
+                                        fontSize: "0.82rem",
+                                        color: "var(--text-muted)",
+                                        lineHeight: 1.6,
+                                        margin: 0,
+                                    }}
+                                >
                                     {listing.description}
                                 </p>
                             </>
@@ -2228,15 +2129,39 @@ export default function ListingDetailPage() {
                         {listing.amenities && (
                             <>
                                 <div className="divider" />
-                                <p style={{ fontSize: "0.82rem", fontWeight: 600, marginBottom: 8 }}>
+                                <p
+                                    style={{
+                                        fontSize: "0.82rem",
+                                        fontWeight: 600,
+                                        marginBottom: 8,
+                                    }}
+                                >
                                     Amenities
                                 </p>
-                                <ul style={{ margin: 0, padding: "0 0 0 18px", display: "flex", flexDirection: "column", gap: 4 }}>
-                                    {listing.amenities.split(",").map((a) => a.trim()).filter(Boolean).map((a) => (
-                                        <li key={a} style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>
-                                            {a}
-                                        </li>
-                                    ))}
+                                <ul
+                                    style={{
+                                        margin: 0,
+                                        padding: "0 0 0 18px",
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        gap: 4,
+                                    }}
+                                >
+                                    {listing.amenities
+                                        .split(",")
+                                        .map((a) => a.trim())
+                                        .filter(Boolean)
+                                        .map((a) => (
+                                            <li
+                                                key={a}
+                                                style={{
+                                                    fontSize: "0.82rem",
+                                                    color: "var(--text-muted)",
+                                                }}
+                                            >
+                                                {a}
+                                            </li>
+                                        ))}
                                 </ul>
                             </>
                         )}
@@ -2287,14 +2212,24 @@ export default function ListingDetailPage() {
             )}
 
             {showReportSuccess && (
-                <div className="modal-overlay" onClick={() => setShowReportSuccess(false)}>
-                    <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420, textAlign: "center" }}>
+                <div
+                    className="modal-overlay"
+                    onClick={() => setShowReportSuccess(false)}
+                >
+                    <div
+                        className="modal"
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ maxWidth: 420, textAlign: "center" }}
+                    >
                         <div style={{ fontSize: "2.5rem", marginBottom: 12 }}>✅</div>
                         <h2 style={{ marginBottom: 8 }}>Report Submitted</h2>
                         <p style={{ color: "var(--text-muted)", marginBottom: 20 }}>
                             Your report has been submitted to the admin team for review.
                         </p>
-                        <button className="btn btn-primary" onClick={() => setShowReportSuccess(false)}>
+                        <button
+                            className="btn btn-primary"
+                            onClick={() => setShowReportSuccess(false)}
+                        >
                             OK
                         </button>
                     </div>
@@ -2319,15 +2254,27 @@ export default function ListingDetailPage() {
                         />
 
                         <div className="flex gap-3 mt-4">
-                            <button className="btn btn-outline" onClick={() => setShowReport(false)}>
+                            <button
+                                className="btn btn-outline"
+                                onClick={() => setShowReport(false)}
+                            >
                                 Cancel
                             </button>
                             <button
                                 className="btn btn-danger"
-                                disabled={!reportText.trim() || reportFiles.length < 1 || reportFiles.length > 3 || reportMut.isPending}
+                                disabled={
+                                    !reportText.trim() ||
+                                    reportFiles.length < 1 ||
+                                    reportFiles.length > 3 ||
+                                    reportMut.isPending
+                                }
                                 onClick={() => reportMut.mutate()}
                             >
-                                {reportMut.isPending ? <span className="spinner" /> : "Submit Report"}
+                                {reportMut.isPending ? (
+                                    <span className="spinner" />
+                                ) : (
+                                    "Submit Report"
+                                )}
                             </button>
                         </div>
 
@@ -2351,14 +2298,21 @@ export default function ListingDetailPage() {
                                 }}
                             />
 
-                            <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>
-                                Required. You can upload up to 3 files at once (JPG, PNG, or WebP only).
+                            <p
+                                style={{
+                                    fontSize: "0.75rem",
+                                    color: "var(--text-muted)",
+                                    marginTop: 6,
+                                }}
+                            >
+                                Required. You can upload up to 3 files at once (JPG, PNG, or
+                                WebP only).
                             </p>
                         </div>
                     </div>
                 </div>
             )}
-            {toast && (<div className={`toast toast-${toast.type}`}>{toast.msg}</div>)}
+            {toast && <div className={`toast toast-${toast.type}`}>{toast.msg}</div>}
         </div>
     );
 }

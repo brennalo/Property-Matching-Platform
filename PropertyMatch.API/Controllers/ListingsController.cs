@@ -274,13 +274,41 @@ public class ListingsController(AppDbContext db, S3Service s3, GroqService groq)
     {
         var userId = User.GetUserId();
         var agent = await db.Agents.FirstOrDefaultAsync(a => a.UserId == userId);
+        if (agent == null)
+            return NotFound(new { message = "Agent profile not found" });
+
         var image = await db.ListingImages
             .Include(i => i.Listing)
-            .FirstOrDefaultAsync(i => i.Id == imageId && i.Listing.Id == id && i.Listing.AgentId == agent!.UserId);
-        if (image == null) return NotFound();
+            .FirstOrDefaultAsync(i => i.Id == imageId && i.Listing.Id == id && i.Listing.AgentId == agent.UserId);
 
+        if (image == null)
+        {
+            // Already deleted – treat as success (idempotent)
+            // Renumber just in case there are gaps
+            await RenumberImagesAsync(id);
+            return Ok(new { message = "Image already deleted" });
+        }
+
+        // Delete from S3
         await s3.DeleteImageAsync(imageId);
-        return Ok(new { message = "Image deleted" });
+
+        // Remove from database
+        db.ListingImages.Remove(image);
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Another request deleted it just before we did – treat as success
+            await RenumberImagesAsync(id);
+            return Ok(new { message = "Image already deleted" });
+        }
+
+        // Renumber remaining images
+        await RenumberImagesAsync(id);
+
+        return Ok(new { message = "Image deleted successfully" });
     }
 
     // ── DELETE: listing ──────────────────────────────────────────────────────
@@ -407,7 +435,7 @@ public class ListingsController(AppDbContext db, S3Service s3, GroqService groq)
                 await writer.WriteLineAsync("3. Save the Excel file and keep it inside the ZIP.");
                 await writer.WriteLineAsync();
                 await writer.WriteLineAsync("4. Upload the entire ZIP file on the 'Batch Import' page.");
-                await writer.WriteLineAsync("   - Your listings will be created with 'PendingPayment' status.");
+                await writer.WriteLineAsync("   - Your listings will be created and become Active immediately.");
                 await writer.WriteLineAsync("   - Images will be attached to each listing automatically.");
                 await writer.WriteLineAsync();
                 await writer.WriteLineAsync("5. After import, you can go to each listing to add captions.");
@@ -664,4 +692,20 @@ public class ListingsController(AppDbContext db, S3Service s3, GroqService groq)
         l.Images.OrderBy(i => i.DisplayOrder)
             .Select(i => new ImageDto(i.Id, i.S3Url ?? "", i.DisplayOrder, i.Caption))
             .ToList());
+
+    // ── RenumberImagesAsync ─────────────────────────────────────────────────
+    private async Task RenumberImagesAsync(Guid listingId)
+    {
+        var images = await db.ListingImages
+            .Where(i => i.ListingId == listingId)
+            .OrderBy(i => i.DisplayOrder)
+            .ToListAsync();
+
+        for (int i = 0; i < images.Count; i++)
+        {
+            images[i].DisplayOrder = i;
+        }
+
+        await db.SaveChangesAsync();
+    }
 }

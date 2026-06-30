@@ -12,8 +12,9 @@ public class MatchingService(
 {
     public async Task<List<MatchedListingResponse>> MatchAsync(MatchRequest req, Guid? tenantId)
     {
-        var cfg = await db.ScoringConfig.FindAsync(1)
-            ?? new ScoringConfig();
+        var cfg = (tenantId.HasValue
+            ? await db.ScoringConfig.FirstOrDefaultAsync(sc => sc.UserId == tenantId.Value)
+            : null) ?? new ScoringConfig();
 
         var listings = await db.Listings
             .Include(l => l.Images)

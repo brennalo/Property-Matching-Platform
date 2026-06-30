@@ -17,6 +17,7 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
+import { ImageLightbox } from "../../components/ImageLightbox";
 
 const RESIDENCY_TYPES: ResidencyType[] = [
   "Landed",
@@ -41,133 +42,7 @@ interface ListingFormData {
   amenities: string;
 }
 
-// ── Image lightbox with zoom ──────────────────────────────────────────────────────────────────────
-function ImageLightbox({
-  image,
-  onClose,
-}: {
-  image: ImageDto;
-  onClose: () => void;
-}) {
-  const [zoom, setZoom] = useState(1);
-  const [showCaption, setShowCaption] = useState(true);
-
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    setZoom((z) => Math.min(Math.max(z - e.deltaY * 0.001, 1), 3));
-  };
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
-
-  return (
-    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 300 }}>
-      {/* Background overlay */}
-      <div className="fixed inset-0 bg-black/90" onClick={onClose} />
-
-      {/* Main container – fixed, full viewport, flex column */}
-      <div
-        className="fixed inset-0 flex flex-col"
-        style={{ zIndex: 301, height: "100vh", maxHeight: "100vh" }}
-        onClick={(e) => e.stopPropagation()}
-        onWheel={handleWheel}
-      >
-        {/* Close button – top right */}
-        <button
-          onClick={onClose}
-          className="btn btn-ghost btn-sm absolute top-4 right-4 z-10"
-          style={{ color: "var(--text)" }}
-        >
-          <X size={24} />
-        </button>
-
-        {/* Image container – fixed height to force image to fit */}
-        <div
-          className="flex items-center justify-center"
-          style={{
-            height: "calc(100vh - 80px)", // subtract toolbar height + padding
-            overflow: "hidden",
-            padding: "16px",
-            paddingTop: "60px", // space for close button
-          }}
-        >
-          <img
-            src={image.url}
-            alt="Zoomed"
-            style={{
-              maxWidth: "100%",
-              maxHeight: "100%",
-              width: "auto",
-              height: "auto",
-              objectFit: "contain",
-              transform: `scale(${zoom})`,
-              transition: "transform 0.2s ease",
-            }}
-            draggable={false}
-          />
-        </div>
-
-        {/* Bottom toolbar – always visible */}
-        <div
-          className="flex items-center justify-center gap-3 p-4 flex-shrink-0"
-          style={{
-            background: "var(--bg-card)",
-            borderTop: "1px solid var(--border)",
-          }}
-        >
-          <button
-            onClick={() => setZoom((z) => Math.max(z - 0.5, 1))}
-            className="btn btn-outline btn-sm"
-          >
-            <ZoomOut size={18} />
-          </button>
-          <span className="text-sm text-muted min-w-[40px] text-center">
-            {Math.round(zoom * 100)}%
-          </span>
-          <button
-            onClick={() => setZoom((z) => Math.min(z + 0.5, 3))}
-            className="btn btn-outline btn-sm"
-          >
-            <ZoomIn size={18} />
-          </button>
-          {image.caption && (
-            <button
-              onClick={() => setShowCaption(!showCaption)}
-              className="btn btn-outline btn-sm flex items-center gap-1"
-            >
-              {showCaption ? <Eye size={18} /> : <EyeOff size={18} />}
-              <span className="hidden sm:inline text-xs">
-                {showCaption ? "Hide" : "Show"} Caption
-              </span>
-            </button>
-          )}
-        </div>
-
-        {/* Caption pill */}
-        {image.caption && showCaption && (
-          <div
-            className="absolute left-1/2 transform -translate-x-1/2 px-4 py-2 rounded-full text-sm max-w-xs text-center pointer-events-none"
-            style={{
-              bottom: "calc(60px + 16px)",
-              background: "rgba(0,0,0,0.8)",
-              color: "white",
-              border: "1px solid var(--border)",
-            }}
-          >
-            {image.caption}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Image grid with drag reorder ──────────────────────────────────────────────────────────────────────
+// ── Image grid with up down reorder ──────────────────────────────────────────────────────────────────────
 function ImageGrid({
   images,
   onReorder,
@@ -181,40 +56,31 @@ function ImageGrid({
   onUpdateCaption: (id: string, caption: string) => void;
   onZoom: (image: ImageDto) => void;
 }) {
-  const [draggedItem, setDraggedItem] = useState<ImageDto | null>(null);
   const [editingCaption, setEditingCaption] = useState<{
     [key: string]: string;
   }>({});
 
-  const handleDragStart = (e: React.DragEvent, image: ImageDto) => {
-    setDraggedItem(image);
-    e.dataTransfer.effectAllowed = "move";
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-  };
-
-  const handleDrop = (e: React.DragEvent, targetImage: ImageDto) => {
-    e.preventDefault();
-    if (!draggedItem || draggedItem.id === targetImage.id) return;
-
-    const draggedIdx = images.findIndex((i) => i.id === draggedItem.id);
-    const targetIdx = images.findIndex((i) => i.id === targetImage.id);
+  const moveUp = (index: number) => {
+    if (index === 0) return;
     const newImages = [...images];
-    [newImages[draggedIdx], newImages[targetIdx]] = [
-      newImages[targetIdx],
-      newImages[draggedIdx],
+    [newImages[index], newImages[index - 1]] = [
+      newImages[index - 1],
+      newImages[index],
     ];
-
     // Update display order
-    newImages.forEach((img, idx) => {
-      img.displayOrder = idx;
-    });
-
+    newImages.forEach((img, idx) => (img.displayOrder = idx));
     onReorder(newImages);
-    setDraggedItem(null);
+  };
+
+  const moveDown = (index: number) => {
+    if (index === images.length - 1) return;
+    const newImages = [...images];
+    [newImages[index], newImages[index + 1]] = [
+      newImages[index + 1],
+      newImages[index],
+    ];
+    newImages.forEach((img, idx) => (img.displayOrder = idx));
+    onReorder(newImages);
   };
 
   return (
@@ -229,20 +95,14 @@ function ImageGrid({
           gap: 12,
         }}
       >
-        {images.map((img) => (
+        {images.map((img, idx) => (
           <div
             key={img.id}
-            draggable
-            onDragStart={(e) => handleDragStart(e, img)}
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDrop(e, img)}
             style={{
               position: "relative",
               borderRadius: 8,
               overflow: "hidden",
               background: "var(--bg-input)",
-              opacity: draggedItem?.id === img.id ? 0.5 : 1,
-              cursor: "grab",
             }}
           >
             {/* Image thumbnail */}
@@ -258,19 +118,21 @@ function ImageGrid({
               onClick={() => onZoom(img)}
             />
 
-            {/* Drag handle */}
+            {/* Order badge */}
             <div
               style={{
                 position: "absolute",
-                top: 4,
+                bottom: 4,
                 left: 4,
                 background: "rgba(0,0,0,0.6)",
-                borderRadius: 4,
-                padding: 2,
                 color: "white",
+                borderRadius: 4,
+                padding: "2px 6px",
+                fontSize: "0.7rem",
+                fontWeight: 600,
               }}
             >
-              <GripVertical size={14} />
+              #{idx + 1}
             </div>
 
             {/* Delete button */}
@@ -291,21 +153,48 @@ function ImageGrid({
               <X size={14} />
             </button>
 
-            {/* Order badge */}
+            {/* Up/Down buttons */}
             <div
               style={{
                 position: "absolute",
                 bottom: 4,
-                left: 4,
-                background: "rgba(0,0,0,0.6)",
-                color: "white",
-                borderRadius: 4,
-                padding: "2px 6px",
-                fontSize: "0.7rem",
-                fontWeight: 600,
+                right: 4,
+                display: "flex",
+                gap: 4,
               }}
             >
-              #{img.displayOrder + 1}
+              <button
+                onClick={() => moveUp(idx)}
+                disabled={idx === 0}
+                style={{
+                  background: "rgba(0,0,0,0.6)",
+                  border: "none",
+                  borderRadius: 4,
+                  color: "white",
+                  padding: "2px 6px",
+                  cursor: idx === 0 ? "not-allowed" : "pointer",
+                  opacity: idx === 0 ? 0.3 : 1,
+                  fontSize: "0.7rem",
+                }}
+              >
+                ↑
+              </button>
+              <button
+                onClick={() => moveDown(idx)}
+                disabled={idx === images.length - 1}
+                style={{
+                  background: "rgba(0,0,0,0.6)",
+                  border: "none",
+                  borderRadius: 4,
+                  color: "white",
+                  padding: "2px 6px",
+                  cursor: idx === images.length - 1 ? "not-allowed" : "pointer",
+                  opacity: idx === images.length - 1 ? 0.3 : 1,
+                  fontSize: "0.7rem",
+                }}
+              >
+                ↓
+              </button>
             </div>
           </div>
         ))}
@@ -327,7 +216,7 @@ function ImageGrid({
             Image Captions
           </h4>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {images.map((img) => (
+            {images.map((img, idx) => (
               <div key={img.id}>
                 <label
                   style={{
@@ -337,7 +226,7 @@ function ImageGrid({
                     display: "block",
                   }}
                 >
-                  Image #{img.displayOrder + 1} Caption (
+                  Image #{idx + 1} Caption (
                   {(editingCaption[img.id] || img.caption || "").length}/30
                   characters)
                 </label>
@@ -348,7 +237,7 @@ function ImageGrid({
                       : img.caption || ""
                   }
                   onChange={(e) => {
-                    const value = e.target.value.slice(0, 30); // enforce max 30 chars
+                    const value = e.target.value.slice(0, 30);
                     setEditingCaption((c) => ({ ...c, [img.id]: value }));
                     onUpdateCaption(img.id, value);
                   }}

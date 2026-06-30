@@ -49,7 +49,10 @@ public class S3Service
     {
         var allowed = new[] { "image/jpeg", "image/png", "image/webp" };
         var urls = new List<string>();
-        var order = _db.ListingImages.Count(i => i.ListingId == listingId);
+        var maxOrder = _db.ListingImages
+            .Where(i => i.ListingId == listingId)
+            .Max(i => (int?)i.DisplayOrder) ?? -1;
+        var order = maxOrder + 1;
 
         // Enforce 15-image cap
         var totalAfterUpload = order + files.Count();
@@ -84,7 +87,7 @@ public class S3Service
                 };
 
                 await _s3Client.PutObjectAsync(uploadRequest);
-                url = $"https://{_bucket}.s3.ap-southeast-5.amazonaws.com/{key}";
+                url = $"https://{_bucket}.s3.ap-southeast-1.amazonaws.com/{key}";
             }
             else
             {
@@ -209,7 +212,7 @@ public class S3Service
 
         };
         await _s3Client.PutObjectAsync(uploadRequest);
-        url = $"https://{_bucket}.s3.ap-southeast-5.amazonaws.com/{key}";
+        url = $"https://{_bucket}.s3.ap-southeast-1.amazonaws.com/{key}";
     }
     else
     {
@@ -263,7 +266,7 @@ public class S3Service
                     ContentType = file.ContentType,
                 });
 
-                var region = _config["AWS:Region"] ?? "ap-southeast-5";
+                var region = _config["AWS:Region"] ?? "ap-southeast-1";
                 url = $"https://{_bucket}.s3.{region}.amazonaws.com/{key}";
             }
             else

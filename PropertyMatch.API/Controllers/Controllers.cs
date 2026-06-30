@@ -707,7 +707,6 @@ public class AgentDashboardController(AppDbContext db) : ControllerBase
             .ToListAsync();
 
         int activeListings = listings.Count(l => l.Status == ListingStatus.Active);
-        int pendingPaymentListings = listings.Count(l => l.Status == ListingStatus.PendingPayment);
         int draftListings = listings.Count(l => l.Status == ListingStatus.Draft);
         int inactiveListings = listings.Count(l => l.Status == ListingStatus.Inactive);
 
@@ -752,11 +751,8 @@ public class AgentDashboardController(AppDbContext db) : ControllerBase
             .Select(x => new TopListingDto(x.ListingId, x.ListingName, x.AppointmentCount))
             .ToList();
 
-        // Payment reminder: listings that need payment
-        var pendingPaymentList = listings
-            .Where(l => l.Status == ListingStatus.PendingPayment)
-            .Select(l => new PendingPaymentListingDto(l.Id, l.Name, l.Price, l.CreatedAt))
-            .ToList();
+        // Payment reminder: no longer applicable since tokens deduct upfront
+        var pendingPaymentList = new List<PendingPaymentListingDto>();
 
         // Agent profile
         var profile = new AgentProfileDto(
@@ -768,7 +764,7 @@ public class AgentDashboardController(AppDbContext db) : ControllerBase
 
         return Ok(new AgentDashboardResponse(
             profile,
-            new ListingStatsDto(activeListings, pendingPaymentListings, draftListings, inactiveListings),
+            new ListingStatsDto(activeListings, 0, draftListings, inactiveListings),
             new AppointmentStatsDto(totalAppointments, pendingAppointments, confirmedAppointments, cancelledAppointments),
             upcoming,
             topListings,
