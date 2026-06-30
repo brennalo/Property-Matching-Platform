@@ -35,8 +35,7 @@ export default function RegisterPage() {
             return
         }
 
-        if (form.role === 'Agent' && !/^(REN|E|REA|PEA|PPM|PM|PV|V)\d+$/.test(form.licenseNumber.trim().toUpperCase()))
-        {
+        if (form.role === 'Agent' && !/^(REN|E|REA|PEA|PPM|PM|PV|V)\d+$/.test(form.licenseNumber.trim().toUpperCase())) {
             setError('Invalid license format. Example: REN80928 or REA8294')
             return
         }
@@ -68,7 +67,7 @@ export default function RegisterPage() {
                     border: '1px solid var(--border)', padding: '40px 36px',
                     textAlign: 'center',
                 }}>
-                    <CheckCircle2 size={52} style={{ color: '#3db8a0', marginBottom: 16 }} />
+                    <CheckCircle2 size={52} style={{ color: 'var(--green-hi)', marginBottom: 16 }} />
                     <h1 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: 8 }}>Check your email</h1>
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: 8 }}>
                         We sent a verification link to
@@ -129,7 +128,7 @@ export default function RegisterPage() {
                                 flex: 1, padding: '10px 0', border: 'none', cursor: 'pointer',
                                 fontFamily: 'inherit', fontSize: '0.875rem', fontWeight: 600,
                                 background: form.role === r ? 'var(--accent)' : 'transparent',
-                                color: form.role === r ? '#0f0f0e' : 'var(--text-muted)',
+                                color: form.role === r ? '#fff' : 'var(--text-muted)',
                                 transition: 'all 0.15s',
                             }}>
                             {r === 'Tenant' ? '🏠 Tenant' : '🏢 Agent'}
