@@ -805,6 +805,26 @@ input:-webkit-autofill:focus {
   .main-content {
     grid-column: 1;
   }
+
+  .reports-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .reports-grid > .card {
+    width: 100%;
+    max-width: 360px;
+    justify-self: center;
+  }
+}
+
+/* ── Reports grid ────────────────────────────────────────────────────────────── */
+
+.reports-grid {
+    display: grid;
+    gap: 20px;
+    align-items: start;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 360px));
+    justify-content: start;
 }
 
 /* ── Badges ────────────────────────────────────────────────────────────── */
