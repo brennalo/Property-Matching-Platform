@@ -15,15 +15,6 @@ const typeBadge = (type: string) => {
     return "badge-amber";
 };
 
-function getInitials(name: string) {
-    return name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase();
-}
-
 function timeAgo(dateString: string) {
     const now = new Date();
     const date = new Date(dateString);
@@ -123,84 +114,96 @@ export default function AdminReportsPage() {
             ) : filteredReports.length === 0 ? (
                 <div className="empty-state">No reports submitted yet</div>
             ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-                    {filteredReports.map((r) => (
-                        <div
-                            key={r.id}
-                            className="card"
-                            style={{
-                                cursor: "pointer",
-                                padding: 22,
-                                borderRadius: 18,
-                            }}
-                            onClick={() => setSelectedReport(r)}
-                        >
-                            <div style={{ display: "flex", gap: 16 }}>
+                        <div className="reports-grid">
+                            {filteredReports.map((r) => (
                                 <div
+                                    key={r.id}
+                                    className="card"
+                                    onClick={() => setSelectedReport(r)}
                                     style={{
-                                        width: 52,
-                                        height: 52,
-                                        borderRadius: "50%",
-                                        flexShrink: 0,
-                                        background: "var(--bg-input)",
-                                        color: "var(--accent)",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        fontWeight: 700,
-                                        fontSize: "1rem",
+                                        cursor: "pointer",
+                                        borderRadius: 20,
+                                        padding: 18,
+                                        minHeight: 0,
+                                        alignSelf: "start",
+                                        boxSizing: "border-box",
                                     }}
                                 >
-                                    {getInitials(r.tenantName)}
-                                </div>
-
-                                <div style={{ flex: 1, minWidth: 0 }}>
                                     <div
                                         style={{
                                             display: "flex",
-                                            justifyContent: "space-between",
-                                            gap: 12,
-                                            alignItems: "flex-start",
+                                            alignItems: "center",
+                                            gap: 14,
+                                            marginBottom: 18,
                                         }}
                                     >
+                                        {/* Avatar */}
+
                                         <div
                                             style={{
+                                                width: 42,
+                                                height: 42,
+                                                borderRadius: "50%",
+                                                background: "var(--bg-input)",
                                                 display: "flex",
-                                                gap: 8,
                                                 alignItems: "center",
-                                                flexWrap: "wrap",
-                                                fontSize: "0.9rem",
+                                                justifyContent: "center",
+                                                fontFamily: "DM Serif Display, serif",
+                                                fontSize: "1.1rem",
+                                                color: "var(--accent)",
+                                                flexShrink: 0,
                                             }}
                                         >
-                                            <strong>{r.tenantName}</strong>
-                                            <span style={{ color: "var(--text-muted)" }}><span>&bull;</span></span>
-                                            <span style={{ color: "var(--text-muted)" }}>
-                                                {timeAgo(r.createdAt)}
-                                            </span>
-                                            <span className={`badge ${typeBadge(r.item)}`}>
-                                                {r.item.toUpperCase()}
-                                            </span>
-                                            {r.status !== "Open" && (
-                                                <span className={`badge ${statusBadge(r.status)}`}>
-                                                    {r.status}
+                                            {r.tenantName.charAt(0).toUpperCase()}
+                                        </div>
+
+                                        <div style={{ flex: 1 }}>
+                                            <div
+                                                style={{
+                                                    display: "flex",
+                                                    gap: 6,
+                                                    alignItems: "center",
+                                                    flexWrap: "wrap",
+                                                }}
+                                            >
+                                                <strong>{r.tenantName}</strong>
+
+                                                <span style={{ color: "var(--text-muted)" }}><span>&bull;</span></span>
+
+                                                <span
+                                                    style={{
+                                                        color: "var(--text-muted)",
+                                                        fontSize: ".82rem",
+                                                    }}
+                                                >
+                                                    {timeAgo(r.createdAt)}
                                                 </span>
-                                            )}
+                                                <span className={`badge ${typeBadge(r.item)}`}>
+                                                    {r.item.toUpperCase()}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
-
+                                    {/* Property / Agent Name */}
                                     <div
                                         style={{
-                                            margin: "16px 0 10px",
-                                            fontSize: "1.15rem",
                                             fontWeight: 600,
+                                            fontSize: "1rem",
+                                            marginBottom: 14,
+                                            marginLeft: 5,
+                                            overflow: "hidden",
+                                            textOverflow: "ellipsis",
+                                            whiteSpace: "nowrap",
                                         }}
                                     >
                                         {r.itemName}
                                     </div>
 
-                                    <p
+                                    {/* Description */}
+                                    <div
                                         style={{
-                                            margin: 0,
+                                            marginLeft: 5,
+                                            marginBottom: 10,
                                             color: "var(--text-muted)",
                                             lineHeight: 1.6,
                                             display: "-webkit-box",
@@ -210,12 +213,51 @@ export default function AdminReportsPage() {
                                         }}
                                     >
                                         {r.description}
-                                    </p>
+                                    </div>
+
+                                    {/* Evidence Images */}
+                                    {r.evidenceImageUrls?.length > 0 && (
+                                        <div
+                                            style={{
+                                                display: "flex",
+                                                gap: 12,
+                                                marginBottom: 20,
+                                                flexWrap: "wrap",
+                                            }}
+                                        >
+                                            {r.evidenceImageUrls.slice(0, 3).map((url) => (
+                                                <img
+                                                    key={url}
+                                                    src={url}
+                                                    alt=""
+                                                    style={{
+                                                        width: 92,
+                                                        height: 92,
+                                                        objectFit: "cover",
+                                                        borderRadius: 12,
+                                                        border: "1px solid var(--border)",
+                                                    }}
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Status */}
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            justifyContent: "flex-end",
+                                        }}
+                                    >
+                                        {r.status !== "Open" && (
+                                            <span className={`badge ${statusBadge(r.status)}`}>
+                                                {r.status}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
+                            ))}
                         </div>
-                    ))}
-                </div>
             )}
 
             {selectedReport && (

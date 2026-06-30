@@ -10,15 +10,6 @@ const statusBadge = (status: string) => {
     return "badge-amber";
 };
 
-function getInitials(name: string) {
-    return name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase();
-}
-
 function timeAgo(dateString: string) {
     const now = new Date();
     const date = new Date(dateString);
@@ -151,20 +142,20 @@ export default function AdminFeedbackPage() {
                             <div style={{ display: "flex", gap: 16 }}>
                                 <div
                                     style={{
-                                        width: 52,
-                                        height: 52,
+                                        width: 42,
+                                        height: 42,
                                         borderRadius: "50%",
                                         flexShrink: 0,
                                         background: "var(--bg-input)",
-                                        color: "var(--accent)",
                                         display: "flex",
                                         alignItems: "center",
                                         justifyContent: "center",
-                                        fontWeight: 700,
-                                        fontSize: "1rem",
+                                        fontFamily: "DM Serif Display, serif",
+                                        fontSize: "1.1rem",
+                                        color: "var(--accent)",
                                     }}
                                 >
-                                    {getInitials(f.tenantName)}
+                                    {f.tenantName.charAt(0).toUpperCase()}
                                 </div>
 
                                 <div style={{ flex: 1, minWidth: 0 }}>
