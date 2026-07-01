@@ -4,6 +4,8 @@
 .env.production
 appsettings.Development.json
 appsettings.Production.json
+appsettings.Dev.json
+launchSettings.json
 *.ppk
 
 # .NET

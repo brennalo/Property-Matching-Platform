@@ -40,23 +40,23 @@ const RESIDENCY_TYPES: ResidencyType[] = [
 // 1. Status Badge
 // ──────────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: Listing["status"] }) {
-    const map: Record<string, string> = {
-        Active: "badge-green",
-        Draft: "badge-grey",
-        Inactive: "badge-red",
-        Booked: "badge-amber",
-    };
-    const icons: Record<string, React.ReactNode> = {
-        Active: <CheckCircle2 size={11} />,
-        Draft: <Clock size={11} />,
-        Inactive: <Ban size={11} />,
-        Booked: <Ban size={11} />,
-    };
-    return (
-        <span className={`badge ${map[status] ?? "badge-grey"}`}>
-            {icons[status]} {status}
-        </span>
-    );
+  const map: Record<string, string> = {
+    Active: "badge-green",
+    Draft: "badge-grey",
+    Inactive: "badge-red",
+    Booked: "badge-amber",
+  };
+  const icons: Record<string, React.ReactNode> = {
+    Active: <CheckCircle2 size={11} />,
+    Draft: <Clock size={11} />,
+    Inactive: <Ban size={11} />,
+    Booked: <Ban size={11} />,
+  };
+  return (
+    <span className={`badge ${map[status] ?? "badge-grey"}`}>
+      {icons[status]} {status}
+    </span>
+  );
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -484,94 +484,94 @@ function ListingFormModal({
             />
           </div>
 
-                  <div className="form-group">
-                      <label className="form-label">Amenities</label>
+          <div className="form-group">
+            <label className="form-label">Amenities</label>
 
-                      <div
-                          style={{
-                              display: "flex",
-                              flexWrap: "wrap",
-                              gap: 8,
-                              marginBottom: 10,
-                          }}
-                      >
-                          {COMMON_AMENITIES.map((item) => (
-                              <label
-                                  key={item}
-                                  style={{
-                                      display: "flex",
-                                      alignItems: "center",
-                                      gap: 6,
-                                      padding: "6px 10px",
-                                      borderRadius: 8,
-                                      border: "1px solid",
-                                      cursor: "pointer",
-                                      fontSize: "0.8rem",
-                                      borderColor: selectedAmenities.includes(item)
-                                          ? "var(--accent)"
-                                          : "var(--border)",
-                                      background: selectedAmenities.includes(item)
-                                          ? "var(--accent-dim)"
-                                          : "var(--bg-input)",
-                                      color: selectedAmenities.includes(item)
-                                          ? "var(--accent)"
-                                          : "var(--text-muted)",
-                                  }}
-                              >
-                                  <input
-                                      type="checkbox"
-                                      checked={selectedAmenities.includes(item)}
-                                      onChange={() => toggleAmenity(item)}
-                                      style={{ display: "none" }}
-                                  />
-                                  {item}
-                              </label>
-                          ))}
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 8,
+                marginBottom: 10,
+              }}
+            >
+              {COMMON_AMENITIES.map((item) => (
+                <label
+                  key={item}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "6px 10px",
+                    borderRadius: 8,
+                    border: "1px solid",
+                    cursor: "pointer",
+                    fontSize: "0.8rem",
+                    borderColor: selectedAmenities.includes(item)
+                      ? "var(--accent)"
+                      : "var(--border)",
+                    background: selectedAmenities.includes(item)
+                      ? "var(--accent-dim)"
+                      : "var(--bg-input)",
+                    color: selectedAmenities.includes(item)
+                      ? "var(--accent)"
+                      : "var(--text-muted)",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedAmenities.includes(item)}
+                    onChange={() => toggleAmenity(item)}
+                    style={{ display: "none" }}
+                  />
+                  {item}
+                </label>
+              ))}
 
-                          {customAmenities.map((item) => (
-                              <label
-                                  key={item}
-                                  onClick={() => removeCustomAmenity(item)}
-                                  style={{
-                                      display: "flex",
-                                      alignItems: "center",
-                                      gap: 6,
-                                      padding: "6px 10px",
-                                      borderRadius: 8,
-                                      border: "1px solid var(--accent)",
-                                      cursor: "pointer",
-                                      fontSize: "0.8rem",
-                                      background: "var(--accent-dim)",
-                                      color: "var(--accent)",
-                                  }}
-                              >
-                                  {item} <span style={{ fontWeight: 700 }}>×</span>
-                              </label>
-                          ))}
-                      </div>
+              {customAmenities.map((item) => (
+                <label
+                  key={item}
+                  onClick={() => removeCustomAmenity(item)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "6px 10px",
+                    borderRadius: 8,
+                    border: "1px solid var(--accent)",
+                    cursor: "pointer",
+                    fontSize: "0.8rem",
+                    background: "var(--accent-dim)",
+                    color: "var(--accent)",
+                  }}
+                >
+                  {item} <span style={{ fontWeight: 700 }}>×</span>
+                </label>
+              ))}
+            </div>
 
-                      <div style={{ display: "flex", gap: 8 }}>
-                          <input
-                              className="input"
-                              value={customInput}
-                              onChange={(e) => setCustomInput(e.target.value)}
-                              onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                      e.preventDefault();
-                                      addCustomAmenity();
-                                  }
-                              }}
-                              placeholder="Add custom amenity (e.g. Balcony) and press Enter"
-                          />
-                          <button
-                              type="button"
-                              className="btn btn-outline btn-sm"
-                              onClick={addCustomAmenity}
-                          >
-                              Add
-                          </button>
-                      </div>
-                  </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                className="input"
+                value={customInput}
+                onChange={(e) => setCustomInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addCustomAmenity();
+                  }
+                }}
+                placeholder="Add custom amenity (e.g. Balcony) and press Enter"
+              />
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={addCustomAmenity}
+              >
+                Add
+              </button>
+            </div>
+          </div>
 
           {/* Description + AI */}
           <div className="form-group" style={{ marginBottom: 16 }}>
@@ -743,7 +743,7 @@ function ImageUploadModal({
             >
               <ImagePlus
                 size={28}
-                color="var(--text-muted)"
+                color="#64748b"
                 style={{ marginBottom: 8 }}
               />
               <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
@@ -848,21 +848,6 @@ function BatchUploadModal({ onClose }: { onClose: () => void }) {
       const workbook = XLSX.read(data, { type: "array" });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const json = XLSX.utils.sheet_to_json(sheet) as any[];
-
-      // const listings: BatchListingRow[] = json.map((row) => ({
-      //   PropertyName: row["PropertyName"] || row["Property Name"] || "",
-      //   Bedrooms: parseInt(row["Bedrooms"] || "0"),
-      //   Bathrooms: parseInt(row["Bathrooms"] || "0"),
-      //   Toilets: parseInt(row["Toilets"] || "0"),
-      //   Address: row["Address"] || "",
-      //   Price: parseFloat(row["Price"] || "0"),
-      //   Type: row["Type"] || "Condo",
-      //   Latitude: parseFloat(row["Latitude"] || row["Lat"] || "0"),
-      //   Longitude: parseFloat(row["Longitude"] || row["Lng"] || "0"),
-      //   Description: row["Description"] || "",
-      //   Amenities: row["Amenities"] || "",
-      // }));
-
       setFiles([file]);
     } catch (e: any) {
       showToast("Failed to parse Excel file", "error");
@@ -1250,6 +1235,10 @@ export default function AgentListingsPage() {
   } | null>(null);
   const [payLoading, setPayLoading] = useState<string | null>(null);
 
+  // ── Search and Filter State ──
+  const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<ResidencyType | "">("");
+
   const showToast = (msg: string, type: "success" | "error" = "success") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 10000);
@@ -1263,6 +1252,15 @@ export default function AgentListingsPage() {
   const { data: balanceData } = useQuery({
     queryKey: ["token-balance"],
     queryFn: () => paymentsApi.getTokenBalance().then((r) => r.data),
+  });
+
+  // ── Filtered listings ──
+  const filteredListings = listings.filter((l) => {
+    const matchesName = l.name
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase());
+    const matchesType = typeFilter === "" || l.residencyType === typeFilter;
+    return matchesName && matchesType;
   });
 
   const createMut = useMutation({
@@ -1291,28 +1289,28 @@ export default function AgentListingsPage() {
       ),
   });
 
-    const updateMut = useMutation({
-        mutationFn: ({ id, data }: { id: string; data: ListingFormData }) =>
-            listingsApi.update(id, {
-                name: data.name,
-                rooms: parseInt(data.rooms),
-                toilets: parseInt(data.toilets),
-                lat: parseFloat(data.lat),
-                lng: parseFloat(data.lng),
-                address: data.address,
-                residencyType: data.residencyType,
-                price: parseFloat(data.price),
-                description: data.description || undefined,
-                amenities: data.amenities || undefined,
-            }),
-        onSuccess: () => {
-            qc.invalidateQueries({ queryKey: ["my-listings"] });
-            setShowForm(false);
-            setEditTarget(null);
-            showToast("Listing updated!");
-        },
-        onError: () => showToast("Failed to update listing", "error"),
-    });
+  const updateMut = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: ListingFormData }) =>
+      listingsApi.update(id, {
+        name: data.name,
+        rooms: parseInt(data.rooms),
+        toilets: parseInt(data.toilets),
+        lat: parseFloat(data.lat),
+        lng: parseFloat(data.lng),
+        address: data.address,
+        residencyType: data.residencyType,
+        price: parseFloat(data.price),
+        description: data.description || undefined,
+        amenities: data.amenities || undefined,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["my-listings"] });
+      setShowForm(false);
+      setEditTarget(null);
+      showToast("Listing updated!");
+    },
+    onError: () => showToast("Failed to update listing", "error"),
+  });
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => listingsApi.delete(id),
@@ -1408,6 +1406,49 @@ export default function AgentListingsPage() {
         </div>
       </div>
 
+      {/* ── SEARCH AND FILTER ROW ── */}
+      <div
+        style={{
+          display: "flex",
+          gap: 12,
+          marginBottom: 20,
+          flexWrap: "wrap",
+        }}
+      >
+        <input
+          className="input"
+          type="text"
+          placeholder="Search by property name…"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{ flex: 1, minWidth: 200 }}
+        />
+        <select
+          className="select"
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value as ResidencyType | "")}
+          style={{ minWidth: 160 }}
+        >
+          <option value="">All Types</option>
+          {RESIDENCY_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+        <span
+          style={{
+            color: "var(--text-muted)",
+            fontSize: "0.85rem",
+            display: "flex",
+            alignItems: "center",
+          }}
+        >
+          {filteredListings.length} listing
+          {filteredListings.length !== 1 ? "s" : ""}
+        </span>
+      </div>
+
       {paymentStatus === "success" && (
         <div
           style={{
@@ -1463,63 +1504,103 @@ export default function AgentListingsPage() {
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {listings.map((l) => (
+          {filteredListings.map((l) => (
             <div
               key={l.id}
               className="card"
               onClick={() => navigate(`/agent/listings/${l.id}`)}
-              style={{ cursor: "pointer" }}
+              style={{ cursor: "pointer", overflow: "hidden" }}
             >
-              <div className="flex gap-4 items-start">
-                {l.images && l.images.length > 0 ? (
-                  <img
-                    src={l.images[0].url}
-                    alt={l.name}
-                    style={{
-                      width: 100,
-                      height: 72,
-                      objectFit: "cover",
-                      borderRadius: 8,
-                      flexShrink: 0,
-                    }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      width: 100,
-                      height: 72,
-                      background: "var(--bg-input)",
-                      borderRadius: 8,
-                      flexShrink: 0,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "2rem",
-                      position: "relative",
-                    }}
-                  >
-                    🏠
-                    <span
-                      className="badge badge-grey"
+              <div
+                style={{
+                  display: "flex",
+                  gap: 12,
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  minWidth: 0,
+                  width: "100%",
+                }}
+              >
+                {/* Image */}
+                <div style={{ flexShrink: 0, width: "100%", maxWidth: 100 }}>
+                  {l.images && l.images.length > 0 ? (
+                    <img
+                      src={l.images[0].url}
+                      alt={l.name}
                       style={{
-                        position: "absolute",
-                        top: 4,
-                        right: 4,
-                        fontSize: "0.7rem",
+                        width: "100%",
+                        height: 72,
+                        objectFit: "cover",
+                        borderRadius: 8,
+                        display: "block",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: "100%",
+                        height: 72,
+                        background: "var(--bg-input)",
+                        borderRadius: 8,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "2rem",
+                        position: "relative",
                       }}
                     >
-                      No Photos
-                    </span>
-                  </div>
-                )}
+                      🏠
+                      <span
+                        className="badge badge-grey"
+                        style={{
+                          position: "absolute",
+                          top: 2,
+                          right: 2,
+                          fontSize: "0.6rem",
+                          padding: "1px 6px",
+                        }}
+                      >
+                        No Photos
+                      </span>
+                    </div>
+                  )}
+                </div>
 
-                <div style={{ flex: 1 }}>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span style={{ fontWeight: 600 }}>{l.name}</span>
+                {/* Content - flexible */}
+                <div
+                  style={{
+                    flex: 1,
+                    minWidth: "150px",
+                    maxWidth: "100%",
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    className="flex items-center gap-2"
+                    style={{ flexWrap: "wrap", marginBottom: 4 }}
+                  >
+                    <span
+                      style={{
+                        fontWeight: 600,
+                        fontSize: "0.95rem",
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {l.name}
+                    </span>
                     <StatusBadge status={l.status} />
                   </div>
                   <div
-                    style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}
+                    style={{
+                      fontSize: "0.82rem",
+                      color: "var(--text-muted)",
+                      wordBreak: "break-word",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                    }}
                   >
                     {l.rooms} bed · {l.toilets} bath · {l.residencyType} ·{" "}
                     {l.address}
@@ -1529,18 +1610,23 @@ export default function AgentListingsPage() {
                       color: "var(--accent)",
                       fontFamily: "DM Serif Display, serif",
                       marginTop: 4,
+                      fontSize: "1.1rem",
                     }}
                   >
                     RM {l.price.toLocaleString()}/mo
                   </div>
                 </div>
 
+                {/* ── BUTTONS only wrap on very small screens ── */}
                 <div
-                  className="flex gap-2"
                   style={{
-                    flexShrink: 0,
+                    display: "flex",
+                    gap: 6,
                     flexWrap: "wrap",
                     justifyContent: "flex-end",
+                    alignItems: "center",
+                    flexShrink: 0,
+                    marginLeft: "auto",
                   }}
                   onClick={(e) => e.stopPropagation()}
                 >
@@ -1566,14 +1652,7 @@ export default function AgentListingsPage() {
                   )}
                   <button
                     className="btn btn-ghost btn-sm"
-                    onClick={() => {
-                      if (!canCreateListing) {
-                        showToast(getApprovalMessage(), "error");
-                        return;
-                      }
-                      setEditTarget(l);
-                      setShowForm(true);
-                    }}
+                    onClick={() => navigate(`/agent/listings/${l.id}`)}
                   >
                     <Pencil size={13} />
                   </button>

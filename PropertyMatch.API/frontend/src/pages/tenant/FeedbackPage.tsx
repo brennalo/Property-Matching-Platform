@@ -169,26 +169,29 @@ function FeedbackModal({
     feedback: Feedback;
     onClose: () => void;
 }) {
-    const statusBadge = (status: string) => {{feedback.status === "Commented" && feedback.adminComment && (
-                    <div style={{ marginTop: 20 }}>
-                        <div style={{ fontWeight: 600, marginBottom: 10 }}>
-                            Admin Comment
-                        </div>
-
-                        <div
-                            style={{
-                                background: "var(--bg-input)",
-                                border: "1px solid var(--border)",
-                                borderRadius: 12,
-                                padding: 16,
-                                whiteSpace: "pre-wrap",
-                                lineHeight: 1.6,
-                            }}
-                        >
-                            {feedback.adminComment}
-                        </div>
+    const statusBadge = (status: string) => {
+        {
+            feedback.status === "Commented" && feedback.adminComment && (
+                <div style={{ marginTop: 20 }}>
+                    <div style={{ fontWeight: 600, marginBottom: 10 }}>
+                        Admin Comment
                     </div>
-                )}
+
+                    <div
+                        style={{
+                            background: "var(--bg-input)",
+                            border: "1px solid var(--border)",
+                            borderRadius: 12,
+                            padding: 16,
+                            whiteSpace: "pre-wrap",
+                            lineHeight: 1.6,
+                        }}
+                    >
+                        {feedback.adminComment}
+                    </div>
+                </div>
+            )
+        }
         if (status === "Reviewed") return "badge-green";
         if (status === "Commented") return "badge-green";
         return "badge-amber";

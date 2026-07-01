@@ -15,6 +15,7 @@ import {
   Coins,
   Star,
   BarChart3,
+  Eye,
 } from "lucide-react";
 
 interface DashboardData {
@@ -29,6 +30,7 @@ interface DashboardData {
     pendingPayment: number;
     draft: number;
     inactive: number;
+    booked: number;
   };
   appointments: {
     total: number;
@@ -53,6 +55,11 @@ interface DashboardData {
     name: string;
     price: number;
     createdAt: string;
+  }>;
+  topViewedListings: Array<{
+    listingId: string;
+    listingName: string;
+    viewCount: number;
   }>;
 }
 
@@ -104,7 +111,7 @@ export default function AgentDashboardPage() {
   const { data, isLoading } = useQuery<DashboardData>({
     queryKey: ["agent-dashboard"],
     queryFn: () =>
-      api.get("/agent/dashboard").then((r: { data: DashboardData }) => r.data), // ← type added
+      api.get("/agent/dashboard").then((r: { data: DashboardData }) => r.data),
     refetchInterval: 30000,
   });
 
@@ -136,13 +143,13 @@ export default function AgentDashboardPage() {
           label="Active Listings"
           value={data.listings.active}
           icon={<Building2 size={20} />}
-          color="#3db8a0"
+          color="#ea580c"
         />
         <StatCard
-          label="Pending Payment"
-          value={data.listings.pendingPayment}
-          icon={<DollarSign size={20} />}
-          color="#e8a045"
+          label="Token Balance"
+          value={data.profile.tokenBalance}
+          icon={<Coins size={20} />}
+          color="#fbbf24"
         />
         <StatCard
           label="Upcoming Viewings"
@@ -157,21 +164,21 @@ export default function AgentDashboardPage() {
           color="#a78bfa"
         />
         <StatCard
-          label="Confirmed"
+          label="Confirmed Viewings"
           value={data.appointments.confirmed}
           icon={<CheckCircle size={20} />}
           color="#34d399"
         />
         <StatCard
-          label="Pending Confirmation"
-          value={data.appointments.pending}
-          icon={<AlertCircle size={20} />}
-          color="#e8a045"
+          label="Booked Listings"
+          value={data.listings.booked || 0}
+          icon={<Building2 size={20} />}
+          color="#f472b6"
         />
       </div>
 
       <div className="grid-2 mb-6">
-        {/* Pending Payment Reminders */}
+        {/* Most Viewed Listings */}
         <div className="card">
           <h3
             style={{
@@ -181,36 +188,44 @@ export default function AgentDashboardPage() {
               gap: 8,
             }}
           >
-            <CreditCard size={18} /> Pending Payment Listings
+            <Eye size={18} /> Most Viewed Listings
           </h3>
-          {data.pendingPayments.length === 0 ? (
+          {data.topViewedListings?.length === 0 ? (
             <p style={{ color: "var(--text-dim)" }}>
-              No pending payments. Great job!
+              No views yet. Share your listings!
             </p>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {data.pendingPayments.map((p) => (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {data.topViewedListings?.map((item) => (
                 <div
-                  key={p.id}
+                  key={item.listingId}
                   style={{
-                    padding: 10,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "8px 12px",
                     background: "var(--bg-input)",
-                    borderRadius: 8,
+                    borderRadius: 6,
                   }}
                 >
-                  <div style={{ fontWeight: 600 }}>{p.name}</div>
-                  <div style={{ fontSize: "0.8rem", color: "var(--accent)" }}>
-                    RM {p.price.toLocaleString()}
-                  </div>
-                  <div style={{ fontSize: "0.7rem", color: "var(--text-dim)" }}>
-                    Created {new Date(p.createdAt).toLocaleDateString()}
+                  <div>
+                    <div style={{ fontWeight: 500, fontSize: "0.9rem" }}>
+                      {item.listingName}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "0.75rem",
+                        color: "var(--text-muted)",
+                      }}
+                    >
+                      {item.viewCount} view{item.viewCount !== 1 ? "s" : ""}
+                    </div>
                   </div>
                   <Link
-                    to={`/agent/listings/${p.id}`}
-                    className="btn btn-primary btn-sm"
-                    style={{ marginTop: 8, display: "inline-block" }}
+                    to={`/agent/listings/${item.listingId}`}
+                    className="btn btn-ghost btn-sm"
                   >
-                    Pay Now
+                    View
                   </Link>
                 </div>
               ))}

@@ -1,6 +1,8 @@
 ﻿import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "../../hooks/useAuth";
+import { useAuthModal } from "../../hooks/useAuthModal";
 import {
     schedulesApi,
     availabilityApi,
@@ -120,7 +122,7 @@ function ScoreRing({ score }: { score: number }) {
         stroke = 5;
     const circ = 2 * Math.PI * r;
     const dash = (score / 100) * circ;
-    const color = score >= 70 ? "#3db8a0" : score >= 40 ? "#e8a045" : "#e05c5c";
+    const color = score >= 70 ? "var(--primary)" : score >= 40 ? "var(--primary)" : "var(--red)";
     return (
         <div style={{ position: "relative", width: 88, height: 88, flexShrink: 0 }}>
             <svg width="88" height="88" viewBox="0 0 88 88">
@@ -591,7 +593,7 @@ function LifestyleMapCard({
             icon: {
                 path: window.google.maps.SymbolPath.CIRCLE,
                 scale: 10,
-                fillColor: "#e8a045",
+                fillColor: "var(--primary)",
                 fillOpacity: 1,
                 strokeColor: "#fff",
                 strokeWeight: 2,
@@ -604,10 +606,10 @@ function LifestyleMapCard({
             map: mapRef.current,
             center: { lat: listingLat, lng: listingLng },
             radius: 800,
-            strokeColor: "#e8a045",
+            strokeColor: "var(--primary)",
             strokeOpacity: 0.4,
             strokeWeight: 1,
-            fillColor: "#e8a045",
+            fillColor: "var(--primary)",
             fillOpacity: 0.04,
         });
     }, [mapsReady]);
@@ -826,7 +828,7 @@ function RouteMap({
             icon: {
                 path: window.google.maps.SymbolPath.CIRCLE,
                 scale: 10,
-                fillColor: "#e05c5c",
+                fillColor: "var(--red)",
                 fillOpacity: 1,
                 strokeColor: "#fff",
                 strokeWeight: 2,
@@ -1448,7 +1450,7 @@ function ScheduleModal({
                                                             ? "var(--bg-input)"
                                                             : "transparent",
                                                     color: isSelected
-                                                        ? "#0f0f0e"
+                                                        ? "var(--text)"
                                                         : cell.status === "past"
                                                             ? "var(--text-dim)"
                                                             : "var(--text)",
@@ -1644,6 +1646,9 @@ export default function ListingDetailPage() {
     const fromBrowse = (location.state as any)?.from === "browse";
     const { id } = useParams<{ id: string }>();
     const qc = useQueryClient();
+    const { user } = useAuth();
+    const authModal = useAuthModal();
+    const isTenant = user?.role === "Tenant";
     const [result, setResult] = useState<MatchedListing | null>(null);
     const [workplaceLat, setWorkplaceLat] = useState<number | null>(null);
     const [workplaceLng, setWorkplaceLng] = useState<number | null>(null);
@@ -1694,7 +1699,7 @@ export default function ListingDetailPage() {
                         lifestylePlaces: {},
                     });
                 })
-                .catch(() => navigate("/search"));
+                .catch(() => navigate("/browse"));
         }
     }, [id, navigate]);
 
@@ -1703,15 +1708,15 @@ export default function ListingDetailPage() {
     const agentId = result?.listing?.agentId;
 
     useEffect(() => {
-        if (listingId) {
+        if (listingId && isTenant) {
             viewHistoryApi.track(listingId);
         }
-    }, [listingId]);
+    }, [listingId, isTenant]);
 
     const { data: favStatus } = useQuery({
         queryKey: ["fav-status", listingId],
         queryFn: () => favouritesApi.getStatus(listingId!).then((r) => r.data),
-        enabled: !!listingId,
+        enabled: !!listingId && isTenant,
     });
     const toggleFav = useMutation({
         mutationFn: () =>
@@ -1866,12 +1871,12 @@ export default function ListingDetailPage() {
                                 <ScoreBar
                                     label="Numeric match (40%)"
                                     value={result.numericScore}
-                                    color="#3db8a0"
+                                    color="var(--primary)"
                                 />
                                 <ScoreBar
                                     label="Commute score (30%)"
                                     value={result.commuteScore}
-                                    color="#e8a045"
+                                    color="var(--primary)"
                                 />
                                 <ScoreBar
                                     label="Lifestyle score (30%)"
@@ -1942,131 +1947,98 @@ export default function ListingDetailPage() {
                             <button
                                 className="btn btn-primary w-full"
                                 style={{ justifyContent: "center" }}
-                                onClick={() => setShowSchedule(true)}
+                                onClick={() => isTenant
+                                    ? setShowSchedule(true)
+                                    : authModal.open({ intentMessage: "Sign in as a tenant to schedule a viewing." })}
                             >
                                 <CalendarPlus size={14} /> Schedule a Viewing
                             </button>
                         </>
 
-                        <div className="card" style={{ padding: 10, marginTop: 24 }}>
+                        <div className="divider" style={{ margin: 0 }} />
+
+                        {/* Listed by */}
+                        <div>
                             <div
                                 style={{
                                     fontWeight: 700,
-                                    marginBottom: 12,
-                                    fontSize: "0.9rem",
+                                    marginBottom: 10,
+                                    fontSize: "0.78rem",
+                                    letterSpacing: "0.06em",
                                     color: "var(--text-muted)",
+                                    textTransform: "uppercase",
                                 }}
                             >
-                                LISTED BY
+                                Listed by
                             </div>
-                            <div
-                                style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    alignItems: "center",
-                                }}
-                            >
-                                <div>
-                                    <div style={{ fontWeight: 600, fontSize: "1rem" }}>
-                                        {agentProfile?.fullName}
-                                    </div>
-                                    {agentProfile?.licenseNumber && (
-                                        <div
-                                            style={{
-                                                fontSize: "0.82rem",
-                                                color: "var(--text-muted)",
-                                                marginTop: 2,
-                                            }}
-                                        >
-                                            License: {agentProfile.licenseNumber}
-                                        </div>
-                                    )}
-                                    {agentProfile?.contactNo && (
-                                        <div
-                                            style={{
-                                                fontSize: "0.82rem",
-                                                color: "var(--text-muted)",
-                                                marginTop: 2,
-                                            }}
-                                        >
-                                            Contact: {agentProfile.contactNo}
-                                        </div>
-                                    )}
-                                    {agentProfile?.ratings != null && (
-                                        <div
-                                            style={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                                gap: 4,
-                                                marginTop: 4,
-                                            }}
-                                        >
-                                            {[1, 2, 3, 4, 5].map((star) => (
-                                                <span
-                                                    key={star}
-                                                    style={{
-                                                        color:
-                                                            star <= Math.round(agentProfile.ratings!)
-                                                                ? "#f59e0b"
-                                                                : "var(--border)",
-                                                        fontSize: "0.9rem",
-                                                    }}
-                                                >
-                                                    ★
-                                                </span>
-                                            ))}
-                                            <span
-                                                style={{
-                                                    fontSize: "0.82rem",
-                                                    color: "var(--text-muted)",
-                                                    marginLeft: 2,
-                                                }}
-                                            >
-                                                {agentProfile.ratings.toFixed(1)}
-                                            </span>
-                                        </div>
-                                    )}
+                            <div style={{ fontWeight: 600, fontSize: "1rem", marginBottom: 2 }}>
+                                {agentProfile?.fullName ?? listing.agentName}
+                            </div>
+                            {agentProfile?.licenseNumber && (
+                                <div style={{ fontSize: "0.82rem", color: "var(--text-muted)", marginTop: 2 }}>
+                                    License: {agentProfile.licenseNumber}
                                 </div>
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        gap: 8,
-                                        flexWrap: "wrap",
-                                        justifyContent: "flex-start",
-                                        width: "100%",
-                                    }}
+                            )}
+                            {agentProfile?.contactNo && (
+                                <div style={{ fontSize: "0.82rem", color: "var(--text-muted)", marginTop: 2 }}>
+                                    Contact: {agentProfile.contactNo}
+                                </div>
+                            )}
+                            {agentProfile && (
+                                <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6 }}>
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                        <span
+                                            key={star}
+                                            style={{
+                                                color: agentProfile.ratings != null && star <= Math.round(agentProfile.ratings)
+                                                    ? "#f59e0b"
+                                                    : "var(--border)",
+                                                fontSize: "1rem",
+                                            }}
+                                        >
+                                            ★
+                                        </span>
+                                    ))}
+                                    <span style={{ fontSize: "0.82rem", color: "var(--text-muted)", marginLeft: 2 }}>
+                                        {agentProfile.ratings != null ? agentProfile.ratings.toFixed(1) : "No ratings yet"}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Action buttons */}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            <div style={{ display: "flex", gap: 8 }}>
+                                <button
+                                    className={`btn ${favStatus?.saved ? "btn-primary" : "btn-outline"}`}
+                                    style={{ flexShrink: 0 }}
+                                    onClick={() => isTenant
+                                        ? toggleFav.mutate()
+                                        : authModal.open({ intentMessage: "Sign in to save listings to your favourites." })}
+                                    title={favStatus?.saved ? "Remove from saved" : "Save listing"}
                                 >
-                                    <button
-                                        className={`btn ${favStatus?.saved ? "btn-primary" : "btn-outline"}`}
-                                        onClick={() => toggleFav.mutate()}
-                                        title={
-                                            favStatus?.saved ? "Remove from saved" : "Save listing"
-                                        }
-                                    >
-                                        <Heart
-                                            size={15}
-                                            fill={favStatus?.saved ? "currentColor" : "none"}
-                                        />
-                                    </button>
-                                    <button
-                                        className="btn btn-primary"
-                                        onClick={() => enquireMut.mutate()}
-                                        disabled={enquireMut.isPending}
-                                    >
-                                        {enquireMut.isPending ? (
-                                            <span className="spinner" />
-                                        ) : (
-                                            "Enquire More"
-                                        )}
-                                    </button>
-                                    <button
-                                        className="btn btn-danger"
-                                        onClick={() => setShowReport(true)}
-                                    >
-                                        Report
-                                    </button>
-                                </div>
+                                    <Heart size={15} fill={favStatus?.saved ? "currentColor" : "none"} />
+                                </button>
+                                <button
+                                    className="btn btn-primary"
+                                    style={{ flex: 1, justifyContent: "center" }}
+                                    onClick={() => isTenant
+                                        ? enquireMut.mutate()
+                                        : authModal.open({ intentMessage: "Sign in to message the agent about this listing." })}
+                                    disabled={enquireMut.isPending}
+                                >
+                                    {enquireMut.isPending ? <span className="spinner" /> : "Enquire More"}
+                                </button>
                             </div>
+                            <button
+                                className="btn btn-danger"
+                                style={{ width: "100%", justifyContent: "center" }}
+                                onClick={() => isTenant
+                                    ? setShowReport(true)
+                                    : authModal.open({ intentMessage: "Sign in to report this listing." })}
+                            >
+                                Report
+                            </button>
                         </div>
 
                         <div className="divider" />
@@ -2081,7 +2053,6 @@ export default function ListingDetailPage() {
                             }}
                         >
                             {[
-                                ["Listed by", listing.agentName],
                                 ["Type", listing.residencyType],
                                 ["Bedrooms", String(listing.rooms)],
                                 ["Bathrooms", String(listing.toilets)],

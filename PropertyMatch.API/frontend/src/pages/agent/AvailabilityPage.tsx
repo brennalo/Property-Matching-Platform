@@ -25,7 +25,12 @@ export default function AvailabilityPage() {
     type: "success" | "error";
   } | null>(null);
   const [templates, setTemplates] = useState<AvailabilityTemplate[]>([]);
+  const [initialTemplates, setInitialTemplates] = useState<
+    AvailabilityTemplate[]
+  >([]);
   const [exceptions, setExceptions] = useState<AvailabilityException[]>([]);
+  const [slotDuration, setSlotDuration] = useState(60);
+  const [initialSlotDuration, setInitialSlotDuration] = useState(60);
   const [newException, setNewException] = useState<{
     from: string;
     to: string;
@@ -45,12 +50,6 @@ export default function AvailabilityPage() {
     listingId: null,
     slotDurationMinutes: 60,
   });
-  const [slotDuration, setSlotDuration] = useState(60);
-  const [editingTemplateDay, setEditingTemplateDay] = useState<number | null>(
-    null,
-  );
-  const [tempStart, setTempStart] = useState("09:00");
-  const [tempEnd, setTempEnd] = useState("17:00");
 
   const showToast = (msg: string, type: "success" | "error" = "success") => {
     setToast({ msg, type });
@@ -70,20 +69,42 @@ export default function AvailabilityPage() {
   useEffect(() => {
     if (summary) {
       setTemplates(summary.templates);
+      setInitialTemplates(JSON.parse(JSON.stringify(summary.templates)));
       setExceptions(summary.exceptions);
-      // Set global slot duration from first template (assuming all templates share the same)
       if (summary.templates.length > 0) {
         setSlotDuration(summary.templates[0].slotDurationMinutes);
+        setInitialSlotDuration(summary.templates[0].slotDurationMinutes);
       }
     }
   }, [summary]);
+
+  // Check if anything has changed
+  const hasChanges = () => {
+    // Check slot duration change
+    if (slotDuration !== initialSlotDuration) return true;
+
+    // Check if templates array length changed
+    if (templates.length !== initialTemplates.length) return true;
+
+    // Check if any template content changed
+    for (let i = 0; i < templates.length; i++) {
+      const current = templates[i];
+      const initial = initialTemplates.find(
+        (t) => t.dayOfWeek === current.dayOfWeek,
+      );
+      if (!initial) return true;
+      if (current.startTime !== initial.startTime) return true;
+      if (current.endTime !== initial.endTime) return true;
+    }
+
+    return false;
+  };
 
   const addTemplatesMut = useMutation({
     mutationFn: (reqs: any[]) => availabilityApi.addTemplates(reqs),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["availability-summary"] });
       showToast("Templates updated");
-      setEditingTemplateDay(null);
     },
     onError: () => showToast("Failed to update templates", "error"),
   });
@@ -196,84 +217,72 @@ export default function AvailabilityPage() {
           <div></div>
           {DAYS.map((day, idx) => {
             const tpl = templates.find((t) => t.dayOfWeek === idx);
-            const isEditing = editingTemplateDay === idx;
+
             return (
               <Fragment key={idx}>
                 <span>{day}</span>
-                {isEditing ? (
+                {tpl ? (
                   <>
                     <input
                       type="time"
-                      value={tempStart}
-                      onChange={(e) => setTempStart(e.target.value)}
+                      value={tpl.startTime}
+                      onChange={(e) => {
+                        const updated = templates.map((t) =>
+                          t.dayOfWeek === idx
+                            ? { ...t, startTime: e.target.value }
+                            : t,
+                        );
+                        setTemplates(updated);
+                      }}
                       style={{ padding: "4px 8px" }}
                     />
                     <input
                       type="time"
-                      value={tempEnd}
-                      onChange={(e) => setTempEnd(e.target.value)}
+                      value={tpl.endTime}
+                      onChange={(e) => {
+                        const updated = templates.map((t) =>
+                          t.dayOfWeek === idx
+                            ? { ...t, endTime: e.target.value }
+                            : t,
+                        );
+                        setTemplates(updated);
+                      }}
                       style={{ padding: "4px 8px" }}
                     />
                     <div style={{ display: "flex", gap: 4 }}>
                       <button
-                        className="btn btn-primary btn-sm"
+                        className="btn btn-ghost btn-sm"
                         onClick={() => {
-                          const updated = templates.filter(
-                            (t) => t.dayOfWeek !== idx,
+                          setTemplates(
+                            templates.filter((t) => t.dayOfWeek !== idx),
                           );
-                          const newTpl: AvailabilityTemplate = {
-                            id: tpl?.id || "",
-                            dayOfWeek: idx,
-                            startTime: tempStart,
-                            endTime: tempEnd,
-                            slotDurationMinutes: slotDuration,
-                            isActive: true,
-                            createdAt:
-                              tpl?.createdAt || new Date().toISOString(),
-                          };
-                          setTemplates([...updated, newTpl]);
-                          setEditingTemplateDay(null);
                         }}
                       >
-                        <Save size={14} />
-                      </button>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => setEditingTemplateDay(null)}
-                      >
-                        <X size={14} />
+                        <Trash2 size={14} />
                       </button>
                     </div>
                   </>
                 ) : (
                   <>
-                    <span>{tpl?.startTime || "—"}</span>
-                    <span>{tpl?.endTime || "—"}</span>
-
-                    <div style={{ display: "flex", gap: 4 }}>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => {
-                          setEditingTemplateDay(idx);
-                          setTempStart(tpl?.startTime || "09:00");
-                          setTempEnd(tpl?.endTime || "17:00");
-                        }}
-                      >
-                        ✏️
-                      </button>
-                      {tpl && (
-                        <button
-                          className="btn btn-ghost btn-sm"
-                          onClick={() => {
-                            setTemplates(
-                              templates.filter((t) => t.dayOfWeek !== idx),
-                            );
-                          }}
-                        >
-                          🗑️
-                        </button>
-                      )}
-                    </div>
+                    <span style={{ color: "var(--text-dim)" }}>—</span>
+                    <span style={{ color: "var(--text-dim)" }}>—</span>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => {
+                        const newTpl: AvailabilityTemplate = {
+                          id: "",
+                          dayOfWeek: idx,
+                          startTime: "09:00",
+                          endTime: "17:00",
+                          slotDurationMinutes: slotDuration,
+                          isActive: true,
+                          createdAt: new Date().toISOString(),
+                        };
+                        setTemplates([...templates, newTpl]);
+                      }}
+                    >
+                      <Plus size={14} />
+                    </button>
                   </>
                 )}
               </Fragment>
@@ -301,9 +310,13 @@ export default function AvailabilityPage() {
             style={{ flex: 1, maxWidth: 200 }}
           />
           <button
-            className="btn btn-primary btn-sm"
+            className={`btn btn-sm ${hasChanges() ? "btn-primary" : "btn-outline"}`}
             onClick={handleSaveTemplates}
-            disabled={addTemplatesMut.isPending}
+            disabled={!hasChanges() || addTemplatesMut.isPending}
+            style={{
+              opacity: !hasChanges() ? 0.5 : 1,
+              cursor: !hasChanges() ? "not-allowed" : "pointer",
+            }}
           >
             {addTemplatesMut.isPending ? (
               <span className="spinner" />

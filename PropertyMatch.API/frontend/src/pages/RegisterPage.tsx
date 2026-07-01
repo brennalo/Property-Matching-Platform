@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { authApi } from '../api'
 import type { UserRole } from '../types'
-import { Building2, Mail, CheckCircle2 } from 'lucide-react'
+import { Building2, Mail, CheckCircle2, ArrowLeft } from 'lucide-react'
 
 export default function RegisterPage() {
     const navigate = useNavigate()
@@ -35,8 +35,7 @@ export default function RegisterPage() {
             return
         }
 
-        if (form.role === 'Agent' && !/^(REN|E|REA|PEA|PPM|PM|PV|V)\d+$/.test(form.licenseNumber.trim().toUpperCase()))
-        {
+        if (form.role === 'Agent' && !/^(REN|E|REA|PEA|PPM|PM|PV|V)\d+$/.test(form.licenseNumber.trim().toUpperCase())) {
             setError('Invalid license format. Example: REN80928 or REA8294')
             return
         }
@@ -68,7 +67,7 @@ export default function RegisterPage() {
                     border: '1px solid var(--border)', padding: '40px 36px',
                     textAlign: 'center',
                 }}>
-                    <CheckCircle2 size={52} style={{ color: '#3db8a0', marginBottom: 16 }} />
+                    <CheckCircle2 size={52} style={{ color: 'var(--green-hi)', marginBottom: 16 }} />
                     <h1 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: 8 }}>Check your email</h1>
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: 8 }}>
                         We sent a verification link to
@@ -106,6 +105,13 @@ export default function RegisterPage() {
                 background: 'var(--bg-card)', borderRadius: 16,
                 border: '1px solid var(--border)', padding: '40px 36px',
             }}>
+                <button type="button" onClick={() => navigate(-1)}
+                    style={{
+                        display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none',
+                        color: 'var(--text-muted)', fontSize: '0.85rem', cursor: 'pointer', padding: 0, marginBottom: 20,
+                    }}>
+                    <ArrowLeft size={15} /> Back
+                </button>
                 {/* Logo */}
                 <div style={{ textAlign: 'center', marginBottom: 28 }}>
                     <div style={{ fontFamily: 'DM Serif Display, serif', fontSize: '1.5rem', color: 'var(--accent)' }}>
@@ -129,7 +135,7 @@ export default function RegisterPage() {
                                 flex: 1, padding: '10px 0', border: 'none', cursor: 'pointer',
                                 fontFamily: 'inherit', fontSize: '0.875rem', fontWeight: 600,
                                 background: form.role === r ? 'var(--accent)' : 'transparent',
-                                color: form.role === r ? '#0f0f0e' : 'var(--text-muted)',
+                                color: form.role === r ? '#fff' : 'var(--text-muted)',
                                 transition: 'all 0.15s',
                             }}>
                             {r === 'Tenant' ? '🏠 Tenant' : '🏢 Agent'}

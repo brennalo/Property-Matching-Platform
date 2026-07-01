@@ -102,7 +102,8 @@ public record MatchRequest(
     double WorkplaceLat, double WorkplaceLng,
     List<TransportMode> TransportModes,
     int MaxCommuteMinutes,
-    Guid? LifestyleTemplateId);
+    Guid? LifestyleTemplateId,
+    List<string>? Areas);
 
 public record MatchedListingResponse(
     ListingResponse Listing,
@@ -243,7 +244,7 @@ public record UpdateTenantStatusRequest(UserStatus Status);
 public record UpdateAgentStatusRequest(UserStatus Status);
 
 public record AgentProfileDto(string FullName, string Email, string Status, int TokenBalance);
-public record ListingStatsDto(int Active, int PendingPayment, int Draft, int Inactive);
+public record ListingStatsDto(int Active, int PendingPayment, int Draft, int Inactive, int Booked);
 public record AppointmentStatsDto(int Total, int Pending, int Confirmed, int Cancelled);
 public record UpcomingViewingDto(Guid ListingId, string ListingName, DateTime ScheduledAt, string Status, string TenantName);
 public record TopListingDto(Guid ListingId, string ListingName, int AppointmentCount);
@@ -254,9 +255,16 @@ public record AgentDashboardResponse(
     AppointmentStatsDto Appointments,
     List<UpcomingViewingDto> UpcomingViewings,
     List<TopListingDto> TopListings,
-    List<PendingPaymentListingDto> PendingPayments
+    List<PendingPaymentListingDto> PendingPayments,
+    List<TopViewedListingDto> TopViewedListings 
 );
 
+// ── Top Viewed Listings(Agent Dashboard) ──────────────────────────────────────
+public record TopViewedListingDto(
+    Guid ListingId,
+    string ListingName,
+    int ViewCount
+);
 // ── Favourites ────────────────────────────────────────────────────────────────
 public record FavouriteResponse(
     Guid ListingId, string Name, string Address,

@@ -346,7 +346,6 @@ public class ListingsController(AppDbContext db, S3Service s3, GroqService groq)
         }
     }
 
-    // ── GET: agent public profile ──────────────────────────────────────────────
     [HttpGet("agents/{agentId}/public")]
     [AllowAnonymous]
     public async Task<IActionResult> GetAgentPublic(Guid agentId)
@@ -356,9 +355,14 @@ public class ListingsController(AppDbContext db, S3Service s3, GroqService groq)
             .FirstOrDefaultAsync(a => a.UserId == agentId);
         if (agent == null) return NotFound();
 
+        var avgRating = await db.Reviews
+            .Where(r => r.AgentId == agentId)
+            .Select(r => (decimal?)r.Rating)
+            .AverageAsync();
+
         return Ok(new AgentPublicProfileResponse(
             agent.UserId, agent.User.FullName,
-            agent.LicenseNumber, agent.ContactNo, agent.Ratings));
+            agent.LicenseNumber, agent.ContactNo, avgRating));
     }
 
     // ── GET: ZIP template download ──────────────────────────────────────────────

@@ -13,9 +13,6 @@ public class Function
     private static readonly HttpClient Http = new();
 
     private readonly string _connString = Environment.GetEnvironmentVariable("DB_CONNECTION")!;
-    private readonly string _resendKey = Environment.GetEnvironmentVariable("RESEND_API_KEY")!;
-    private readonly string _fromEmail = Environment.GetEnvironmentVariable("RESEND_FROM_EMAIL")
-                                          ?? "noreply@propertymatch.com";
 
     public async Task FunctionHandler(object input, ILambdaContext context)
     {

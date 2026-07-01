@@ -114,150 +114,150 @@ export default function AdminReportsPage() {
             ) : filteredReports.length === 0 ? (
                 <div className="empty-state">No reports submitted yet</div>
             ) : (
-                        <div className="reports-grid">
-                            {filteredReports.map((r) => (
+                <div className="reports-grid">
+                    {filteredReports.map((r) => (
+                        <div
+                            key={r.id}
+                            className="card"
+                            onClick={() => setSelectedReport(r)}
+                            style={{
+                                cursor: "pointer",
+                                borderRadius: 20,
+                                padding: 18,
+                                minHeight: 0,
+                                alignSelf: "start",
+                                boxSizing: "border-box",
+                            }}
+                        >
+                            <div
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 14,
+                                    marginBottom: 18,
+                                }}
+                            >
+                                {/* Avatar */}
+
                                 <div
-                                    key={r.id}
-                                    className="card"
-                                    onClick={() => setSelectedReport(r)}
                                     style={{
-                                        cursor: "pointer",
-                                        borderRadius: 20,
-                                        padding: 18,
-                                        minHeight: 0,
-                                        alignSelf: "start",
-                                        boxSizing: "border-box",
+                                        width: 42,
+                                        height: 42,
+                                        borderRadius: "50%",
+                                        background: "var(--bg-input)",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        fontFamily: "DM Serif Display, serif",
+                                        fontSize: "1.1rem",
+                                        color: "var(--accent)",
+                                        flexShrink: 0,
                                     }}
                                 >
+                                    {r.tenantName.charAt(0).toUpperCase()}
+                                </div>
+
+                                <div style={{ flex: 1 }}>
                                     <div
                                         style={{
                                             display: "flex",
+                                            gap: 6,
                                             alignItems: "center",
-                                            gap: 14,
-                                            marginBottom: 18,
+                                            flexWrap: "wrap",
                                         }}
                                     >
-                                        {/* Avatar */}
+                                        <strong>{r.tenantName}</strong>
 
-                                        <div
+                                        <span style={{ color: "var(--text-muted)" }}><span>&bull;</span></span>
+
+                                        <span
                                             style={{
-                                                width: 42,
-                                                height: 42,
-                                                borderRadius: "50%",
-                                                background: "var(--bg-input)",
-                                                display: "flex",
-                                                alignItems: "center",
-                                                justifyContent: "center",
-                                                fontFamily: "DM Serif Display, serif",
-                                                fontSize: "1.1rem",
-                                                color: "var(--accent)",
-                                                flexShrink: 0,
+                                                color: "var(--text-muted)",
+                                                fontSize: ".82rem",
                                             }}
                                         >
-                                            {r.tenantName.charAt(0).toUpperCase()}
-                                        </div>
-
-                                        <div style={{ flex: 1 }}>
-                                            <div
-                                                style={{
-                                                    display: "flex",
-                                                    gap: 6,
-                                                    alignItems: "center",
-                                                    flexWrap: "wrap",
-                                                }}
-                                            >
-                                                <strong>{r.tenantName}</strong>
-
-                                                <span style={{ color: "var(--text-muted)" }}><span>&bull;</span></span>
-
-                                                <span
-                                                    style={{
-                                                        color: "var(--text-muted)",
-                                                        fontSize: ".82rem",
-                                                    }}
-                                                >
-                                                    {timeAgo(r.createdAt)}
-                                                </span>
-                                                <span className={`badge ${typeBadge(r.item)}`}>
-                                                    {r.item.toUpperCase()}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {/* Property / Agent Name */}
-                                    <div
-                                        style={{
-                                            fontWeight: 600,
-                                            fontSize: "1rem",
-                                            marginBottom: 14,
-                                            marginLeft: 5,
-                                            overflow: "hidden",
-                                            textOverflow: "ellipsis",
-                                            whiteSpace: "nowrap",
-                                        }}
-                                    >
-                                        {r.itemName}
-                                    </div>
-
-                                    {/* Description */}
-                                    <div
-                                        style={{
-                                            marginLeft: 5,
-                                            marginBottom: 10,
-                                            color: "var(--text-muted)",
-                                            lineHeight: 1.6,
-                                            display: "-webkit-box",
-                                            WebkitLineClamp: 2,
-                                            WebkitBoxOrient: "vertical",
-                                            overflow: "hidden",
-                                        }}
-                                    >
-                                        {r.description}
-                                    </div>
-
-                                    {/* Evidence Images */}
-                                    {r.evidenceImageUrls?.length > 0 && (
-                                        <div
-                                            style={{
-                                                display: "flex",
-                                                gap: 12,
-                                                marginBottom: 20,
-                                                flexWrap: "wrap",
-                                            }}
-                                        >
-                                            {r.evidenceImageUrls.slice(0, 3).map((url) => (
-                                                <img
-                                                    key={url}
-                                                    src={url}
-                                                    alt=""
-                                                    style={{
-                                                        width: 92,
-                                                        height: 92,
-                                                        objectFit: "cover",
-                                                        borderRadius: 12,
-                                                        border: "1px solid var(--border)",
-                                                    }}
-                                                />
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {/* Status */}
-                                    <div
-                                        style={{
-                                            display: "flex",
-                                            justifyContent: "flex-end",
-                                        }}
-                                    >
-                                        {r.status !== "Open" && (
-                                            <span className={`badge ${statusBadge(r.status)}`}>
-                                                {r.status}
-                                            </span>
-                                        )}
+                                            {timeAgo(r.createdAt)}
+                                        </span>
+                                        <span className={`badge ${typeBadge(r.item)}`}>
+                                            {r.item.toUpperCase()}
+                                        </span>
                                     </div>
                                 </div>
-                            ))}
+                            </div>
+                            {/* Property / Agent Name */}
+                            <div
+                                style={{
+                                    fontWeight: 600,
+                                    fontSize: "1rem",
+                                    marginBottom: 14,
+                                    marginLeft: 5,
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                }}
+                            >
+                                {r.itemName}
+                            </div>
+
+                            {/* Description */}
+                            <div
+                                style={{
+                                    marginLeft: 5,
+                                    marginBottom: 10,
+                                    color: "var(--text-muted)",
+                                    lineHeight: 1.6,
+                                    display: "-webkit-box",
+                                    WebkitLineClamp: 2,
+                                    WebkitBoxOrient: "vertical",
+                                    overflow: "hidden",
+                                }}
+                            >
+                                {r.description}
+                            </div>
+
+                            {/* Evidence Images */}
+                            {r.evidenceImageUrls?.length > 0 && (
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        gap: 12,
+                                        marginBottom: 20,
+                                        flexWrap: "wrap",
+                                    }}
+                                >
+                                    {r.evidenceImageUrls.slice(0, 3).map((url) => (
+                                        <img
+                                            key={url}
+                                            src={url}
+                                            alt=""
+                                            style={{
+                                                width: 92,
+                                                height: 92,
+                                                objectFit: "cover",
+                                                borderRadius: 12,
+                                                border: "1px solid var(--border)",
+                                            }}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Status */}
+                            <div
+                                style={{
+                                    display: "flex",
+                                    justifyContent: "flex-end",
+                                }}
+                            >
+                                {r.status !== "Open" && (
+                                    <span className={`badge ${statusBadge(r.status)}`}>
+                                        {r.status}
+                                    </span>
+                                )}
+                            </div>
                         </div>
+                    ))}
+                </div>
             )}
 
             {selectedReport && (

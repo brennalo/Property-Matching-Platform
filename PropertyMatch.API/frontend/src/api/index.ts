@@ -339,7 +339,7 @@ export const browseApi = {
 
 // ── Agent public profile ───────────────────────────────────────────────────────
 export const agentApi = {
-    getPublicProfile: (agentId: string) => api.get(`/agents/${agentId}/public`),
+    getPublicProfile: (agentId: string) => api.get(`/listings/agents/${agentId}/public`),
     getListingAnalytics: () =>
         api.get<
             Array<{

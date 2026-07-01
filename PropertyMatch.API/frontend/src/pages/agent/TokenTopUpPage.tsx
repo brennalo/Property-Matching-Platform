@@ -65,9 +65,6 @@ export default function TokenTopUpPage() {
                     <h1 className="page-title">Top Up Tokens</h1>
                     <p className="page-sub">1 token = 1 property listing · cheaper rates for bigger top-ups</p>
                 </div>
-                <button className="btn btn-ghost btn-sm" onClick={() => navigate('/agent/listings')}>
-                    ← Back
-                </button>
             </div>
 
             {/* Current Balance */}
@@ -78,7 +75,7 @@ export default function TokenTopUpPage() {
                         background: 'var(--accent-dim)', display: 'flex',
                         alignItems: 'center', justifyContent: 'center'
                     }}>
-                        <Coins size={20} color="var(--accent)" />
+                        <Coins size={20} color="#ea580c" />
                     </div>
                     <div>
                         <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 2 }}>Current Token Balance</p>

@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+﻿import { useEffect, useState, useRef } from "react";
 import {
     BrowserRouter,
     Routes,
@@ -14,6 +14,7 @@ import {
     useQuery,
 } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
+import { AuthModalProvider } from "./hooks/useAuthModal";
 import { configApi, authVerifyApi, conversationsApi } from "./api";
 import { initGoogleMaps } from "./hooks/useGoogleMaps";
 import VerifyEmailBanner from "./components/VerifyEmailBanner";
@@ -23,7 +24,6 @@ import "./index.css";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import EmailVerifiedPage from "./pages/EmailVerifiedPage";
-import SearchPage from "./pages/tenant/SearchPage";
 import ResultsPage from "./pages/tenant/ResultsPage";
 import ListingDetailPage from "./pages/tenant/ListingDetailPage";
 import LifestylePage from "./pages/tenant/LifestylePage";
@@ -57,7 +57,6 @@ import {
     Users,
     LogOut,
     Building2,
-    Menu,
     Coins,
     MessageSquare,
     Clock,
@@ -68,6 +67,9 @@ import {
     Building,
     Settings,
     Flag,
+    ChevronDown,
+    LogIn,
+    UserPlus,
 } from "lucide-react";
 import AgentReviewsPage from "./pages/agent/ReviewsPage";
 import AgentAnalyticsPage from "./pages/agent/AgentAnalytics";
@@ -108,7 +110,6 @@ function ProtectedRoute({
 
     useEffect(() => {
         if (user) {
-            console.log("ProtectedRoute saving path:", location.pathname);
             localStorage.setItem("lastPath", location.pathname);
         }
     }, [location.pathname, user]);
@@ -134,7 +135,7 @@ function ProtectedRoute({
     // Blocked users: always bounce to login
     if (user.status === "Blocked") return <Navigate to="/login" replace />;
 
-    // Pending (unverified email): only SearchPage is accessible for tenants;
+    // Pending (unverified email): only Browse/Search is accessible for tenants;
     // for agents, all pages require verification.
     if (requireVerified && user.status === "Pending") {
         return (
@@ -218,12 +219,13 @@ function ResendFromBlockedPage({ email }: { email: string }) {
     );
 }
 
-// ── AppShell ───────────────────────────────────────────────────────────────
+// ── AppShell (top nav only — no sidebar) ────────────────────────────────────
 
 function AppShell({ children }: { children: React.ReactNode }) {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
-    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [menuOpen, setMenuOpen] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
 
     const { data: convs = [] } = useQuery<Array<{ unreadCount: number }>>({
         queryKey: ["conversations"],
@@ -234,187 +236,157 @@ function AppShell({ children }: { children: React.ReactNode }) {
     const totalUnread = convs.reduce((sum, c) => sum + (c.unreadCount ?? 0), 0);
 
     const tenantLinks = [
-        { to: "/browse", icon: <Building size={16} />, label: "Browse" },
-        { to: "/search", icon: <Search size={16} />, label: "Find a Home" },
-        {
-            to: "/lifestyle",
-            icon: <Heart size={16} />,
-            label: "Lifestyle Templates",
-        },
+        { to: "/lifestyle", icon: <Heart size={16} />, label: "Lifestyle Templates" },
         { to: "/my-schedules", icon: <Calendar size={16} />, label: "My Viewings" },
         { to: "/favourites", icon: <Heart size={16} />, label: "Saved Listings" },
         { to: "/history", icon: <Clock size={16} />, label: "History" },
-        {
-            to: "/conversations",
-            icon: <MessageSquare size={16} />,
-            label: "Messages",
-        },
+        { to: "/conversations", icon: <MessageSquare size={16} />, label: "Messages" },
         { to: "/feedback", icon: <MessageSquare size={16} />, label: "Feedback" },
-        {
-            to: "/scoring-config",
-            icon: <Settings size={16} />,
-            label: "Match Settings",
-        },
+        { to: "/scoring-config", icon: <Settings size={16} />, label: "Match Settings" },
     ];
     const agentLinks = [
-        {
-            to: "/agent/dashboard",
-            icon: <LayoutDashboard size={16} />,
-            label: "Dashboard",
-        },
+        { to: "/agent/dashboard", icon: <LayoutDashboard size={16} />, label: "Dashboard" },
         { to: "/agent/listings", icon: <List size={16} />, label: "My Listings" },
-        {
-            to: "/agent/availability",
-            icon: <CalendarCheck size={16} />,
-            label: "My Availability",
-        },
-        {
-            to: "/agent/calendar",
-            icon: <Clock size={16} />,
-            label: "Viewing Calendar",
-        },
-        {
-            to: "/agent/topup",
-            icon: <Coins size={16} />,
-            label: "Top Up Tokens",
-        },
-        {
-            to: "/agent/conversations",
-            icon: <MessageSquare size={16} />,
-            label: "Messages",
-        },
-        {
-            to: "/agent/analytics",
-            icon: <BarChart3 size={16} />,
-            label: "Listing Analytics",
-        },
-        {
-            to: "/agent/reviews",
-            icon: <Star size={16} />,
-            label: "Reviews & Ratings",
-        },
+        { to: "/agent/availability", icon: <CalendarCheck size={16} />, label: "My Availability" },
+        { to: "/agent/calendar", icon: <Clock size={16} />, label: "Viewing Calendar" },
+        { to: "/agent/topup", icon: <Coins size={16} />, label: "Top Up Tokens" },
+        { to: "/agent/conversations", icon: <MessageSquare size={16} />, label: "Messages" },
+        { to: "/agent/analytics", icon: <BarChart3 size={16} />, label: "Listing Analytics" },
+        { to: "/agent/reviews", icon: <Star size={16} />, label: "Reviews & Ratings" },
     ];
     const adminLinks = [
-        {
-            to: "/admin/dashboard",
-            icon: <BarChart3 size={16} />,
-            label: "Analytics",
-        },
+        { to: "/admin/dashboard", icon: <BarChart3 size={16} />, label: "Analytics" },
         { to: "/admin/agents", icon: <Users size={16} />, label: "Agents" },
         { to: "/admin/tenants", icon: <Users size={16} />, label: "Tenants" },
-        {
-            to: "/admin/feedback",
-            icon: <MessageSquare size={16} />,
-            label: "Feedback",
-        },
-        {
-            to: "/admin/reports",
-            icon: <Flag size={16} />,
-            label: "Reports",
-        },
+        { to: "/admin/feedback", icon: <MessageSquare size={16} />, label: "Feedback" },
+        { to: "/admin/reports", icon: <Flag size={16} />, label: "Reports" },
     ];
 
     const links =
-        user?.role === "Tenant"
-            ? tenantLinks
-            : user?.role === "Agent"
-                ? agentLinks
-                : adminLinks;
+        user?.role === "Tenant" ? tenantLinks
+            : user?.role === "Agent" ? agentLinks
+                : user?.role === "Admin" ? adminLinks
+                    : [];
 
-    const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
-    const closeSidebar = () => setSidebarOpen(false);
+    // Close the dropdown on outside click
+    useEffect(() => {
+        function onClick(e: MouseEvent) {
+            if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+                setMenuOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", onClick);
+        return () => document.removeEventListener("mousedown", onClick);
+    }, []);
+
+    const homeTo = !user
+        ? "/browse"
+        : user.role === "Tenant" ? "/browse"
+            : user.role === "Agent" ? "/agent/dashboard"
+                : "/admin/dashboard";
+
+    const initial = user?.fullName?.trim()?.[0]?.toUpperCase() ?? "?";
 
     return (
         <div className="app-shell">
             <header className="topbar">
                 <button
                     className="topbar-logo-toggle"
-                    onClick={toggleSidebar}
-                    aria-label="Toggle menu"
-                    style={{
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        color: "var(--accent)",
-                        fontSize: "1.1rem",
-                        fontWeight: 600,
-                        padding: 0,
-                    }}
+                    onClick={() => navigate(homeTo)}
+                    aria-label="Go to home"
                 >
-                    <Building2 size={18} />
+                    <Building2 size={20} />
                     PropertyMatch
                 </button>
-                <div className="flex items-center gap-3">
-                    <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
-                        {user?.fullName}
-                        <span
-                            className={`badge badge-${user?.role === "Admin" ? "amber" : user?.role === "Agent" ? "green" : "grey"}`}
-                            style={{ marginLeft: 8 }}
-                        >
-                            {user?.role}
-                        </span>
-                    </span>
-                    <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={async () => {
-                            localStorage.removeItem("lastPath");
-                            await logout();
-                            navigate("/login");
-                        }}
-                    >
-                        <LogOut size={14} /> Logout
-                    </button>
+
+                {/* Public top-level nav for guests/tenants — Browse is the landing page for everyone */}
+                <nav className="topbar-nav">
+                    {(!user || user.role === "Tenant") && (
+                        <NavLink to="/browse" className={({ isActive }) => `topbar-link${isActive ? " active" : ""}`}>
+                            <Building size={15} /> Browse
+                        </NavLink>
+                    )}
+                </nav>
+
+                <div className="topbar-actions">
+                    {!user ? (
+                        <>
+                            <button className="btn btn-ghost btn-sm" onClick={() => navigate("/login")}>
+                                <LogIn size={14} /> Login
+                            </button>
+                            <button className="btn btn-primary btn-sm" onClick={() => navigate("/register")}>
+                                <UserPlus size={14} /> Register
+                            </button>
+                        </>
+                    ) : (
+                        <div className="account-menu" ref={menuRef}>
+                            <button className="account-trigger" onClick={() => setMenuOpen((o) => !o)}>
+                                <span className="account-avatar">{initial}</span>
+                                <span style={{ maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    {user.fullName}
+                                </span>
+                                <ChevronDown size={14} />
+                            </button>
+                            {menuOpen && (
+                                <div className="account-dropdown">
+                                    <div style={{ padding: "6px 12px 10px", borderBottom: "1px solid var(--border)", marginBottom: 6 }}>
+                                        <div style={{ fontSize: "0.85rem", fontWeight: 600 }}>{user.fullName}</div>
+                                        <span className={`badge badge-${user.role === "Admin" ? "amber" : user.role === "Agent" ? "green" : "blue"}`} style={{ marginTop: 4 }}>
+                                            {user.role}
+                                        </span>
+                                    </div>
+                                    {links.map((l) => {
+                                        const isMessages = l.to === "/conversations" || l.to === "/agent/conversations";
+                                        return (
+                                            <NavLink
+                                                key={l.to}
+                                                to={l.to}
+                                                onClick={() => setMenuOpen(false)}
+                                                className={({ isActive }) => `account-dropdown-link${isActive ? " active" : ""}`}
+                                            >
+                                                {l.icon} {l.label}
+                                                {isMessages && totalUnread > 0 && (
+                                                    <span
+                                                        style={{
+                                                            marginLeft: "auto",
+                                                            background: "var(--primary)",
+                                                            color: "#fff",
+                                                            borderRadius: "999px",
+                                                            fontSize: "0.7rem",
+                                                            fontWeight: 700,
+                                                            padding: "1px 6px",
+                                                            minWidth: 18,
+                                                            textAlign: "center",
+                                                        }}
+                                                    >
+                                                        {totalUnread > 99 ? "99+" : totalUnread}
+                                                    </span>
+                                                )}
+                                            </NavLink>
+                                        );
+                                    })}
+                                    <div className="divider" style={{ margin: "6px 0" }} />
+                                    <button
+                                        className="account-dropdown-link"
+                                        style={{ width: "100%", border: "none", background: "none", cursor: "pointer", textAlign: "left", color: "var(--red)" }}
+                                        onClick={async () => {
+                                            localStorage.removeItem("lastPath");
+                                            setMenuOpen(false);
+                                            await logout();
+                                            navigate("/browse");
+                                        }}
+                                    >
+                                        <LogOut size={16} /> Logout
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             </header>
 
             {/* Verification banner — spans full width below topbar */}
             <VerifyEmailBanner />
-
-            {/* Sidebar drawer overlay (mobile) */}
-            {sidebarOpen && (
-                <div className="sidebar-overlay" onClick={closeSidebar} />
-            )}
-
-            <nav className={`sidebar ${sidebarOpen ? "open" : ""}`}>
-                {links.map((l) => {
-                    const isMessages = l.to === "/conversations" || l.to === "/agent/conversations";
-                    return (
-                        <NavLink
-                            key={l.to}
-                            to={l.to}
-                            onClick={closeSidebar}
-                            className={({ isActive }) =>
-                                `sidebar-link${isActive ? " active" : ""}`
-                            }
-                            style={{ position: "relative" }}
-                        >
-                            {l.icon} {l.label}
-                            {isMessages && totalUnread > 0 && (
-                                <span
-                                    style={{
-                                        marginLeft: 6,
-                                        background: "var(--accent)",
-                                        color: "#fff",
-                                        borderRadius: "999px",
-                                        fontSize: "0.7rem",
-                                        fontWeight: 700,
-                                        padding: "1px 6px",
-                                        lineHeight: 1.4,
-                                        display: "inline-block",
-                                        minWidth: 18,
-                                        textAlign: "center",
-                                    }}
-                                >
-                                    {totalUnread > 99 ? "99+" : totalUnread}
-                                </span>
-                            )}
-                        </NavLink>
-                    );
-                })}
-            </nav>
 
             <main className="main-content">{children}</main>
         </div>
@@ -426,12 +398,12 @@ function AppShell({ children }: { children: React.ReactNode }) {
 function RootRedirect() {
     const { user, loading } = useAuth();
     if (loading) return null;
-    if (!user) return <Navigate to="/login" replace />;
+
+    // Guests land on the public Browse page now, not on a login wall.
+    if (!user) return <Navigate to="/browse" replace />;
 
     const lastPath = localStorage.getItem("lastPath");
-    console.log("RootRedirect checking lastPath:", lastPath);
     if (lastPath && lastPath !== "/" && lastPath !== "/login") {
-        console.log("RootRedirect redirecting to:", lastPath);
         return <Navigate to={lastPath} replace />;
     }
 
@@ -448,273 +420,269 @@ export default function App() {
             <GoogleMapsBootstrap />
             <AuthProvider>
                 <BrowserRouter>
-                    <Routes>
-                        {/* Public */}
-                        <Route path="/login" element={<LoginPage />} />
-                        <Route path="/register" element={<RegisterPage />} />
-                        <Route path="/email-verified" element={<EmailVerifiedPage />} />
-                        <Route path="/" element={<RootRedirect />} />
-                        <Route
-                            path="/browse"
-                            element={
-                                <ProtectedRoute roles={["Tenant"]} requireVerified={false}>
+                    <AuthModalProvider>
+                        <Routes>
+                            {/* Public */}
+                            <Route path="/login" element={<LoginPage />} />
+                            <Route path="/register" element={<RegisterPage />} />
+                            <Route path="/email-verified" element={<EmailVerifiedPage />} />
+                            <Route path="/" element={<RootRedirect />} />
+
+                            {/* Browse is the public landing page — open to guests AND tenants.
+                                It now also contains the expandable search panel
+                                (previously the separate /search page). */}
+                            <Route
+                                path="/browse"
+                                element={
                                     <AppShell>
                                         <BrowsePage />
                                     </AppShell>
-                                </ProtectedRoute>
-                            }
-                        />
-                        {/* Tenant — SearchPage accessible even when Pending */}
-                        <Route
-                            path="/search"
-                            element={
-                                <ProtectedRoute roles={["Tenant"]} requireVerified={false}>
-                                    <AppShell>
-                                        <SearchPage />
-                                    </AppShell>
-                                </ProtectedRoute>
-                            }
-                        />
-                        <Route
-                            path="/results"
-                            element={
-                                <ProtectedRoute roles={["Tenant"]} requireVerified={false}>
-                                    <AppShell>
-                                        <ResultsPage />
-                                    </AppShell>
-                                </ProtectedRoute>
-                            }
-                        />
-                        <Route
-                            path="/listing/:id"
-                            element={
-                                <ProtectedRoute roles={["Tenant"]} requireVerified={false}>
+                                }
+                            />
+                            {/* Legacy deep link — old /search route now lives inside Browse */}
+                            <Route path="/search" element={<Navigate to="/browse" replace />} />
+
+                            <Route
+                                path="/results"
+                                element={
+                                    <ProtectedRoute roles={["Tenant"]} requireVerified={false}>
+                                        <AppShell>
+                                            <ResultsPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+
+                            {/* Listing detail — open to guests AND tenants. Gated actions
+                                (favourite, schedule, message) prompt login inside the page. */}
+                            <Route
+                                path="/listing/:id"
+                                element={
                                     <AppShell>
                                         <ListingDetailPage />
                                     </AppShell>
-                                </ProtectedRoute>
-                            }
-                        />
+                                }
+                            />
 
-                        {/* Tenant — require verified for booking/lifestyle */}
-                        <Route
-                            path="/lifestyle"
-                            element={
-                                <ProtectedRoute roles={["Tenant"]} requireVerified>
-                                    <AppShell>
-                                        <LifestylePage />
-                                    </AppShell>
-                                </ProtectedRoute>
-                            }
-                        />
-                        <Route
-                            path="/my-schedules"
-                            element={
-                                <ProtectedRoute roles={["Tenant"]} requireVerified>
-                                    <AppShell>
-                                        <TenantSchedulesPage />
-                                    </AppShell>
-                                </ProtectedRoute>
-                            }
-                        />
-                        <Route
-                            path="/favourites"
-                            element={
-                                <ProtectedRoute roles={["Tenant"]} requireVerified>
-                                    <AppShell>
-                                        <FavouritesPage />
-                                    </AppShell>
-                                </ProtectedRoute>
-                            }
-                        />
-                        <Route
-                            path="/history"
-                            element={
-                                <ProtectedRoute roles={["Tenant"]} requireVerified>
-                                    <AppShell>
-                                        <HistoryPage />
-                                    </AppShell>
-                                </ProtectedRoute>
-                            }
-                        />
-                        <Route
-                            path="/conversations"
-                            element={
-                                <ProtectedRoute roles={["Tenant"]} requireVerified>
-                                    <AppShell>
-                                        <ConversationsPage />
-                                    </AppShell>
-                                </ProtectedRoute>
-                            }
-                        />
-                        <Route
-                            path="/feedback"
-                            element={
-                                <ProtectedRoute roles={["Tenant"]} requireVerified>
-                                    <AppShell>
-                                        <TenantFeedbackPage />
-                                    </AppShell>
-                                </ProtectedRoute>
-                            }
-                        />
-                        <Route
-                            path="/scoring-config"
-                            element={
-                                <ProtectedRoute roles={["Tenant"]} requireVerified>
-                                    <AppShell>
-                                        <ScoringConfigPage />
-                                    </AppShell>
-                                </ProtectedRoute>
-                            }
-                        />
+                            {/* Tenant — require verified for booking/lifestyle */}
+                            <Route
+                                path="/lifestyle"
+                                element={
+                                    <ProtectedRoute roles={["Tenant"]} requireVerified>
+                                        <AppShell>
+                                            <LifestylePage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/my-schedules"
+                                element={
+                                    <ProtectedRoute roles={["Tenant"]} requireVerified>
+                                        <AppShell>
+                                            <TenantSchedulesPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/favourites"
+                                element={
+                                    <ProtectedRoute roles={["Tenant"]} requireVerified>
+                                        <AppShell>
+                                            <FavouritesPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/history"
+                                element={
+                                    <ProtectedRoute roles={["Tenant"]} requireVerified>
+                                        <AppShell>
+                                            <HistoryPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/conversations"
+                                element={
+                                    <ProtectedRoute roles={["Tenant"]} requireVerified>
+                                        <AppShell>
+                                            <ConversationsPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/feedback"
+                                element={
+                                    <ProtectedRoute roles={["Tenant"]} requireVerified>
+                                        <AppShell>
+                                            <TenantFeedbackPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/scoring-config"
+                                element={
+                                    <ProtectedRoute roles={["Tenant"]} requireVerified>
+                                        <AppShell>
+                                            <ScoringConfigPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
 
-                        {/* Agent — all require verified */}
-                        <Route
-                            path="/agent/listings"
-                            element={
-                                <ProtectedRoute roles={["Agent"]} requireVerified>
-                                    <AppShell>
-                                        <AgentListingsPage />
-                                    </AppShell>
-                                </ProtectedRoute>
-                            }
-                        />
-                        <Route
-                            path="/agent/listings/:id"
-                            element={
-                                <ProtectedRoute roles={["Agent"]} requireVerified>
-                                    <AppShell>
-                                        <AgentListingDetailPage />
-                                    </AppShell>
-                                </ProtectedRoute>
-                            }
-                        />
-                        <Route
-                            path="/agent/availability"
-                            element={
-                                <ProtectedRoute roles={["Agent"]} requireVerified>
-                                    <AppShell>
-                                        <AgentAvailabilityPage />
-                                    </AppShell>
-                                </ProtectedRoute>
-                            }
-                        />
-                        <Route
-                            path="/agent/conversations"
-                            element={
-                                <ProtectedRoute roles={["Agent"]} requireVerified>
-                                    <AppShell>
-                                        <AgentConversationsPage />
-                                    </AppShell>
-                                </ProtectedRoute>
-                            }
-                        />
-                        <Route
-                            path="/agent/calendar"
-                            element={
-                                <ProtectedRoute roles={["Agent"]} requireVerified>
-                                    <AppShell>
-                                        <AgentCalendarPage />
-                                    </AppShell>
-                                </ProtectedRoute>
-                            }
-                        />
-                        <Route
-                            path="/agent/dashboard"
-                            element={
-                                <ProtectedRoute roles={["Agent"]} requireVerified>
-                                    <AppShell>
-                                        <AgentDashboardPage />
-                                    </AppShell>
-                                </ProtectedRoute>
-                            }
-                        />
-                        <Route
-                            path="/agent/topup"
-                            element={
-                                <ProtectedRoute roles={["Agent"]} requireVerified>
-                                    <AppShell>
-                                        <TokenTopUpPage />
-                                    </AppShell>
-                                </ProtectedRoute>
-                            }
-                        />
+                            {/* Agent — all require verified */}
+                            <Route
+                                path="/agent/listings"
+                                element={
+                                    <ProtectedRoute roles={["Agent"]} requireVerified>
+                                        <AppShell>
+                                            <AgentListingsPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/agent/listings/:id"
+                                element={
+                                    <ProtectedRoute roles={["Agent"]} requireVerified>
+                                        <AppShell>
+                                            <AgentListingDetailPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/agent/availability"
+                                element={
+                                    <ProtectedRoute roles={["Agent"]} requireVerified>
+                                        <AppShell>
+                                            <AgentAvailabilityPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/agent/conversations"
+                                element={
+                                    <ProtectedRoute roles={["Agent"]} requireVerified>
+                                        <AppShell>
+                                            <AgentConversationsPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/agent/calendar"
+                                element={
+                                    <ProtectedRoute roles={["Agent"]} requireVerified>
+                                        <AppShell>
+                                            <AgentCalendarPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/agent/dashboard"
+                                element={
+                                    <ProtectedRoute roles={["Agent"]} requireVerified>
+                                        <AppShell>
+                                            <AgentDashboardPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/agent/topup"
+                                element={
+                                    <ProtectedRoute roles={["Agent"]} requireVerified>
+                                        <AppShell>
+                                            <TokenTopUpPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/agent/analytics"
+                                element={
+                                    <ProtectedRoute roles={["Agent"]}>
+                                        <AppShell>
+                                            <AgentAnalyticsPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route path="/payment-success" element={<PaymentSuccessPage />} />
+                            <Route path="/payment-cancel" element={<PaymentCancelPage />} />
+                            <Route
+                                path="/agent/reviews"
+                                element={
+                                    <ProtectedRoute roles={["Agent"]} requireVerified>
+                                        <AppShell>
+                                            <AgentReviewsPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
 
-                        <Route
-                            path="/agent/analytics"
-                            element={
-                                <ProtectedRoute roles={["Agent"]}>
-                                    <AppShell>
-                                        <AgentAnalyticsPage />
-                                    </AppShell>
-                                </ProtectedRoute>
-                            }
-                        />
-                        <Route path="/payment-success" element={<PaymentSuccessPage />} />
-                        <Route path="/payment-cancel" element={<PaymentCancelPage />} />
-                        <Route
-                            path="/agent/reviews"
-                            element={
-                                <ProtectedRoute roles={["Agent"]} requireVerified>
-                                    <AppShell>
-                                        <AgentReviewsPage />
-                                    </AppShell>
-                                </ProtectedRoute>
-                            }
-                        />
-
-                        {/* Admin */}
-                        <Route
-                            path="/admin/dashboard"
-                            element={
-                                <ProtectedRoute roles={["Admin"]}>
-                                    <AppShell>
-                                        <AdminDashboardPage />
-                                    </AppShell>
-                                </ProtectedRoute>
-                            }
-                        />
-                        <Route
-                            path="/admin/agents"
-                            element={
-                                <ProtectedRoute roles={["Admin"]}>
-                                    <AppShell>
-                                        <AdminAgentsPage />
-                                    </AppShell>
-                                </ProtectedRoute>
-                            }
-                        />
-                        <Route
-                            path="/admin/tenants"
-                            element={
-                                <ProtectedRoute roles={["Admin"]}>
-                                    <AppShell>
-                                        <AdminTenantsPage />
-                                    </AppShell>
-                                </ProtectedRoute>
-                            }
-                        />
-                        <Route
-                            path="/admin/feedback"
-                            element={
-                                <ProtectedRoute roles={["Admin"]}>
-                                    <AppShell>
-                                        <AdminFeedbackPage />
-                                    </AppShell>
-                                </ProtectedRoute>
-                            }
-                        />
-                        <Route
-                            path="/admin/reports"
-                            element={
-                                <ProtectedRoute roles={["Admin"]}>
-                                    <AppShell>
-                                        <AdminReportsPage />
-                                    </AppShell>
-                                </ProtectedRoute>
-                            }
-                        />
-                    </Routes>
+                            {/* Admin */}
+                            <Route
+                                path="/admin/dashboard"
+                                element={
+                                    <ProtectedRoute roles={["Admin"]}>
+                                        <AppShell>
+                                            <AdminDashboardPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/admin/agents"
+                                element={
+                                    <ProtectedRoute roles={["Admin"]}>
+                                        <AppShell>
+                                            <AdminAgentsPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/admin/tenants"
+                                element={
+                                    <ProtectedRoute roles={["Admin"]}>
+                                        <AppShell>
+                                            <AdminTenantsPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/admin/feedback"
+                                element={
+                                    <ProtectedRoute roles={["Admin"]}>
+                                        <AppShell>
+                                            <AdminFeedbackPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/admin/reports"
+                                element={
+                                    <ProtectedRoute roles={["Admin"]}>
+                                        <AppShell>
+                                            <AdminReportsPage />
+                                        </AppShell>
+                                    </ProtectedRoute>
+                                }
+                            />
+                        </Routes>
+                    </AuthModalProvider>
                 </BrowserRouter>
             </AuthProvider>
         </QueryClientProvider>

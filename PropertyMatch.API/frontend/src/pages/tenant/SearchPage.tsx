@@ -9,7 +9,7 @@ declare global {
     interface Window { google: any; __gmapsReady: boolean }
 }
 
-const RESIDENCY_TYPES: ResidencyType[] = ['Landed', 'Condo', 'Apartment', 'Townhouse', 'Studio','MasterRoom','SharedRoom']
+const RESIDENCY_TYPES: ResidencyType[] = ['Landed', 'Condo', 'Apartment', 'Townhouse', 'Studio', 'MasterRoom', 'SharedRoom']
 const TRANSPORT_MODES: { value: TransportMode; label: string; icon: string }[] = [
     { value: 'Driving', label: 'Drive', icon: '🚗' },
     { value: 'Transit', label: 'Transit', icon: '🚇' },
@@ -134,7 +134,7 @@ export default function SearchPage() {
     const [form, setForm] = useState({
         rooms: '', toilets: '',
         // in useState initializer
-        residencyTypes: [] as ResidencyType[], 
+        residencyTypes: [] as ResidencyType[],
         priceMin: '', priceMax: '',
         transportModes: ['Driving'] as TransportMode[],
         maxCommuteMinutes: '45',
@@ -336,7 +336,7 @@ export default function SearchPage() {
                                             className={`btn btn-sm ${active ? 'btn-primary' : 'btn-outline'}`}
                                             style={{ flex: 1, position: 'relative' }}>
                                             {m.icon} {m.label}
-                                            {active && <span style={{ position: 'absolute', top: -6, right: -6, width: 14, height: 14, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', color: '#0f0f0e' }}>✓</span>}
+                                            {active && <span style={{ position: 'absolute', top: -6, right: -6, width: 14, height: 14, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', color: 'var(--text)' }}>✓</span>}
                                         </button>
                                     )
                                 })}

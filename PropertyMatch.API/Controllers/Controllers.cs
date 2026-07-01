@@ -701,7 +701,7 @@ public class AgentDashboardController(AppDbContext db) : ControllerBase
             .FirstOrDefaultAsync(a => a.UserId == userId);
         if (agent == null) return NotFound();
 
-        // Listings
+        // ── Listings ──
         var listings = await db.Listings
             .Where(l => l.AgentId == agent.UserId)
             .ToListAsync();
@@ -709,8 +709,9 @@ public class AgentDashboardController(AppDbContext db) : ControllerBase
         int activeListings = listings.Count(l => l.Status == ListingStatus.Active);
         int draftListings = listings.Count(l => l.Status == ListingStatus.Draft);
         int inactiveListings = listings.Count(l => l.Status == ListingStatus.Inactive);
+        int bookedListings = listings.Count(l => l.Status == ListingStatus.Booked);
 
-        // Viewing schedules - IMPORTANT: include Listing and Tenant
+        // ── Viewing schedules ──
         var schedules = await db.ViewingSchedules
             .Include(v => v.Listing)
             .Include(v => v.Tenant)
@@ -722,7 +723,7 @@ public class AgentDashboardController(AppDbContext db) : ControllerBase
         int confirmedAppointments = schedules.Count(v => v.Status == ScheduleStatus.Confirmed);
         int cancelledAppointments = schedules.Count(v => v.Status == ScheduleStatus.Cancelled);
 
-        // Upcoming viewings (next 7 days)
+        // ── Upcoming viewings (next 7 days) ──
         var today = DateTime.UtcNow.Date;
         var upcoming = schedules
             .Where(v => v.ScheduledAt.Date >= today && v.ScheduledAt.Date <= today.AddDays(7))
@@ -737,7 +738,7 @@ public class AgentDashboardController(AppDbContext db) : ControllerBase
             .Take(10)
             .ToList();
 
-        // Top performing listings (most appointments)
+        // ── Top performing listings (most appointments) ──
         var topListings = schedules
             .GroupBy(v => v.ListingId)
             .Select(g => new
@@ -751,10 +752,24 @@ public class AgentDashboardController(AppDbContext db) : ControllerBase
             .Select(x => new TopListingDto(x.ListingId, x.ListingName, x.AppointmentCount))
             .ToList();
 
-        // Payment reminder: no longer applicable since tokens deduct upfront
+        // ── Top viewed listings ──
+        var topViewedListings = await db.Listings
+            .Where(l => l.AgentId == agent.UserId)
+            .Select(l => new
+            {
+                listingId = l.Id,
+                listingName = l.Name,
+                viewCount = db.ViewHistory.Count(v => v.ListingId == l.Id)
+            })
+            .OrderByDescending(x => x.viewCount)
+            .Take(5)
+            .Select(x => new TopViewedListingDto(x.listingId, x.listingName, x.viewCount))
+            .ToListAsync();
+
+        // ── Pending payments (no longer used) ──
         var pendingPaymentList = new List<PendingPaymentListingDto>();
 
-        // Agent profile
+        // ── Agent profile ──
         var profile = new AgentProfileDto(
             agent.User.FullName,
             agent.User.Email,
@@ -762,40 +777,44 @@ public class AgentDashboardController(AppDbContext db) : ControllerBase
             agent.TokenBalance
         );
 
+        // ── Return response ──
         return Ok(new AgentDashboardResponse(
             profile,
-            new ListingStatsDto(activeListings, 0, draftListings, inactiveListings),
+            new ListingStatsDto(activeListings, 0, draftListings, inactiveListings, bookedListings),
             new AppointmentStatsDto(totalAppointments, pendingAppointments, confirmedAppointments, cancelledAppointments),
             upcoming,
             topListings,
-            pendingPaymentList
+            pendingPaymentList,
+            topViewedListings
         ));
     }
 
-    [HttpGet("analytics/listings")]
-    [Authorize(Roles = "Agent")]
-    public async Task<IActionResult> GetListingAnalytics()
-    {
-        var agentId = User.GetUserId();
+        [HttpGet("analytics/listings")]
+        [Authorize(Roles = "Agent")]
+        public async Task<IActionResult> GetListingAnalytics()
+        {
+            var agentId = User.GetUserId();
 
-        var analytics = await db.Listings
-            .Where(l => l.AgentId == agentId)
-            .Select(l => new
-            {
-                l.Id,
-                l.Name,
-                ViewCount = db.ViewHistory.Count(v => v.ListingId == l.Id),
-                BookingCount = db.ViewingSchedules.Count(vs => vs.ListingId == l.Id),
-                ConfirmedCount = db.ViewingSchedules.Count(vs => vs.ListingId == l.Id && vs.Status == ScheduleStatus.Confirmed),
-                PendingCount = db.ViewingSchedules.Count(vs => vs.ListingId == l.Id && vs.Status == ScheduleStatus.Pending),
-                CancelledCount = db.ViewingSchedules.Count(vs => vs.ListingId == l.Id && vs.Status == ScheduleStatus.Cancelled)
-            })
-            .OrderByDescending(l => l.ViewCount)
-            .ToListAsync();
+            var analytics = await db.Listings
+                .Where(l => l.AgentId == agentId)
+                .Select(l => new
+                {
+                    l.Id,
+                    l.Name,
+                    ViewCount = db.ViewHistory.Count(v => v.ListingId == l.Id),
+                    BookingCount = db.ViewingSchedules.Count(vs => vs.ListingId == l.Id),
+                    ConfirmedCount = db.ViewingSchedules.Count(vs => vs.ListingId == l.Id && vs.Status == ScheduleStatus.Confirmed),
+                    PendingCount = db.ViewingSchedules.Count(vs => vs.ListingId == l.Id && vs.Status == ScheduleStatus.Pending),
+                    CancelledCount = db.ViewingSchedules.Count(vs => vs.ListingId == l.Id && vs.Status == ScheduleStatus.Cancelled)
+                })
+                .OrderByDescending(l => l.ViewCount)
+                .ToListAsync();
 
-        return Ok(analytics);
+            return Ok(analytics);
+        }
+
+        
     }
-}
 
 // ── Feedback ─────────────────────────────────────────────────────────
 [ApiController]

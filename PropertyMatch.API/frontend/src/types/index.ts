@@ -131,6 +131,7 @@ export interface MatchRequest {
     transportModes: TransportMode[];
     maxCommuteMinutes: number;
     lifestyleTemplateId?: string;
+    areas?: string[];
 }
 
 export interface Analytics {
