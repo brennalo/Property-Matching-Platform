@@ -371,6 +371,8 @@ function AppShell({ children }: { children: React.ReactNode }) {
                                         style={{ width: "100%", border: "none", background: "none", cursor: "pointer", textAlign: "left", color: "var(--red)" }}
                                         onClick={async () => {
                                             localStorage.removeItem("lastPath");
+                                            sessionStorage.removeItem("matchResults");
+                                            sessionStorage.removeItem("matchReq");
                                             setMenuOpen(false);
                                             await logout();
                                             navigate("/browse");

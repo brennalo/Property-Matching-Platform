@@ -179,12 +179,13 @@ function FeedbackModal({
 
                     <div
                         style={{
-                            background: "var(--bg-input)",
+                            background: "var(--green-dim)",
                             border: "1px solid var(--border)",
                             borderRadius: 12,
                             padding: 16,
                             whiteSpace: "pre-wrap",
                             lineHeight: 1.6,
+                            color: "var(--text)","
                         }}
                     >
                         {feedback.adminComment}
