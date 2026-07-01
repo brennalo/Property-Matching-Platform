@@ -185,7 +185,7 @@ function FeedbackModal({
                             padding: 16,
                             whiteSpace: "pre-wrap",
                             lineHeight: 1.6,
-                            color: "var(--text)","
+                            color: "var(--text)",
                         }}
                     >
                         {feedback.adminComment}
