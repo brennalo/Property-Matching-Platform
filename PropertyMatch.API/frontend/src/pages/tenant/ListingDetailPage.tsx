@@ -1669,8 +1669,8 @@ export default function ListingDetailPage() {
     const mapsReady = useGoogleMaps();
 
     useEffect(() => {
-        const raw = sessionStorage.getItem("matchResults");
-        const reqRaw = sessionStorage.getItem("matchReq");
+        const raw = isTenant?  sessionStorage.getItem("matchResults"):null;
+        const reqRaw = isTenant? sessionStorage.getItem("matchReq"):null;
         if (raw && id) {
             const results: MatchedListing[] = JSON.parse(raw);
             const found = results.find((r) => r.listing.id === id);
