@@ -45,34 +45,55 @@ public class MatchingService(
         List<TransportMode> modes, List<string> placeTypes, ScoringConfig cfg)
     {
         // ── Numeric score (40%) ───────────────────────────────────────────────
+        // Weights redistributed to make room for area scoring (total still = 100):
+        //   Rooms       : 20  (was 25)
+        //   Toilets     : 12  (was 15)
+        //   Type        : 18  (was 20)
+        //   Price       : 35  (was 40)
+        //   Area        : 15  (new)
+        //   ──────────────────
+        //   Total max   : 100
         double numericScore = 0;
 
+        // Rooms (max 20)
         if (req.Rooms.HasValue)
         {
             var diff = Math.Abs(listing.Rooms - req.Rooms.Value);
-            numericScore += diff == 0 ? 25 : diff == 1 ? 15 : 0;
+            numericScore += diff == 0 ? 20 : diff == 1 ? 12 : 0;
         }
-        else numericScore += 25;
+        else numericScore += 20;
 
+        // Toilets (max 12)
         if (req.Toilets.HasValue)
         {
             var diff = Math.Abs(listing.Toilets - req.Toilets.Value);
-            numericScore += diff == 0 ? 15 : diff == 1 ? 8 : 0;
+            numericScore += diff == 0 ? 12 : diff == 1 ? 6 : 0;
         }
-        else numericScore += 15;
+        else numericScore += 12;
 
+        // Residency type (max 18)
         if (req.ResidencyTypes is { Count: > 0 })
-            numericScore += req.ResidencyTypes.Contains(listing.ResidencyType) ? 20 : 0;
-        else numericScore += 20;
+            numericScore += req.ResidencyTypes.Contains(listing.ResidencyType) ? 18 : 0;
+        else numericScore += 18;
 
+        // Price (max 35)
         if (req.PriceMin.HasValue || req.PriceMax.HasValue)
         {
             var min = req.PriceMin ?? 0;
             var max = req.PriceMax ?? decimal.MaxValue;
-            if (listing.Price >= min && listing.Price <= max) numericScore += 40;
-            else if (listing.Price <= max * 1.10m) numericScore += 20;
+            if (listing.Price >= min && listing.Price <= max) numericScore += 35;
+            else if (listing.Price <= max * 1.10m) numericScore += 18;
         }
-        else numericScore += 40;
+        else numericScore += 35;
+
+        // Area (max 15) — case-insensitive substring match on listing.Address
+        if (req.Areas is { Count: > 0 })
+        {
+            var addrLower = listing.Address.ToLowerInvariant();
+            var anyMatch = req.Areas.Any(a => addrLower.Contains(a.Trim().ToLowerInvariant()));
+            numericScore += anyMatch ? 15 : 0;
+        }
+        else numericScore += 15;
 
         numericScore = Math.Min(numericScore, 100);
 

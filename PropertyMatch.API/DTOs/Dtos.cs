@@ -102,7 +102,8 @@ public record MatchRequest(
     double WorkplaceLat, double WorkplaceLng,
     List<TransportMode> TransportModes,
     int MaxCommuteMinutes,
-    Guid? LifestyleTemplateId);
+    Guid? LifestyleTemplateId,
+    List<string>? Areas);
 
 public record MatchedListingResponse(
     ListingResponse Listing,

@@ -4,749 +4,749 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { listingsApi } from "../../api";
 import type { ResidencyType, ImageDto } from "../../types";
 import {
-  ArrowLeft,
-  Pencil,
-  Trash2,
-  Plus,
-  GripVertical,
-  X,
-  ZoomIn,
-  ZoomOut,
-  ChevronLeft,
-  ChevronRight,
-  Eye,
-  EyeOff,
+    ArrowLeft,
+    Pencil,
+    Trash2,
+    Plus,
+    GripVertical,
+    X,
+    ZoomIn,
+    ZoomOut,
+    ChevronLeft,
+    ChevronRight,
+    Eye,
+    EyeOff,
 } from "lucide-react";
 import { ImageLightbox } from "../../components/ImageLightbox";
 
 const RESIDENCY_TYPES: ResidencyType[] = [
-  "Landed",
-  "Condo",
-  "Apartment",
-  "Townhouse",
-  "Studio",
-  "MasterRoom",
-  "SharedRoom",
+    "Landed",
+    "Condo",
+    "Apartment",
+    "Townhouse",
+    "Studio",
+    "MasterRoom",
+    "SharedRoom",
 ];
 
 interface ListingFormData {
-  name: string;
-  rooms: string;
-  toilets: string;
-  lat: string;
-  lng: string;
-  address: string;
-  residencyType: ResidencyType;
-  price: string;
-  description: string;
-  amenities: string;
+    name: string;
+    rooms: string;
+    toilets: string;
+    lat: string;
+    lng: string;
+    address: string;
+    residencyType: ResidencyType;
+    price: string;
+    description: string;
+    amenities: string;
 }
 
 // ── Image grid with up down reorder ──────────────────────────────────────────────────────────────────────
 function ImageGrid({
-  images,
-  onReorder,
-  onDeleteImage,
-  onUpdateCaption,
-  onZoom,
+    images,
+    onReorder,
+    onDeleteImage,
+    onUpdateCaption,
+    onZoom,
 }: {
-  images: ImageDto[];
-  onReorder: (images: ImageDto[]) => void;
-  onDeleteImage: (id: string) => void;
-  onUpdateCaption: (id: string, caption: string) => void;
-  onZoom: (image: ImageDto) => void;
+    images: ImageDto[];
+    onReorder: (images: ImageDto[]) => void;
+    onDeleteImage: (id: string) => void;
+    onUpdateCaption: (id: string, caption: string) => void;
+    onZoom: (image: ImageDto) => void;
 }) {
-  const [editingCaption, setEditingCaption] = useState<{
-    [key: string]: string;
-  }>({});
+    const [editingCaption, setEditingCaption] = useState<{
+        [key: string]: string;
+    }>({});
 
-  const moveUp = (index: number) => {
-    if (index === 0) return;
-    const newImages = [...images];
-    [newImages[index], newImages[index - 1]] = [
-      newImages[index - 1],
-      newImages[index],
-    ];
-    // Update display order
-    newImages.forEach((img, idx) => (img.displayOrder = idx));
-    onReorder(newImages);
-  };
+    const moveUp = (index: number) => {
+        if (index === 0) return;
+        const newImages = [...images];
+        [newImages[index], newImages[index - 1]] = [
+            newImages[index - 1],
+            newImages[index],
+        ];
+        // Update display order
+        newImages.forEach((img, idx) => (img.displayOrder = idx));
+        onReorder(newImages);
+    };
 
-  const moveDown = (index: number) => {
-    if (index === images.length - 1) return;
-    const newImages = [...images];
-    [newImages[index], newImages[index + 1]] = [
-      newImages[index + 1],
-      newImages[index],
-    ];
-    newImages.forEach((img, idx) => (img.displayOrder = idx));
-    onReorder(newImages);
-  };
+    const moveDown = (index: number) => {
+        if (index === images.length - 1) return;
+        const newImages = [...images];
+        [newImages[index], newImages[index + 1]] = [
+            newImages[index + 1],
+            newImages[index],
+        ];
+        newImages.forEach((img, idx) => (img.displayOrder = idx));
+        onReorder(newImages);
+    };
 
-  return (
-    <div>
-      <h3 style={{ fontSize: "0.95rem", fontWeight: 600, marginBottom: 12 }}>
-        Images ({images.length}/15)
-      </h3>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
-          gap: 12,
-        }}
-      >
-        {images.map((img, idx) => (
-          <div
-            key={img.id}
-            style={{
-              position: "relative",
-              borderRadius: 8,
-              overflow: "hidden",
-              background: "var(--bg-input)",
-            }}
-          >
-            {/* Image thumbnail */}
-            <img
-              src={img.url}
-              alt={`Image ${img.displayOrder + 1}`}
-              style={{
-                width: "100%",
-                height: 120,
-                objectFit: "cover",
-                display: "block",
-              }}
-              onClick={() => onZoom(img)}
-            />
-
-            {/* Order badge */}
+    return (
+        <div>
+            <h3 style={{ fontSize: "0.95rem", fontWeight: 600, marginBottom: 12 }}>
+                Images ({images.length}/15)
+            </h3>
             <div
-              style={{
-                position: "absolute",
-                bottom: 4,
-                left: 4,
-                background: "rgba(0,0,0,0.6)",
-                color: "white",
-                borderRadius: 4,
-                padding: "2px 6px",
-                fontSize: "0.7rem",
-                fontWeight: 600,
-              }}
+                style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
+                    gap: 12,
+                }}
             >
-              #{idx + 1}
+                {images.map((img, idx) => (
+                    <div
+                        key={img.id}
+                        style={{
+                            position: "relative",
+                            borderRadius: 8,
+                            overflow: "hidden",
+                            background: "var(--bg-input)",
+                        }}
+                    >
+                        {/* Image thumbnail */}
+                        <img
+                            src={img.url}
+                            alt={`Image ${img.displayOrder + 1}`}
+                            style={{
+                                width: "100%",
+                                height: 120,
+                                objectFit: "cover",
+                                display: "block",
+                            }}
+                            onClick={() => onZoom(img)}
+                        />
+
+                        {/* Order badge */}
+                        <div
+                            style={{
+                                position: "absolute",
+                                bottom: 4,
+                                left: 4,
+                                background: "rgba(0,0,0,0.6)",
+                                color: "white",
+                                borderRadius: 4,
+                                padding: "2px 6px",
+                                fontSize: "0.7rem",
+                                fontWeight: 600,
+                            }}
+                        >
+                            #{idx + 1}
+                        </div>
+
+                        {/* Delete button */}
+                        <button
+                            onClick={() => onDeleteImage(img.id)}
+                            style={{
+                                position: "absolute",
+                                top: 4,
+                                right: 4,
+                                background: "rgba(224, 92, 92, 0.8)",
+                                border: "none",
+                                borderRadius: 4,
+                                color: "white",
+                                padding: 4,
+                                cursor: "pointer",
+                            }}
+                        >
+                            <X size={14} />
+                        </button>
+
+                        {/* Up/Down buttons */}
+                        <div
+                            style={{
+                                position: "absolute",
+                                bottom: 4,
+                                right: 4,
+                                display: "flex",
+                                gap: 4,
+                            }}
+                        >
+                            <button
+                                onClick={() => moveUp(idx)}
+                                disabled={idx === 0}
+                                style={{
+                                    background: "rgba(0,0,0,0.6)",
+                                    border: "none",
+                                    borderRadius: 4,
+                                    color: "white",
+                                    padding: "2px 6px",
+                                    cursor: idx === 0 ? "not-allowed" : "pointer",
+                                    opacity: idx === 0 ? 0.3 : 1,
+                                    fontSize: "0.7rem",
+                                }}
+                            >
+                                ↑
+                            </button>
+                            <button
+                                onClick={() => moveDown(idx)}
+                                disabled={idx === images.length - 1}
+                                style={{
+                                    background: "rgba(0,0,0,0.6)",
+                                    border: "none",
+                                    borderRadius: 4,
+                                    color: "white",
+                                    padding: "2px 6px",
+                                    cursor: idx === images.length - 1 ? "not-allowed" : "pointer",
+                                    opacity: idx === images.length - 1 ? 0.3 : 1,
+                                    fontSize: "0.7rem",
+                                }}
+                            >
+                                ↓
+                            </button>
+                        </div>
+                    </div>
+                ))}
             </div>
 
-            {/* Delete button */}
-            <button
-              onClick={() => onDeleteImage(img.id)}
-              style={{
-                position: "absolute",
-                top: 4,
-                right: 4,
-                background: "rgba(224, 92, 92, 0.8)",
-                border: "none",
-                borderRadius: 4,
-                color: "white",
-                padding: 4,
-                cursor: "pointer",
-              }}
-            >
-              <X size={14} />
-            </button>
-
-            {/* Up/Down buttons */}
-            <div
-              style={{
-                position: "absolute",
-                bottom: 4,
-                right: 4,
-                display: "flex",
-                gap: 4,
-              }}
-            >
-              <button
-                onClick={() => moveUp(idx)}
-                disabled={idx === 0}
-                style={{
-                  background: "rgba(0,0,0,0.6)",
-                  border: "none",
-                  borderRadius: 4,
-                  color: "white",
-                  padding: "2px 6px",
-                  cursor: idx === 0 ? "not-allowed" : "pointer",
-                  opacity: idx === 0 ? 0.3 : 1,
-                  fontSize: "0.7rem",
-                }}
-              >
-                ↑
-              </button>
-              <button
-                onClick={() => moveDown(idx)}
-                disabled={idx === images.length - 1}
-                style={{
-                  background: "rgba(0,0,0,0.6)",
-                  border: "none",
-                  borderRadius: 4,
-                  color: "white",
-                  padding: "2px 6px",
-                  cursor: idx === images.length - 1 ? "not-allowed" : "pointer",
-                  opacity: idx === images.length - 1 ? 0.3 : 1,
-                  fontSize: "0.7rem",
-                }}
-              >
-                ↓
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Captions section */}
-      {images.length > 0 && (
-        <div
-          style={{
-            marginTop: 20,
-            padding: 16,
-            background: "var(--bg-input)",
-            borderRadius: 8,
-          }}
-        >
-          <h4
-            style={{ fontSize: "0.85rem", fontWeight: 600, marginBottom: 12 }}
-          >
-            Image Captions
-          </h4>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {images.map((img, idx) => (
-              <div key={img.id}>
-                <label
-                  style={{
-                    fontSize: "0.75rem",
-                    color: "var(--text-muted)",
-                    marginBottom: 4,
-                    display: "block",
-                  }}
+            {/* Captions section */}
+            {images.length > 0 && (
+                <div
+                    style={{
+                        marginTop: 20,
+                        padding: 16,
+                        background: "var(--bg-input)",
+                        borderRadius: 8,
+                    }}
                 >
-                  Image #{idx + 1} Caption (
-                  {(editingCaption[img.id] || img.caption || "").length}/30
-                  characters)
-                </label>
-                <textarea
-                  value={
-                    editingCaption[img.id] !== undefined
-                      ? editingCaption[img.id]
-                      : img.caption || ""
-                  }
-                  onChange={(e) => {
-                    const value = e.target.value.slice(0, 30);
-                    setEditingCaption((c) => ({ ...c, [img.id]: value }));
-                    onUpdateCaption(img.id, value);
-                  }}
-                  maxLength={30}
-                  placeholder="e.g., Spacious living room"
-                  rows={2}
-                  style={{
-                    width: "100%",
-                    padding: 8,
-                    fontSize: "0.85rem",
-                    borderRadius: 6,
-                    border: "1px solid var(--border)",
-                    background: "var(--bg-card)",
-                    color: "var(--text)",
-                    fontFamily: "inherit",
-                    resize: "vertical",
-                  }}
-                />
-              </div>
-            ))}
-          </div>
+                    <h4
+                        style={{ fontSize: "0.85rem", fontWeight: 600, marginBottom: 12 }}
+                    >
+                        Image Captions
+                    </h4>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        {images.map((img, idx) => (
+                            <div key={img.id}>
+                                <label
+                                    style={{
+                                        fontSize: "0.75rem",
+                                        color: "var(--text-muted)",
+                                        marginBottom: 4,
+                                        display: "block",
+                                    }}
+                                >
+                                    Image #{idx + 1} Caption (
+                                    {(editingCaption[img.id] || img.caption || "").length}/30
+                                    characters)
+                                </label>
+                                <textarea
+                                    value={
+                                        editingCaption[img.id] !== undefined
+                                            ? editingCaption[img.id]
+                                            : img.caption || ""
+                                    }
+                                    onChange={(e) => {
+                                        const value = e.target.value.slice(0, 30);
+                                        setEditingCaption((c) => ({ ...c, [img.id]: value }));
+                                        onUpdateCaption(img.id, value);
+                                    }}
+                                    maxLength={30}
+                                    placeholder="e.g., Spacious living room"
+                                    rows={2}
+                                    style={{
+                                        width: "100%",
+                                        padding: 8,
+                                        fontSize: "0.85rem",
+                                        borderRadius: 6,
+                                        border: "1px solid var(--border)",
+                                        background: "var(--bg-card)",
+                                        color: "var(--text)",
+                                        fontFamily: "inherit",
+                                        resize: "vertical",
+                                    }}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
-      )}
-    </div>
-  );
+    );
 }
 
 export default function AgentListingDetailPage() {
-  const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
-  const qc = useQueryClient();
+    const navigate = useNavigate();
+    const { id } = useParams<{ id: string }>();
+    const qc = useQueryClient();
 
-  const [form, setForm] = useState<ListingFormData>({
-    name: "",
-    rooms: "",
-    toilets: "",
-    lat: "",
-    lng: "",
-    address: "",
-    residencyType: "Condo",
-    price: "",
-    description: "",
-    amenities: "",
-  });
+    const [form, setForm] = useState<ListingFormData>({
+        name: "",
+        rooms: "",
+        toilets: "",
+        lat: "",
+        lng: "",
+        address: "",
+        residencyType: "Condo",
+        price: "",
+        description: "",
+        amenities: "",
+    });
 
-  const [images, setImages] = useState<ImageDto[]>([]);
-  const [uploadingFiles, setUploadingFiles] = useState<File[]>([]);
-  const [zoomedImage, setZoomedImage] = useState<ImageDto | null>(null);
-  const [toast, setToast] = useState<{
-    msg: string;
-    type: "success" | "error";
-  } | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+    const [images, setImages] = useState<ImageDto[]>([]);
+    const [uploadingFiles, setUploadingFiles] = useState<File[]>([]);
+    const [zoomedImage, setZoomedImage] = useState<ImageDto | null>(null);
+    const [toast, setToast] = useState<{
+        msg: string;
+        type: "success" | "error";
+    } | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: listing, isLoading } = useQuery({
-    queryKey: ["listing", id],
-    queryFn: () => (id ? listingsApi.getById(id).then((r) => r.data) : null),
-    enabled: !!id,
-  });
+    const { data: listing, isLoading } = useQuery({
+        queryKey: ["listing", id],
+        queryFn: () => (id ? listingsApi.getById(id).then((r) => r.data) : null),
+        enabled: !!id,
+    });
 
-  // Populate form when listing loads
-  useEffect(() => {
-    if (listing) {
-      setForm({
-        name: listing.name,
-        rooms: String(listing.rooms),
-        toilets: String(listing.toilets),
-        lat: String(listing.lat),
-        lng: String(listing.lng),
-        address: listing.address,
-        residencyType: listing.residencyType,
-        price: String(listing.price),
-        description: listing.description || "",
-        amenities: listing.amenities || "",
-      });
-      setImages(listing.images || []);
-    }
-  }, [listing]);
+    // Populate form when listing loads
+    useEffect(() => {
+        if (listing) {
+            setForm({
+                name: listing.name,
+                rooms: String(listing.rooms),
+                toilets: String(listing.toilets),
+                lat: String(listing.lat),
+                lng: String(listing.lng),
+                address: listing.address,
+                residencyType: listing.residencyType,
+                price: String(listing.price),
+                description: listing.description || "",
+                amenities: listing.amenities || "",
+            });
+            setImages(listing.images || []);
+        }
+    }, [listing]);
 
-  const showToast = (msg: string, type: "success" | "error" = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
-  };
+    const showToast = (msg: string, type: "success" | "error" = "success") => {
+        setToast({ msg, type });
+        setTimeout(() => setToast(null), 3000);
+    };
 
-  const updateMut = useMutation({
-    mutationFn: (data: ListingFormData) =>
-      listingsApi.update(id!, {
-        name: data.name,
-        rooms: parseInt(data.rooms),
-        toilets: parseInt(data.toilets),
-        lat: parseFloat(data.lat),
-        lng: parseFloat(data.lng),
-        address: data.address,
-        residencyType: data.residencyType,
-        price: parseFloat(data.price),
-        description: data.description,
-        amenities: data.amenities,
-      }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["listing", id] });
-      qc.invalidateQueries({ queryKey: ["my-listings"] });
-      showToast("Listing details updated!");
-    },
-    onError: () => showToast("Failed to update listing", "error"),
-  });
+    const updateMut = useMutation({
+        mutationFn: (data: ListingFormData) =>
+            listingsApi.update(id!, {
+                name: data.name,
+                rooms: parseInt(data.rooms),
+                toilets: parseInt(data.toilets),
+                lat: parseFloat(data.lat),
+                lng: parseFloat(data.lng),
+                address: data.address,
+                residencyType: data.residencyType,
+                price: parseFloat(data.price),
+                description: data.description,
+                amenities: data.amenities,
+            }),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["listing", id] });
+            qc.invalidateQueries({ queryKey: ["my-listings"] });
+            showToast("Listing details updated!");
+        },
+        onError: () => showToast("Failed to update listing", "error"),
+    });
 
-  const uploadImagesMut = useMutation({
-    mutationFn: (files: File[]) => listingsApi.uploadImages(id!, files),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["listing", id] });
-      setUploadingFiles([]);
-      showToast("Images uploaded successfully!");
-    },
-    onError: (e: any) => {
-      let errorMessage = "Upload failed";
-      if (e.response?.data) {
-        errorMessage =
-          e.response.data.message ||
-          e.response.data.title ||
-          e.response.data.error ||
-          "Upload failed";
-      } else if (e.message) {
-        errorMessage = e.message;
-      }
-      showToast(errorMessage, "error");
-    },
-  });
+    const uploadImagesMut = useMutation({
+        mutationFn: (files: File[]) => listingsApi.uploadImages(id!, files),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["listing", id] });
+            setUploadingFiles([]);
+            showToast("Images uploaded successfully!");
+        },
+        onError: (e: any) => {
+            let errorMessage = "Upload failed";
+            if (e.response?.data) {
+                errorMessage =
+                    e.response.data.message ||
+                    e.response.data.title ||
+                    e.response.data.error ||
+                    "Upload failed";
+            } else if (e.message) {
+                errorMessage = e.message;
+            }
+            showToast(errorMessage, "error");
+        },
+    });
 
-  const reorderImagesMut = useMutation({
-    mutationFn: (newImages: ImageDto[]) =>
-      listingsApi.reorderImages(
-        id!,
-        newImages.map((img) => ({
-          imageId: img.id,
-          displayOrder: img.displayOrder,
-        })),
-      ),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["listing", id] });
-      showToast("Images reordered!");
-    },
-    onError: () => showToast("Failed to reorder images", "error"),
-  });
+    const reorderImagesMut = useMutation({
+        mutationFn: (newImages: ImageDto[]) =>
+            listingsApi.reorderImages(
+                id!,
+                newImages.map((img) => ({
+                    imageId: img.id,
+                    displayOrder: img.displayOrder,
+                })),
+            ),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["listing", id] });
+            showToast("Images reordered!");
+        },
+        onError: () => showToast("Failed to reorder images", "error"),
+    });
 
-  const deleteImageMut = useMutation({
-    mutationFn: (imageId: string) => listingsApi.deleteImage(id!, imageId),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["listing", id] });
-      showToast("Image deleted!");
-    },
-    onError: () => showToast("Failed to delete image", "error"),
-  });
+    const deleteImageMut = useMutation({
+        mutationFn: (imageId: string) => listingsApi.deleteImage(id!, imageId),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["listing", id] });
+            showToast("Image deleted!");
+        },
+        onError: () => showToast("Failed to delete image", "error"),
+    });
 
-  const updateCaptionMut = useMutation({
-    mutationFn: ({ imageId, caption }: { imageId: string; caption: string }) =>
-      listingsApi.updateImageCaption(id!, imageId, caption),
-    onError: () => showToast("Failed to update caption", "error"),
-  });
+    const updateCaptionMut = useMutation({
+        mutationFn: ({ imageId, caption }: { imageId: string; caption: string }) =>
+            listingsApi.updateImageCaption(id!, imageId, caption),
+        onError: () => showToast("Failed to update caption", "error"),
+    });
 
-  if (isLoading) {
-    return (
-      <div style={{ textAlign: "center", padding: 60 }}>
-        <span className="spinner" />
-      </div>
-    );
-  }
-
-  if (!listing) {
-    return (
-      <div style={{ textAlign: "center", padding: 60 }}>
-        <p>Listing not found</p>
-        <button
-          className="btn btn-primary"
-          style={{ marginTop: 16 }}
-          onClick={() => navigate("/agent/listings")}
-        >
-          Back to Listings
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <button
-        className="btn btn-ghost btn-sm"
-        style={{ marginBottom: 16 }}
-        onClick={() => navigate("/agent/listings")}
-      >
-        <ArrowLeft size={14} /> Back to Listings
-      </button>
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 32,
-          maxWidth: 1200,
-        }}
-      >
-        {/* Left panel: Edit details */}
-        <div className="card">
-          <h2 style={{ marginBottom: 20, fontSize: "1.2rem", fontWeight: 600 }}>
-            Edit Listing Details
-          </h2>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div className="form-group">
-              <label className="form-label">Property Name</label>
-              <input
-                className="input"
-                value={form.name}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, name: e.target.value }))
-                }
-                placeholder="e.g. Skyline Residences"
-              />
-            </div>
-
-            <div className="form-grid">
-              <div className="form-group">
-                <label className="form-label">Bedrooms</label>
-                <input
-                  className="input"
-                  type="number"
-                  value={form.rooms}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, rooms: e.target.value }))
-                  }
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Bathrooms</label>
-                <input
-                  className="input"
-                  type="number"
-                  value={form.toilets}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, toilets: e.target.value }))
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Full Address</label>
-              <input
-                className="input"
-                value={form.address}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, address: e.target.value }))
-                }
-                placeholder="e.g. Jalan Ampang, KL"
-              />
-            </div>
-
-            <div className="form-grid">
-              <div className="form-group">
-                <label className="form-label">Latitude</label>
-                <input
-                  className="input"
-                  type="number"
-                  step="any"
-                  value={form.lat}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, lat: e.target.value }))
-                  }
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Longitude</label>
-                <input
-                  className="input"
-                  type="number"
-                  step="any"
-                  value={form.lng}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, lng: e.target.value }))
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Property Type</label>
-              <select
-                className="select"
-                value={form.residencyType}
-                onChange={(e) =>
-                  setForm((f) => ({
-                    ...f,
-                    residencyType: e.target.value as ResidencyType,
-                  }))
-                }
-              >
-                {RESIDENCY_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Monthly Rent (RM)</label>
-              <input
-                className="input"
-                type="number"
-                value={form.price}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, price: e.target.value }))
-                }
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Description</label>
-              <textarea
-                className="input"
-                rows={3}
-                value={form.description}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, description: e.target.value }))
-                }
-                placeholder="Describe your property..."
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Amenities (comma separated)</label>
-              <input
-                className="input"
-                value={form.amenities}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, amenities: e.target.value }))
-                }
-                placeholder="e.g. Air conditioner, Bed, Fridge, Water Heater"
-              />
-              <p
-                style={{
-                  fontSize: "0.75rem",
-                  color: "var(--text-dim)",
-                  marginTop: 4,
-                }}
-              >
-                Separate each amenity with a comma.
-              </p>
-
-              {/* Tag preview */}
-              {form.amenities && form.amenities.trim() && (
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: 6,
-                    marginTop: 6,
-                  }}
-                >
-                  {form.amenities
-                    .split(",")
-                    .map((a) => a.trim())
-                    .filter(Boolean)
-                    .map((item, idx) => (
-                      <span
-                        key={idx}
-                        className="badge badge-amber"
-                        style={{ fontSize: "0.75rem" }}
-                      >
-                        {item}
-                      </span>
-                    ))}
-                </div>
-              )}
-            </div>
-
-            <button
-              className="btn btn-primary"
-              onClick={() => updateMut.mutate(form)}
-              disabled={updateMut.isPending}
-            >
-              {updateMut.isPending ? (
+    if (isLoading) {
+        return (
+            <div style={{ textAlign: "center", padding: 60 }}>
                 <span className="spinner" />
-              ) : (
-                <>
-                  <Pencil size={14} /> Save Changes
-                </>
-              )}
+            </div>
+        );
+    }
+
+    if (!listing) {
+        return (
+            <div style={{ textAlign: "center", padding: 60 }}>
+                <p>Listing not found</p>
+                <button
+                    className="btn btn-primary"
+                    style={{ marginTop: 16 }}
+                    onClick={() => navigate("/agent/listings")}
+                >
+                    Back to Listings
+                </button>
+            </div>
+        );
+    }
+
+    return (
+        <div>
+            <button
+                className="btn btn-ghost btn-sm"
+                style={{ marginBottom: 16 }}
+                onClick={() => navigate("/agent/listings")}
+            >
+                <ArrowLeft size={14} /> Back to Listings
             </button>
-          </div>
-        </div>
 
-        {/* Right panel: Images */}
-        <div className="card">
-          <h2 style={{ marginBottom: 20, fontSize: "1.2rem", fontWeight: 600 }}>
-            Manage Images
-          </h2>
-
-          {/* Upload area */}
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            style={{
-              border: "2px dashed var(--border-hi)",
-              borderRadius: 10,
-              padding: 24,
-              textAlign: "center",
-              cursor: "pointer",
-              background: "var(--bg-input)",
-              marginBottom: 20,
-            }}
-          >
-            <Plus
-              size={28}
-              style={{ margin: "0 auto 8px", color: "var(--text-muted)" }}
-            />
-            <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
-              {uploadingFiles.length > 0
-                ? `${uploadingFiles.length} file(s) selected`
-                : "Click to upload images"}
-            </p>
-            <p
-              style={{
-                fontSize: "0.75rem",
-                color: "var(--text-dim)",
-                marginTop: 4,
-              }}
-            >
-              Max 20MB each, JPG/PNG/WebP. Total max 15 images.
-            </p>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept="image/*"
-              style={{ display: "none" }}
-              onChange={(e) => {
-                const files = Array.from(e.target.files || []);
-                const totalWillBe = images.length + files.length;
-                if (totalWillBe > 15) {
-                  showToast(
-                    `Can only upload ${15 - images.length} more images`,
-                    "error",
-                  );
-                  return;
-                }
-                setUploadingFiles(files);
-              }}
-            />
-          </div>
-
-          {uploadingFiles.length > 0 && (
-            <div style={{ marginBottom: 16, display: "flex", gap: 8 }}>
-              <button
-                className="btn btn-primary"
-                onClick={() => uploadImagesMut.mutate(uploadingFiles)}
-                disabled={uploadImagesMut.isPending}
-              >
-                {uploadImagesMut.isPending ? (
-                  <span className="spinner" />
-                ) : (
-                  "Upload"
-                )}
-              </button>
-              <button
-                className="btn btn-outline"
-                onClick={() => setUploadingFiles([])}
-              >
-                Cancel
-              </button>
-            </div>
-          )}
-
-          {/* Image grid */}
-          {images.length > 0 && (
-            <ImageGrid
-              images={images}
-              onReorder={(newImages) => reorderImagesMut.mutate(newImages)}
-              onDeleteImage={(imageId) => deleteImageMut.mutate(imageId)}
-              onUpdateCaption={(imageId, caption) =>
-                updateCaptionMut.mutate({ imageId, caption })
-              }
-              onZoom={setZoomedImage}
-            />
-          )}
-
-          {images.length === 0 && uploadingFiles.length === 0 && (
             <div
-              style={{
-                textAlign: "center",
-                padding: 20,
-                color: "var(--text-muted)",
-              }}
+                style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 32,
+                    maxWidth: 1200,
+                }}
             >
-              <p style={{ fontSize: "0.875rem" }}>
-                No images yet. Upload your first image!
-              </p>
+                {/* Left panel: Edit details */}
+                <div className="card">
+                    <h2 style={{ marginBottom: 20, fontSize: "1.2rem", fontWeight: 600 }}>
+                        Edit Listing Details
+                    </h2>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                        <div className="form-group">
+                            <label className="form-label">Property Name</label>
+                            <input
+                                className="input"
+                                value={form.name}
+                                onChange={(e) =>
+                                    setForm((f) => ({ ...f, name: e.target.value }))
+                                }
+                                placeholder="e.g. Skyline Residences"
+                            />
+                        </div>
+
+                        <div className="form-grid">
+                            <div className="form-group">
+                                <label className="form-label">Bedrooms</label>
+                                <input
+                                    className="input"
+                                    type="number"
+                                    value={form.rooms}
+                                    onChange={(e) =>
+                                        setForm((f) => ({ ...f, rooms: e.target.value }))
+                                    }
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Bathrooms</label>
+                                <input
+                                    className="input"
+                                    type="number"
+                                    value={form.toilets}
+                                    onChange={(e) =>
+                                        setForm((f) => ({ ...f, toilets: e.target.value }))
+                                    }
+                                />
+                            </div>
+                        </div>
+
+                        <div className="form-group">
+                            <label className="form-label">Full Address</label>
+                            <input
+                                className="input"
+                                value={form.address}
+                                onChange={(e) =>
+                                    setForm((f) => ({ ...f, address: e.target.value }))
+                                }
+                                placeholder="e.g. Jalan Ampang, KL"
+                            />
+                        </div>
+
+                        <div className="form-grid">
+                            <div className="form-group">
+                                <label className="form-label">Latitude</label>
+                                <input
+                                    className="input"
+                                    type="number"
+                                    step="any"
+                                    value={form.lat}
+                                    onChange={(e) =>
+                                        setForm((f) => ({ ...f, lat: e.target.value }))
+                                    }
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Longitude</label>
+                                <input
+                                    className="input"
+                                    type="number"
+                                    step="any"
+                                    value={form.lng}
+                                    onChange={(e) =>
+                                        setForm((f) => ({ ...f, lng: e.target.value }))
+                                    }
+                                />
+                            </div>
+                        </div>
+
+                        <div className="form-group">
+                            <label className="form-label">Property Type</label>
+                            <select
+                                className="select"
+                                value={form.residencyType}
+                                onChange={(e) =>
+                                    setForm((f) => ({
+                                        ...f,
+                                        residencyType: e.target.value as ResidencyType,
+                                    }))
+                                }
+                            >
+                                {RESIDENCY_TYPES.map((t) => (
+                                    <option key={t} value={t}>
+                                        {t}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="form-group">
+                            <label className="form-label">Monthly Rent (RM)</label>
+                            <input
+                                className="input"
+                                type="number"
+                                value={form.price}
+                                onChange={(e) =>
+                                    setForm((f) => ({ ...f, price: e.target.value }))
+                                }
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label className="form-label">Description</label>
+                            <textarea
+                                className="input"
+                                rows={3}
+                                value={form.description}
+                                onChange={(e) =>
+                                    setForm((f) => ({ ...f, description: e.target.value }))
+                                }
+                                placeholder="Describe your property..."
+                            />
+                        </div>
+
+                        <div className="form-group">
+                            <label className="form-label">Amenities (comma separated)</label>
+                            <input
+                                className="input"
+                                value={form.amenities}
+                                onChange={(e) =>
+                                    setForm((f) => ({ ...f, amenities: e.target.value }))
+                                }
+                                placeholder="e.g. Air conditioner, Bed, Fridge, Water Heater"
+                            />
+                            <p
+                                style={{
+                                    fontSize: "0.75rem",
+                                    color: "var(--text-dim)",
+                                    marginTop: 4,
+                                }}
+                            >
+                                Separate each amenity with a comma.
+                            </p>
+
+                            {/* Tag preview */}
+                            {form.amenities && form.amenities.trim() && (
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        flexWrap: "wrap",
+                                        gap: 6,
+                                        marginTop: 6,
+                                    }}
+                                >
+                                    {form.amenities
+                                        .split(",")
+                                        .map((a) => a.trim())
+                                        .filter(Boolean)
+                                        .map((item, idx) => (
+                                            <span
+                                                key={idx}
+                                                className="badge badge-amber"
+                                                style={{ fontSize: "0.75rem" }}
+                                            >
+                                                {item}
+                                            </span>
+                                        ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <button
+                            className="btn btn-primary"
+                            onClick={() => updateMut.mutate(form)}
+                            disabled={updateMut.isPending}
+                        >
+                            {updateMut.isPending ? (
+                                <span className="spinner" />
+                            ) : (
+                                <>
+                                    <Pencil size={14} /> Save Changes
+                                </>
+                            )}
+                        </button>
+                    </div>
+                </div>
+
+                {/* Right panel: Images */}
+                <div className="card">
+                    <h2 style={{ marginBottom: 20, fontSize: "1.2rem", fontWeight: 600 }}>
+                        Manage Images
+                    </h2>
+
+                    {/* Upload area */}
+                    <div
+                        onClick={() => fileInputRef.current?.click()}
+                        style={{
+                            border: "2px dashed var(--border-hi)",
+                            borderRadius: 10,
+                            padding: 24,
+                            textAlign: "center",
+                            cursor: "pointer",
+                            background: "var(--bg-input)",
+                            marginBottom: 20,
+                        }}
+                    >
+                        <Plus
+                            size={28}
+                            style={{ margin: "0 auto 8px", color: "var(--text-muted)" }}
+                        />
+                        <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
+                            {uploadingFiles.length > 0
+                                ? `${uploadingFiles.length} file(s) selected`
+                                : "Click to upload images"}
+                        </p>
+                        <p
+                            style={{
+                                fontSize: "0.75rem",
+                                color: "var(--text-dim)",
+                                marginTop: 4,
+                            }}
+                        >
+                            Max 20MB each, JPG/PNG/WebP. Total max 15 images.
+                        </p>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            multiple
+                            accept="image/*"
+                            style={{ display: "none" }}
+                            onChange={(e) => {
+                                const files = Array.from(e.target.files || []);
+                                const totalWillBe = images.length + files.length;
+                                if (totalWillBe > 15) {
+                                    showToast(
+                                        `Can only upload ${15 - images.length} more images`,
+                                        "error",
+                                    );
+                                    return;
+                                }
+                                setUploadingFiles(files);
+                            }}
+                        />
+                    </div>
+
+                    {uploadingFiles.length > 0 && (
+                        <div style={{ marginBottom: 16, display: "flex", gap: 8 }}>
+                            <button
+                                className="btn btn-primary"
+                                onClick={() => uploadImagesMut.mutate(uploadingFiles)}
+                                disabled={uploadImagesMut.isPending}
+                            >
+                                {uploadImagesMut.isPending ? (
+                                    <span className="spinner" />
+                                ) : (
+                                    "Upload"
+                                )}
+                            </button>
+                            <button
+                                className="btn btn-outline"
+                                onClick={() => setUploadingFiles([])}
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Image grid */}
+                    {images.length > 0 && (
+                        <ImageGrid
+                            images={images}
+                            onReorder={(newImages) => reorderImagesMut.mutate(newImages)}
+                            onDeleteImage={(imageId) => deleteImageMut.mutate(imageId)}
+                            onUpdateCaption={(imageId, caption) =>
+                                updateCaptionMut.mutate({ imageId, caption })
+                            }
+                            onZoom={setZoomedImage}
+                        />
+                    )}
+
+                    {images.length === 0 && uploadingFiles.length === 0 && (
+                        <div
+                            style={{
+                                textAlign: "center",
+                                padding: 20,
+                                color: "var(--text-muted)",
+                            }}
+                        >
+                            <p style={{ fontSize: "0.875rem" }}>
+                                No images yet. Upload your first image!
+                            </p>
+                        </div>
+                    )}
+                </div>
             </div>
-          )}
+
+            {/* Lightbox */}
+            {zoomedImage && (
+                <ImageLightbox
+                    image={zoomedImage}
+                    onClose={() => setZoomedImage(null)}
+                />
+            )}
+
+            {/* Toast */}
+            {toast && <div className={`toast toast-${toast.type}`}>{toast.msg}</div>}
         </div>
-      </div>
-
-      {/* Lightbox */}
-      {zoomedImage && (
-        <ImageLightbox
-          image={zoomedImage}
-          onClose={() => setZoomedImage(null)}
-        />
-      )}
-
-      {/* Toast */}
-      {toast && <div className={`toast toast-${toast.type}`}>{toast.msg}</div>}
-    </div>
-  );
+    );
 }

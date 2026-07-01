@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { authApi } from '../api'
 import type { UserRole } from '../types'
-import { Building2, Mail, CheckCircle2 } from 'lucide-react'
+import { Building2, Mail, CheckCircle2, ArrowLeft } from 'lucide-react'
 
 export default function RegisterPage() {
     const navigate = useNavigate()
@@ -105,6 +105,13 @@ export default function RegisterPage() {
                 background: 'var(--bg-card)', borderRadius: 16,
                 border: '1px solid var(--border)', padding: '40px 36px',
             }}>
+                <button type="button" onClick={() => navigate(-1)}
+                    style={{
+                        display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none',
+                        color: 'var(--text-muted)', fontSize: '0.85rem', cursor: 'pointer', padding: 0, marginBottom: 20,
+                    }}>
+                    <ArrowLeft size={15} /> Back
+                </button>
                 {/* Logo */}
                 <div style={{ textAlign: 'center', marginBottom: 28 }}>
                     <div style={{ fontFamily: 'DM Serif Display, serif', fontSize: '1.5rem', color: 'var(--accent)' }}>

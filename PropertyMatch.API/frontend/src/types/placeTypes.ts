@@ -206,3 +206,26 @@ export function searchPlaceTypes(query: string, limit = 8): PlaceTypeOption[] {
 
 // Backward-compat alias
 export const PLACE_TYPE_OPTIONS = POPULAR_PLACE_TYPES
+
+export const MLY_PLACE_TYPE = [
+    'Ampang', 'Ara Damansara', 'Balakong', 'Bandar Sunway', 'Bangsar',
+    'Bangsar South', 'Batu Caves', 'Brickfields', 'Bukit Bintang', 'Bukit Jalil',
+    'Bukit Kiara', 'Cheras', 'Chow Kit', 'Cyberjaya', 'Damansara',
+    'Damansara Perdana', 'Damansara Utama', 'Desa ParkCity', 'Duta', 'Gombak',
+    'KLCC', 'KL Sentral', 'Kajang', 'Kepong', 'Kerinchi',
+    'Kinrara', 'Kuchai Lama', 'Kuala Lumpur City Centre', 'Medan Damansara', 'Mont Kiara',
+    'Mutiara Damansara', 'Pandan Indah', 'Pandan Jaya', 'Pandan Mewah', 'Pantai',
+    'Petaling Jaya', 'Puchong', 'Pudu', 'Putrajaya', 'Rawang',
+    'Salak Selatan', 'Segambut', 'Semenyih', 'Sentul', 'Sepang',
+    'Serdang', 'Seri Kembangan', 'Setapak', 'Setiawangsa', 'Shah Alam',
+    'Sri Damansara', 'Sri Hartamas', 'Sri Petaling', 'Subang Jaya', 'Sunway',
+    'Taman Desa', 'Taman Melawati', 'Taman Tun Dr Ismail', 'Titiwangsa', 'Tropicana',
+    'TTDI', 'Ulu Kelang', 'Wangsa Maju', 'Wangsa Melawati', 'Gombak',
+    // Other states
+    'Georgetown', 'Bayan Lepas', 'Butterworth', 'Bukit Mertajam',
+    'Ipoh', 'Taiping', 'Teluk Intan',
+    'Johor Bahru', 'Iskandar Puteri', 'Skudai', 'Kulai', 'Batu Pahat',
+    'Melaka', 'Ayer Keroh', 'Seremban', 'Port Dickson', 'Nilai',
+    'Kuantan', 'Kemaman', 'Kuala Terengganu', 'Kota Bharu',
+    'Kota Kinabalu', 'Sandakan', 'Tawau', 'Miri', 'Kuching', 'Sibu', 'Bintulu',
+]

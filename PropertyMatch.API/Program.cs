@@ -147,15 +147,15 @@ using (var scope = app.Services.CreateScope())
 
 app.UseCors("Frontend");
 
-// ── Serve React SPA from wwwroot ───────────────────────────────────────────
-// Vite dist/ is copied here by the .csproj BeforeTargets="Build" step.
-app.UseDefaultFiles();   // serves index.html for /
-app.UseStaticFiles();    // serves JS/CSS/assets
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Static files and SPA fallback come AFTER API routes
+app.UseDefaultFiles();
+app.UseStaticFiles();
 app.MapFallbackToFile("index.html");
 
 app.Run();

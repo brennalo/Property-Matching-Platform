@@ -14,7 +14,7 @@ export default function PaymentCancelPage() {
                 background: 'var(--bg-card)', borderRadius: 16,
                 border: '1px solid var(--border)', padding: '40px 36px'
             }}>
-                <XCircle size={52} color="var(--red)" style={{ marginBottom: 16 }} />
+                <XCircle size={52} color="#dc2626" style={{ marginBottom: 16 }} />
                 <h2 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: 10 }}>Payment Cancelled</h2>
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: 24 }}>
                     Your payment was not completed. No tokens were charged.

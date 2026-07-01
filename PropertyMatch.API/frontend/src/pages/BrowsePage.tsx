@@ -1,11 +1,12 @@
 ﻿import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { BedDouble, Bath, MapPin, Building2, Search, Clock, Car, CheckCircle2, ChevronDown } from 'lucide-react'
+import { BedDouble, ArrowLeft, Bath, MapPin, Building2, Search, Clock, Car, CheckCircle2, ChevronDown, X } from 'lucide-react'
 import { browseApi, templatesApi, matchApi, searchHistoryApi } from '../api'
 import { useAuth } from '../hooks/useAuth'
 import { useAuthModal } from '../hooks/useAuthModal'
 import type { MatchRequest, ResidencyType, TransportMode } from '../types'
+import { MLY_PLACE_TYPE } from '../types/placeTypes'
 
 declare global {
     interface Window { google: any; __gmapsReady: boolean }
@@ -49,7 +50,7 @@ function reverseGeocode(lat: number, lng: number): Promise<string> {
     })
 }
 
-// ── Map picker modal (same behaviour as the old SearchPage) ────────────────
+// ── Map picker modal ────────────────────────────────────────────────────────
 interface MapPickerProps {
     initialLat?: number; initialLng?: number; initialAddress?: string
     onConfirm: (lat: number, lng: number, address: string) => void
@@ -130,14 +131,28 @@ export default function BrowsePage() {
 
     const [filter, setFilter] = useState('')
     const [typeFilter, setTypeFilter] = useState('')
+    const [basicFilters, setBasicFilters] = useState<{ rooms?: number; toilets?: number; priceMin?: number; priceMax?: number; residencyTypes?: ResidencyType[]; areas?: string[] } | null>(null)
 
     const filtered = listings.filter((l: any) => {
         const matchText = l.name.toLowerCase().includes(filter.toLowerCase()) || l.address.toLowerCase().includes(filter.toLowerCase())
         const matchType = !typeFilter || l.residencyType === typeFilter
-        return matchText && matchType
+        if (!matchText || !matchType) return false
+        if (basicFilters) {
+            if (basicFilters.rooms && l.rooms < basicFilters.rooms) return false
+            if (basicFilters.toilets && l.toilets < basicFilters.toilets) return false
+            if (basicFilters.priceMin && l.price < basicFilters.priceMin) return false
+            if (basicFilters.priceMax && l.price > basicFilters.priceMax) return false
+            if (basicFilters.residencyTypes?.length && !basicFilters.residencyTypes.includes(l.residencyType)) return false
+            if (basicFilters.areas?.length) {
+                const addrLower = l.address.toLowerCase()
+                const matched = basicFilters.areas.some(a => addrLower.includes(a.toLowerCase()))
+                if (!matched) return false
+            }
+        }
+        return true
     })
 
-    // ── Expandable advanced search panel (was the standalone /search page) ──
+    // ── Expandable advanced search panel ────────────────────────────────────
     const [panelOpen, setPanelOpen] = useState(false)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
@@ -154,17 +169,24 @@ export default function BrowsePage() {
         transportModes: ['Driving'] as TransportMode[],
         maxCommuteMinutes: '45',
         lifestyleTemplateId: '',
+        areas: [] as string[],
     })
     const update = (k: string, v: any) => setForm(f => ({ ...f, [k]: v }))
+    const [areaInput, setAreaInput] = useState('')
+    const [areaSuggestions, setAreaSuggestions] = useState<string[]>([])
 
     const { data: templates } = useQuery({
         queryKey: ['templates'],
         queryFn: () => templatesApi.getAll().then(r => r.data),
-        enabled: isTenant, // guests aren't authorized to fetch templates
+        enabled: isTenant,
     })
 
     useEffect(() => {
-        if (!panelOpen || !mapsReady || !addressInputRef.current || autocompleteRef.current) return
+        if (!panelOpen) {
+            autocompleteRef.current = null
+            return
+        }
+        if (!mapsReady || !addressInputRef.current || !isTenant) return
         const ac = new window.google.maps.places.Autocomplete(addressInputRef.current, {
             componentRestrictions: { country: 'my' },
             fields: ['formatted_address', 'geometry'],
@@ -179,7 +201,7 @@ export default function BrowsePage() {
                 lng: place.geometry.location.lng(),
             })
         })
-    }, [panelOpen, mapsReady])
+    }, [panelOpen, mapsReady, isTenant])
 
     const handleMapConfirm = useCallback((lat: number, lng: number, addr: string) => {
         setWorkplace({ address: addr, lat, lng })
@@ -197,15 +219,61 @@ export default function BrowsePage() {
         })
     }
 
+    const addArea = (area: string) => {
+        const trimmed = area.trim()
+        if (!trimmed) return
+        if (form.areas.some(a => a.toLowerCase() === trimmed.toLowerCase())) return
+        update('areas', [...form.areas, trimmed])
+        setAreaInput('')
+        setAreaSuggestions([])
+    }
+
+    const removeArea = (area: string) => update('areas', form.areas.filter(a => a !== area))
+
+    const onAreaInputChange = (val: string) => {
+        setAreaInput(val)
+        if (!val.trim()) { setAreaSuggestions([]); return }
+        const lower = val.toLowerCase()
+        setAreaSuggestions(MLY_PLACE_TYPE.filter(a => a.toLowerCase().includes(lower) && !form.areas.includes(a)).slice(0, 6))
+    }
+
     const coordsSet = workplace.lat != null && workplace.lng != null
+
+    // ── Outside-click closes panel ───────────────────────────────────────────
+    // FIX: two extra guards:
+    //   1. Google Places (.pac-container) is appended to <body> outside the panel ref — bail if click target is inside it.
+    //   2. Area suggestion buttons unmount before this fires, so document.contains() returns false for a legitimate
+    //      in-panel click — bail if the node has already been detached from the document.
+    const panelWrapRef = useRef<HTMLDivElement>(null)
+    useEffect(() => {
+        if (!panelOpen) return
+        function onClick(e: MouseEvent) {
+            if (showMapPicker) return
+            // Guard 1: Google Places dropdown lives outside the panel in <body>
+            if ((e.target as Element)?.closest?.('.pac-container')) return
+            // Guard 2: area-suggestion buttons unmount (DOM detached) before this runs
+            if (!document.contains(e.target as Node)) return
+            if (panelWrapRef.current && !panelWrapRef.current.contains(e.target as Node)) setPanelOpen(false)
+        }
+        document.addEventListener('mousedown', onClick)
+        return () => document.removeEventListener('mousedown', onClick)
+    }, [panelOpen, showMapPicker])
 
     const handleSearchSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!user) {
-            authModal.open({ intentMessage: 'Sign in to get personalized match scores based on commute and lifestyle.' })
+        if (!user || !isTenant) {
+            setBasicFilters({
+                rooms: form.rooms ? parseInt(form.rooms) : undefined,
+                toilets: form.toilets ? parseInt(form.toilets) : undefined,
+                priceMin: form.priceMin ? parseFloat(form.priceMin) : undefined,
+                priceMax: form.priceMax ? parseFloat(form.priceMax) : undefined,
+                residencyTypes: form.residencyTypes.length ? form.residencyTypes : undefined,
+                areas: form.areas.length ? form.areas : undefined,
+            })
+            setPanelOpen(false)
+            document.getElementById('browse-results')?.scrollIntoView({ behavior: 'smooth' })
             return
         }
-        if (!isTenant) return // agents/admins don't run tenant matches
 
         setError('')
         if (workplace.lat == null || workplace.lng == null) {
@@ -225,6 +293,7 @@ export default function BrowsePage() {
         if (form.priceMin) req.priceMin = parseFloat(form.priceMin)
         if (form.priceMax) req.priceMax = parseFloat(form.priceMax)
         if (form.lifestyleTemplateId) req.lifestyleTemplateId = form.lifestyleTemplateId
+        if (form.areas.length > 0) req.areas = form.areas
 
         setLoading(true)
         try {
@@ -302,147 +371,216 @@ export default function BrowsePage() {
                 <h1>Find your next home</h1>
                 <p>Search by commute time, budget, and the lifestyle that fits you — not just rooms and price.</p>
 
-                <div className="search-bar-shell" onClick={() => setPanelOpen(true)} role="button">
-                    <Search size={18} color="var(--primary)" />
-                    <span className="search-bar-segment" style={{ textAlign: 'left' }}>{searchSummary}</span>
-                    <ChevronDown size={16} color="var(--text-dim)" style={{ transform: panelOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
-                    <button type="button" className="btn btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); setPanelOpen(true) }}>
-                        Search
-                    </button>
-                </div>
-            </div>
+                <div className="search-bar-wrap" ref={panelWrapRef}>
+                    <div className="search-bar-shell" onClick={() => setPanelOpen(o => !o)} role="button">
+                        <Search size={18} color="var(--primary)" />
+                        <span className="search-bar-segment" style={{ textAlign: 'left' }}>{searchSummary}</span>
+                        <ChevronDown size={16} color="var(--text-dim)" style={{ transform: panelOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
+                        <button type="button" className="btn btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); setPanelOpen(o => !o) }}>
+                            Search
+                        </button>
+                    </div>
 
-            {panelOpen && (
-                <div className="search-panel" onClick={e => e.stopPropagation()}>
-                    {!user && (
-                        <div style={{ padding: '10px 14px', borderRadius: 'var(--radius)', background: 'var(--primary-dim)', color: 'var(--primary)', fontSize: '0.85rem', marginBottom: 16 }}>
-                            You can fill this out as a guest — sign in when you hit Search to see your personalized matches.
-                        </div>
-                    )}
-                    <form onSubmit={handleSearchSubmit}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                            {/* Property basics */}
-                            <div>
-                                <h3 style={{ marginBottom: 16, fontSize: '0.95rem', color: 'var(--text-muted)' }}>🏠 Property Requirements</h3>
-                                <div className="form-grid">
-                                    <div className="form-group">
-                                        <label className="form-label">Bedrooms</label>
-                                        <select className="select" value={form.rooms} onChange={e => update('rooms', e.target.value)}>
-                                            <option value="">Any</option>
-                                            {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}+</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">Bathrooms</label>
-                                        <select className="select" value={form.toilets} onChange={e => update('toilets', e.target.value)}>
-                                            <option value="">Any</option>
-                                            {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n}+</option>)}
-                                        </select>
-                                    </div>
+                    {panelOpen && (
+                        <div className="search-panel" onClick={e => e.stopPropagation()}>
+                            {!user && (
+                                <div style={{ padding: '10px 14px', borderRadius: 'var(--radius)', background: 'var(--primary-dim)', color: 'var(--primary)', fontSize: '0.85rem', marginBottom: 16 }}>
+                                    Browsing as a guest — you can filter listings freely. Sign in to unlock commute-based match scoring and lifestyle templates.
                                 </div>
-                                <div className="form-group" style={{ marginTop: 14 }}>
-                                    <label className="form-label">Property Type</label>
-                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                        <button type="button" onClick={() => update('residencyTypes', [])}
-                                            className={`btn btn-sm ${form.residencyTypes.length === 0 ? 'btn-primary' : 'btn-outline'}`}>Any</button>
-                                        {RESIDENCY_TYPES.map(t => (
-                                            <button key={t} type="button"
-                                                onClick={() => { const cur = form.residencyTypes; update('residencyTypes', cur.includes(t) ? cur.filter(x => x !== t) : [...cur, t]) }}
-                                                className={`btn btn-sm ${form.residencyTypes.includes(t) ? 'btn-primary' : 'btn-outline'}`}>
-                                                {t}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div className="form-grid" style={{ marginTop: 14 }}>
-                                    <div className="form-group">
-                                        <label className="form-label">Min Price (RM/mo)</label>
-                                        <input className="input" type="number" min={0} value={form.priceMin} onChange={e => update('priceMin', e.target.value)} placeholder="e.g. 1500" />
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">Max Price (RM/mo)</label>
-                                        <input className="input" type="number" min={0} value={form.priceMax} onChange={e => update('priceMax', e.target.value)} placeholder="e.g. 3500" />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="divider" style={{ margin: 0 }} />
-
-                            {/* Commute + Lifestyle — visible to everyone, gated for guests on submit */}
-                            <div
-                                className={!user ? 'gated-overlay' : undefined}
-                                onClick={!user ? () => authModal.open({ intentMessage: 'Sign in to set your commute and lifestyle preferences for personalized match scores.' }) : undefined}
-                            >
-                                <h3 style={{ marginBottom: 16, fontSize: '0.95rem', color: 'var(--text-muted)' }}>
-                                    <Car size={15} style={{ verticalAlign: 'middle', marginRight: 6 }} />Commute Preferences
-                                </h3>
-                                <div className="form-group">
-                                    <label className="form-label">Workplace Address</label>
-                                    <div style={{ display: 'flex', gap: 8 }}>
-                                        <div style={{ position: 'relative', flex: 1 }}>
-                                            <input ref={addressInputRef} className="input" type="text" autoComplete="off"
-                                                placeholder={mapsReady ? 'Start typing your workplace…' : 'Loading maps…'}
-                                                onInput={handleAddressType}
-                                                style={{ paddingRight: coordsSet ? 34 : undefined }} />
-                                            {coordsSet && <CheckCircle2 size={16} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--primary)', pointerEvents: 'none' }} />}
+                            )}
+                            <form onSubmit={handleSearchSubmit}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                                    {/* Property basics */}
+                                    <div>
+                                        <h3 style={{ marginBottom: 16, fontSize: '0.95rem', color: 'var(--text-muted)' }}>🏠 Property Requirements</h3>
+                                        <div className="form-grid">
+                                            <div className="form-group">
+                                                <label className="form-label">Bedrooms</label>
+                                                <select className="select" value={form.rooms} onChange={e => update('rooms', e.target.value)}>
+                                                    <option value="">Any</option>
+                                                    {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}+</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="form-group">
+                                                <label className="form-label">Bathrooms</label>
+                                                <select className="select" value={form.toilets} onChange={e => update('toilets', e.target.value)}>
+                                                    <option value="">Any</option>
+                                                    {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n}+</option>)}
+                                                </select>
+                                            </div>
                                         </div>
-                                        <button type="button" className="btn btn-outline" onClick={() => setShowMapPicker(true)} style={{ flexShrink: 0 }}>
-                                            <MapPin size={14} /> Map
+                                        <div className="form-group" style={{ marginTop: 14 }}>
+                                            <label className="form-label">Property Type</label>
+                                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                                <button type="button" onClick={() => update('residencyTypes', [])}
+                                                    className={`btn btn-sm ${form.residencyTypes.length === 0 ? 'btn-primary' : 'btn-outline'}`}>Any</button>
+                                                {RESIDENCY_TYPES.map(t => (
+                                                    <button key={t} type="button"
+                                                        onClick={() => { const cur = form.residencyTypes; update('residencyTypes', cur.includes(t) ? cur.filter(x => x !== t) : [...cur, t]) }}
+                                                        className={`btn btn-sm ${form.residencyTypes.includes(t) ? 'btn-primary' : 'btn-outline'}`}>
+                                                        {t}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className="form-grid" style={{ marginTop: 14 }}>
+                                            <div className="form-group">
+                                                <label className="form-label">Min Price (RM/mo)</label>
+                                                <input className="input" type="number" min={0} value={form.priceMin} onChange={e => update('priceMin', e.target.value)} placeholder="e.g. 1500" />
+                                            </div>
+                                            <div className="form-group">
+                                                <label className="form-label">Max Price (RM/mo)</label>
+                                                <input className="input" type="number" min={0} value={form.priceMax} onChange={e => update('priceMax', e.target.value)} placeholder="e.g. 3500" />
+                                            </div>
+                                        </div>
+
+                                        {/* Property Area */}
+                                        <div className="form-group" style={{ marginTop: 14 }}>
+                                            <label className="form-label">Property Area <span style={{ fontWeight: 400, color: 'var(--text-dim)', marginLeft: 6 }}>— multi-select or type your own</span></label>
+                                            <div style={{ position: 'relative' }}>
+                                                <input
+                                                    className="input"
+                                                    placeholder="Type area (e.g. Cheras, Mont Kiara…)"
+                                                    value={areaInput}
+                                                    onChange={e => onAreaInputChange(e.target.value)}
+                                                    onKeyDown={e => {
+                                                        if ((e.key === 'Enter' || e.key === ',') && areaInput.trim()) {
+                                                            e.preventDefault()
+                                                            addArea(areaInput)
+                                                        }
+                                                    }}
+                                                />
+                                                {areaSuggestions.length > 0 && (
+                                                    <div style={{
+                                                        position: 'absolute', top: '100%', left: 0, right: 0,
+                                                        background: 'var(--bg-card)', border: '1px solid var(--border)',
+                                                        borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)',
+                                                        zIndex: 300, maxHeight: 200, overflowY: 'auto',
+                                                    }}>
+                                                        {areaSuggestions.map(s => (
+                                                            <button key={s} type="button"
+                                                                onMouseDown={e => { e.preventDefault(); addArea(s) }}
+                                                                style={{
+                                                                    display: 'block', width: '100%', textAlign: 'left',
+                                                                    padding: '8px 14px', border: 'none', background: 'none',
+                                                                    cursor: 'pointer', fontSize: '0.875rem', color: 'var(--text)',
+                                                                }}
+                                                                onMouseEnter={e => (e.currentTarget.style.background = 'var(--primary-dim)')}
+                                                                onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                                                            >{s}</button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {form.areas.length > 0 && (
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                                                    {form.areas.map(a => (
+                                                        <span key={a} style={{
+                                                            display: 'inline-flex', alignItems: 'center', gap: 4,
+                                                            background: 'var(--primary-dim)', color: 'var(--primary)',
+                                                            borderRadius: '999px', padding: '3px 10px', fontSize: '0.8rem', fontWeight: 600,
+                                                        }}>
+                                                            {a}
+                                                            <button type="button" onClick={() => removeArea(a)}
+                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', padding: '0 0 0 2px', lineHeight: 1 }}>
+                                                                <X size={11} />
+                                                            </button>
+                                                        </span>
+                                                    ))}
+                                                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => update('areas', [])}>Clear all</button>
+                                                </div>
+                                            )}
+                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: 4 }}>Press Enter or comma to add. Select from suggestions or type any custom area.</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="divider" style={{ margin: 0 }} />
+
+                                    {/* Commute — gated for guests */}
+                                    <div
+                                        className={!isTenant ? 'gated-overlay' : undefined}
+                                        onClick={!isTenant ? () => authModal.open({ intentMessage: 'Sign in as a tenant to use commute-based matching.' }) : undefined}
+                                    >
+                                        <h3 style={{ marginBottom: 16, fontSize: '0.95rem', color: 'var(--text-muted)' }}>
+                                            <Car size={15} style={{ verticalAlign: 'middle', marginRight: 6 }} />Commute Preferences
+                                        </h3>
+                                        <div className="form-group">
+                                            <label className="form-label">Workplace Address</label>
+                                            <div style={{ display: 'flex', gap: 8 }}>
+                                                <div style={{ position: 'relative', flex: 1 }}>
+                                                    <input ref={addressInputRef} className="input" type="text" autoComplete="off"
+                                                        placeholder={mapsReady ? 'Start typing your workplace…' : 'Loading maps…'}
+                                                        onInput={handleAddressType}
+                                                        style={{ paddingRight: coordsSet ? 34 : undefined }} />
+                                                    {coordsSet && <CheckCircle2 size={16} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--primary)', pointerEvents: 'none' }} />}
+                                                </div>
+                                                <button type="button" className="btn btn-outline" onClick={() => setShowMapPicker(true)} style={{ flexShrink: 0 }}>
+                                                    <MapPin size={14} /> Map
+                                                </button>
+                                            </div>
+                                            {coordsSet ? (
+                                                <p style={{ fontSize: '0.75rem', color: 'var(--primary)', marginTop: 5 }}>✓ Location confirmed · {workplace.lat!.toFixed(5)}, {workplace.lng!.toFixed(5)}</p>
+                                            ) : (
+                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: 5 }}>Select from the dropdown after typing, or click <strong>Map</strong> to pin manually.</p>
+                                            )}
+                                        </div>
+                                        <div className="form-group" style={{ marginTop: 14 }}>
+                                            <label className="form-label">Transport Mode <span style={{ fontWeight: 400, color: 'var(--text-dim)', marginLeft: 6, fontSize: '0.78rem' }}>(select all — best commute wins)</span></label>
+                                            <div style={{ display: 'flex', gap: 8 }}>
+                                                {TRANSPORT_MODES.map(m => {
+                                                    const active = form.transportModes.includes(m.value)
+                                                    return (
+                                                        <button key={m.value} type="button" onClick={() => toggleMode(m.value)}
+                                                            className={`btn btn-sm ${active ? 'btn-primary' : 'btn-outline'}`} style={{ flex: 1 }}>
+                                                            {m.icon} {m.label}
+                                                        </button>
+                                                    )
+                                                })}
+                                            </div>
+                                        </div>
+                                        <div className="form-group" style={{ marginTop: 14 }}>
+                                            <label className="form-label">
+                                                <Clock size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+                                                Max Bearable Commute: <strong style={{ color: 'var(--primary)' }}>{form.maxCommuteMinutes} min</strong>
+                                            </label>
+                                            <input type="range" min={10} max={120} step={5} value={form.maxCommuteMinutes}
+                                                onChange={e => update('maxCommuteMinutes', e.target.value)} style={{ width: '100%', accentColor: 'var(--primary)' }} />
+                                        </div>
+                                    </div>
+
+                                    <div className="divider" style={{ margin: 0 }} />
+
+                                    {/* Lifestyle template — gated */}
+                                    <div
+                                        className={!isTenant ? 'gated-overlay' : undefined}
+                                        onClick={!isTenant ? () => authModal.open({ intentMessage: 'Sign in as a tenant to create and apply lifestyle templates.' }) : undefined}
+                                    >
+                                        <h3 style={{ margin: '0 0 4px', fontSize: '0.95rem', color: 'var(--text-muted)' }}>✨ Lifestyle Template</h3>
+                                        <p style={{ fontSize: '0.82rem', color: 'var(--text-dim)', marginBottom: 10 }}>
+                                            Score properties based on nearby places. {isTenant && <a href="/lifestyle">Manage templates →</a>}
+                                        </p>
+                                        <select className="select" value={form.lifestyleTemplateId} onChange={e => update('lifestyleTemplateId', e.target.value)} disabled={!isTenant}>
+                                            <option value="">No lifestyle filter</option>
+                                            {templates?.map((t: any) => <option key={t.id} value={t.id}>{t.name} ({t.placeTypes.join(', ')})</option>)}
+                                        </select>
+                                    </div>
+
+                                    {error && (
+                                        <div style={{ padding: '12px 16px', background: 'var(--red-dim)', border: '1px solid var(--red)', borderRadius: 'var(--radius)', color: 'var(--red)', fontSize: '0.875rem' }}>{error}</div>
+                                    )}
+
+                                    <div style={{ display: 'flex', gap: 10 }}>
+                                        <button type="button" className="btn btn-ghost" onClick={() => setPanelOpen(false)}>Close</button>
+                                        <button type="submit" className="btn btn-primary btn-lg" disabled={loading} style={{ flex: 1, justifyContent: 'center' }}>
+                                            {loading ? <><span className="spinner" /> Finding matches…</> : <><Search size={16} /> {isTenant ? 'Search Properties' : 'Search Listings'}</>}
                                         </button>
                                     </div>
-                                    {coordsSet ? (
-                                        <p style={{ fontSize: '0.75rem', color: 'var(--primary)', marginTop: 5 }}>✓ Location confirmed · {workplace.lat!.toFixed(5)}, {workplace.lng!.toFixed(5)}</p>
-                                    ) : (
-                                        <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: 5 }}>Select from the dropdown after typing, or click <strong>Map</strong> to pin manually.</p>
-                                    )}
                                 </div>
-                                <div className="form-group" style={{ marginTop: 14 }}>
-                                    <label className="form-label">Transport Mode <span style={{ fontWeight: 400, color: 'var(--text-dim)', marginLeft: 6, fontSize: '0.78rem' }}>(select all — best commute wins)</span></label>
-                                    <div style={{ display: 'flex', gap: 8 }}>
-                                        {TRANSPORT_MODES.map(m => {
-                                            const active = form.transportModes.includes(m.value)
-                                            return (
-                                                <button key={m.value} type="button" onClick={() => toggleMode(m.value)}
-                                                    className={`btn btn-sm ${active ? 'btn-primary' : 'btn-outline'}`} style={{ flex: 1 }}>
-                                                    {m.icon} {m.label}
-                                                </button>
-                                            )
-                                        })}
-                                    </div>
-                                </div>
-                                <div className="form-group" style={{ marginTop: 14 }}>
-                                    <label className="form-label">
-                                        <Clock size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-                                        Max Bearable Commute: <strong style={{ color: 'var(--primary)' }}>{form.maxCommuteMinutes} min</strong>
-                                    </label>
-                                    <input type="range" min={10} max={120} step={5} value={form.maxCommuteMinutes}
-                                        onChange={e => update('maxCommuteMinutes', e.target.value)} style={{ width: '100%', accentColor: 'var(--primary)' }} />
-                                </div>
-
-                                <h3 style={{ margin: '20px 0 4px', fontSize: '0.95rem', color: 'var(--text-muted)' }}>✨ Lifestyle Template</h3>
-                                <p style={{ fontSize: '0.82rem', color: 'var(--text-dim)', marginBottom: 10 }}>
-                                    Score properties based on nearby places. {isTenant && <a href="/lifestyle">Manage templates →</a>}
-                                </p>
-                                <select className="select" value={form.lifestyleTemplateId} onChange={e => update('lifestyleTemplateId', e.target.value)} disabled={!isTenant}>
-                                    <option value="">No lifestyle filter</option>
-                                    {templates?.map((t: any) => <option key={t.id} value={t.id}>{t.name} ({t.placeTypes.join(', ')})</option>)}
-                                </select>
-                            </div>
-
-                            {error && (
-                                <div style={{ padding: '12px 16px', background: 'var(--red-dim)', border: '1px solid var(--red)', borderRadius: 'var(--radius)', color: 'var(--red)', fontSize: '0.875rem' }}>{error}</div>
-                            )}
-
-                            <div style={{ display: 'flex', gap: 10 }}>
-                                <button type="button" className="btn btn-ghost" onClick={() => setPanelOpen(false)}>Close</button>
-                                <button type="submit" className="btn btn-primary btn-lg" disabled={loading} style={{ flex: 1, justifyContent: 'center' }}>
-                                    {loading ? <><span className="spinner" /> Finding matches…</> : <><Search size={16} /> {user ? 'Search Properties' : 'Sign in to Search'}</>}
-                                </button>
-                            </div>
+                            </form>
                         </div>
-                    </form>
+                    )}
                 </div>
-            )}
+            </div>
 
             {showMapPicker && (
                 mapsReady
@@ -485,13 +623,16 @@ export default function BrowsePage() {
             </div>
 
             {/* Filters */}
-            <div style={{ padding: '20px 24px 0', display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div id="browse-results" style={{ padding: '20px 24px 0', display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
                 <input className="input" style={{ width: 280 }} placeholder="Search by name or address…" value={filter} onChange={e => setFilter(e.target.value)} />
                 <select className="input" style={{ width: 180 }} value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
                     <option value="">All Types</option>
                     {RESIDENCY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
                 <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{filtered.length} listing{filtered.length !== 1 ? 's' : ''}</span>
+                {basicFilters && (
+                    <button className="btn btn-ghost btn-sm" onClick={() => setBasicFilters(null)}>✕ Clear search filters</button>
+                )}
             </div>
 
             {/* Cards grid */}
