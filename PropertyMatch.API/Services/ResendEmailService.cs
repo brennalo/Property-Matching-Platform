@@ -236,4 +236,114 @@ public class ResendEmailService(HttpClient http, IConfiguration config)
 
         await SendAsync(toEmail, "Confirmed: Your Viewing Request has been Confirmed", html);
     }
+    /// <summary>
+    /// Sends a payment invoice to the agent after a successful token top-up.
+    /// </summary>
+    public async Task SendPaymentInvoiceAsync(
+        string toEmail, string agentName,
+        int tokensPurchased, decimal amountPaid,
+        int newBalance, DateTime purchasedAt)
+    {
+        var myt = TimeZoneInfo.ConvertTimeFromUtc(
+            purchasedAt,
+            TimeZoneInfo.FindSystemTimeZoneById("Asia/Kuala_Lumpur"));
+
+        decimal pricePerToken = tokensPurchased switch
+        {
+            >= 100 => 0.05m,
+            >= 50 => 0.07m,
+            _ => 0.10m
+        };
+
+        var invoiceNumber = $"PM-{purchasedAt:yyyyMMdd}-{tokensPurchased}";
+
+        var html = $"""
+            <!DOCTYPE html>
+            <html>
+            <body style="font-family: Arial, sans-serif; background: #0f0f0e; color: #e8e4de; padding: 40px;">
+              <div style="max-width: 560px; margin: 0 auto; background: #1c1b19; border-radius: 12px; padding: 36px; border: 1px solid #2e2d2b;">
+
+                <!-- Header -->
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; border-bottom: 1px solid #2e2d2b; padding-bottom: 20px;">
+                  <div>
+                    <h1 style="font-size: 1.6rem; color: #e8a045; margin: 0 0 4px 0;">PropertyMatch</h1>
+                    <p style="color: #6b6560; font-size: 0.8rem; margin: 0;">propertymatch.com</p>
+                  </div>
+                  <div style="text-align: right;">
+                    <p style="font-size: 1.1rem; font-weight: 700; color: #e8e4de; margin: 0 0 4px 0;">INVOICE</p>
+                    <p style="font-size: 0.78rem; color: #6b6560; margin: 0;">#{invoiceNumber}</p>
+                  </div>
+                </div>
+
+                <!-- Confirmation banner -->
+                <div style="background: #1a2a1a; border: 1px solid #2b6b2b; border-radius: 8px; padding: 12px 16px; margin-bottom: 24px;">
+                  <span style="color: #4caf50; font-weight: 700;">✓ Payment Successful — Tokens Credited</span>
+                </div>
+
+                <!-- Billed to -->
+                <div style="margin-bottom: 24px;">
+                  <p style="font-size: 0.75rem; color: #6b6560; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 6px 0;">Billed To</p>
+                  <p style="font-weight: 600; color: #e8e4de; margin: 0 0 2px 0;">{agentName}</p>
+                  <p style="font-size: 0.82rem; color: #b0aa9f; margin: 0;">{toEmail}</p>
+                </div>
+
+                <!-- Date -->
+                <div style="margin-bottom: 24px;">
+                  <p style="font-size: 0.75rem; color: #6b6560; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 6px 0;">Date of Purchase</p>
+                  <p style="font-size: 0.9rem; color: #e8e4de; margin: 0;">{myt:dddd, d MMMM yyyy} at {myt:h:mm tt} MYT</p>
+                </div>
+
+                <!-- Line items table -->
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                  <thead>
+                    <tr style="border-bottom: 1px solid #2e2d2b;">
+                      <th style="text-align: left; padding: 8px 0; font-size: 0.75rem; color: #6b6560; text-transform: uppercase; letter-spacing: 0.5px;">Description</th>
+                      <th style="text-align: center; padding: 8px 0; font-size: 0.75rem; color: #6b6560; text-transform: uppercase; letter-spacing: 0.5px;">Qty</th>
+                      <th style="text-align: right; padding: 8px 0; font-size: 0.75rem; color: #6b6560; text-transform: uppercase; letter-spacing: 0.5px;">Unit Price</th>
+                      <th style="text-align: right; padding: 8px 0; font-size: 0.75rem; color: #6b6560; text-transform: uppercase; letter-spacing: 0.5px;">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr style="border-bottom: 1px solid #2e2d2b;">
+                      <td style="padding: 12px 0; color: #e8e4de; font-size: 0.9rem;">
+                        PropertyMatch Tokens
+                        <br/><span style="font-size: 0.78rem; color: #b0aa9f;">1 token = 1 property listing</span>
+                      </td>
+                      <td style="padding: 12px 0; text-align: center; color: #e8e4de;">{tokensPurchased}</td>
+                      <td style="padding: 12px 0; text-align: right; color: #e8e4de;">RM {pricePerToken:0.0000}</td>
+                      <td style="padding: 12px 0; text-align: right; color: #e8e4de;">RM {amountPaid:0.00}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <!-- Total -->
+                <div style="border-top: 2px solid #e8a045; padding-top: 14px; margin-bottom: 28px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 0.9rem; color: #b0aa9f;">Total Paid</span>
+                    <span style="font-size: 1.3rem; font-weight: 700; color: #e8a045;">RM {amountPaid:0.00}</span>
+                  </div>
+                </div>
+
+                <!-- Token balance update -->
+                <div style="background: #1a1f2e; border: 1px solid #2b3a6b; border-radius: 8px; padding: 14px 16px; margin-bottom: 28px;">
+                  <p style="font-size: 0.78rem; color: #6b6560; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">Updated Token Balance</p>
+                  <p style="font-size: 1.2rem; font-weight: 700; color: #e8a045; margin: 0;">
+                    {newBalance} tokens
+                    <span style="font-size: 0.8rem; font-weight: 400; color: #b0aa9f; margin-left: 8px;">+{tokensPurchased} added</span>
+                  </p>
+                </div>
+
+                <!-- Footer -->
+                <p style="font-size: 0.78rem; color: #6b6560; margin: 0; line-height: 1.6;">
+                  Thank you for using PropertyMatch. This invoice is automatically generated upon successful payment.
+                  Tokens are non-refundable once credited to your account.
+                </p>
+
+              </div>
+            </body>
+            </html>
+            """;
+
+        await SendAsync(toEmail, $"PropertyMatch Invoice — {tokensPurchased} Tokens Purchased", html);
+    }
 }

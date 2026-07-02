@@ -16,8 +16,11 @@ export default function PaymentSuccessPage() {
             }}>
                 <CheckCircle2 size={52} color="var(--teal)" style={{ marginBottom: 16 }} />
                 <h2 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: 10 }}>Payment Successful!</h2>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: 24 }}>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: 12 }}>
                     Your tokens have been credited to your account. You can now upload property listings.
+                </p>
+                <p style={{ color: 'var(--text-dim)', fontSize: '0.8rem', marginBottom: 24 }}>
+                    📧 An invoice has been sent to your registered email address.
                 </p>
                 <div className="flex gap-3" style={{ justifyContent: 'center' }}>
                     <button className="btn btn-primary" onClick={() => navigate('/agent/topup')}>
