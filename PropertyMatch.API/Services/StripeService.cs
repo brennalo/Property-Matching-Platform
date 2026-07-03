@@ -144,7 +144,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace PropertyMatch.API.Services;
 
-public class StripeService(AppDbContext db, IConfiguration config)
+public class StripeService(AppDbContext db, IConfiguration config, ResendEmailService email)
 {
     /// <summary>
     /// Creates a Stripe Checkout Session for an agent to top up tokens.
@@ -275,7 +275,9 @@ public class StripeService(AppDbContext db, IConfiguration config)
             if (!int.TryParse(tokenAmountStr, out var tokenAmount)) return;
 
             // Credit tokens to agent wallet
-            var agent = await db.Agents.FirstOrDefaultAsync(a => a.UserId == agentId);
+            var agent = await db.Agents
+                .Include(a => a.User)
+                .FirstOrDefaultAsync(a => a.UserId == agentId);
             if (agent != null)
             {
                 agent.TokenBalance += tokenAmount;
@@ -291,6 +293,26 @@ public class StripeService(AppDbContext db, IConfiguration config)
             }
 
             await db.SaveChangesAsync();
+
+            // Send invoice email (fire-and-forget)
+            if (agent != null)
+            {
+                try
+                {
+                    await email.SendPaymentInvoiceAsync(
+                        agent.User.Email,
+                        agent.User.FullName,
+                        tokenAmount,
+                        payment?.Amount ?? 0,
+                        agent.TokenBalance,
+                        DateTime.UtcNow
+                    );
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"[Email] Invoice email failed: {ex}");
+                }
+            }
         }
     }
 }
