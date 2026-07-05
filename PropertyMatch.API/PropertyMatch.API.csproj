@@ -34,10 +34,6 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Migrations\" />
-    <Folder Include="wwwroot\uploads\16db0395-1aa6-4506-8875-239367991840\" />
-    <Folder Include="wwwroot\uploads\reports\" />
-    <Folder Include="wwwroot\uploads\reports\781427cb-97e4-42ea-8970-a3c6f33e9ff5\" />
-    <Folder Include="wwwroot\uploads\reports\91efccd0-b86a-49b3-806b-0aa570dc9779\" />
   </ItemGroup>
 	<Target Name="BuildFrontend" BeforeTargets="Build" Condition="'$(DOTNET_RUNNING_IN_CONTAINER)' != 'true'">
 		<Exec Command="rmdir /s /q wwwroot\assets" Condition="$([MSBuild]::IsOsPlatform('Windows'))" />
