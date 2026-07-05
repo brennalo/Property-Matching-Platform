@@ -1,9 +1,15 @@
 ﻿import { Building2, ArrowLeft } from 'lucide-react'
 import LoginForm from '../components/LoginForm'
-import { useNavigate } from 'react-router-dom'
-
+import { useNavigate, Navigate } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
 export default function LoginPage() {
     const navigate = useNavigate()
+    const { user, loading } = useAuth()
+
+    // If already logged in, redirect away — prevents back-button exploit
+    if (loading) return null
+    if (user) return <Navigate to="/" replace />
+
     return (
         <div style={{
             minHeight: '100vh', display: 'flex', alignItems: 'center',
