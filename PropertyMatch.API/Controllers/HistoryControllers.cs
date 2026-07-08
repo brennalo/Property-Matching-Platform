@@ -5,6 +5,8 @@ using PropertyMatch.API.Data;
 using PropertyMatch.API.DTOs;
 using PropertyMatch.API.Middleware;
 using PropertyMatch.API.Models;
+using Microsoft.AspNetCore.SignalR;
+using PropertyMatch.API.Hubs;
 
 namespace PropertyMatch.API.Controllers;
 
@@ -152,7 +154,7 @@ public class ViewHistoryController(AppDbContext db) : ControllerBase
 [ApiController]
 [Route("api/conversations")]
 [Authorize]
-public class ConversationsController(AppDbContext db) : ControllerBase
+public class ConversationsController(AppDbContext db, IHubContext<ChatHub> hub) : ControllerBase
 {
     // Tenant: open or get existing conversation for a listing
     [HttpPost("open")]
@@ -279,8 +281,16 @@ public class ConversationsController(AppDbContext db) : ControllerBase
         conv.LastMessageAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
 
-        return Ok(new MessageResponse(
-            msg.Id, msg.SenderId, msg.SenderRole, msg.Content, msg.IsRead, msg.CreatedAt));
+        var response = new MessageResponse(
+            msg.Id, msg.SenderId, msg.SenderRole, msg.Content, msg.IsRead, msg.CreatedAt);
+
+        await hub.Clients.Group(id.ToString()).SendAsync("NewMessage", response);
+
+        // Notify both participants to refresh their conversation list
+        await hub.Clients.Group($"user-{conv.TenantId}").SendAsync("ConversationUpdated");
+        await hub.Clients.Group($"user-{conv.AgentId}").SendAsync("ConversationUpdated");
+
+        return Ok(response);
     }
 }
 

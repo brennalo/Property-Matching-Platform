@@ -5,6 +5,7 @@ import { conversationsApi, reviewsApi, reportApi } from "../../api";
 import type { ConversationSummaryResponse, MessageResponse } from "../../types";
 import ReviewModal from "../../components/ReviewModal";
 import { MessageSquare, Send } from "lucide-react";
+import * as signalR from "@microsoft/signalr";
 
 export default function ConversationsPage() {
     const { user } = useAuth();
@@ -34,7 +35,6 @@ export default function ConversationsPage() {
     const { data: convs = [] } = useQuery<ConversationSummaryResponse[]>({
         queryKey: ["conversations"],
         queryFn: () => conversationsApi.getAll().then((r) => r.data),
-        refetchInterval: 10000,
     });
 
     const { data: messages = [] } = useQuery<MessageResponse[]>({
@@ -42,7 +42,6 @@ export default function ConversationsPage() {
         queryFn: () =>
             conversationsApi.getMessages(selectedId!).then((r) => r.data),
         enabled: !!selectedId,
-        refetchInterval: 5000,
     });
 
     const sendMut = useMutation({
@@ -84,6 +83,36 @@ export default function ConversationsPage() {
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
+
+    useEffect(() => {
+        if (!selectedId) return;
+
+        const BASE = import.meta.env.VITE_API_URL ?? "";
+        const conn = new signalR.HubConnectionBuilder()
+            .withUrl(`${BASE}/hubs/chat`, { withCredentials: true })
+            .withAutomaticReconnect()
+            .build();
+
+        conn.start()
+            .then(() => conn.invoke("JoinConversation", selectedId))
+            .catch(console.error);
+
+        conn.on("NewMessage", (msg: MessageResponse) => {
+            qc.setQueryData(
+                ["messages", selectedId],
+                (old: MessageResponse[] = []) => [...old, msg]
+            );
+            qc.invalidateQueries({ queryKey: ["conversations"] });
+        });
+
+        conn.on("ConversationUpdated", () => {
+            qc.invalidateQueries({ queryKey: ["conversations"] });
+        });
+
+        return () => {
+            conn.invoke("LeaveConversation", selectedId).finally(() => conn.stop());
+        };
+    }, [selectedId]);
 
     const selectedConversation = convs.find((c) => c.id === selectedId);
 
