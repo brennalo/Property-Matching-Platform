@@ -191,8 +191,9 @@ public class AuthController(
         Response.Cookies.Append("auth_token", token, new CookieOptions
         {
             HttpOnly = true,
-            Secure = false,   // set true in production
+            Secure = true,  
             SameSite = SameSiteMode.Lax,
+            Domain = ".propertymatchplatform.xyz",
             Expires = DateTimeOffset.UtcNow.AddDays(7),
         });
 
