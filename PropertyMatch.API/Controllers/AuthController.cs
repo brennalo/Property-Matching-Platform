@@ -193,7 +193,7 @@ public class AuthController(
             HttpOnly = true,
             Secure = true,  
             SameSite = SameSiteMode.Lax,
-            Domain = ".propertymatch.xyz",
+            Domain = ".propertymatchplatform.xyz",
             Expires = DateTimeOffset.UtcNow.AddDays(7),
         });
 
