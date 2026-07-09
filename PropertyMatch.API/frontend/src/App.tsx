@@ -187,6 +187,8 @@ function ProtectedRoute({
 function ResendFromBlockedPage({ email }: { email: string }) {
     const [sent, setSent] = useState(false);
     const [loading, setLoading] = useState(false);
+    const { logout } = useAuth();
+    const navigate = useNavigate();
 
     return (
         <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
@@ -212,9 +214,15 @@ function ResendFromBlockedPage({ email }: { email: string }) {
                     "Resend verification link"
                 )}
             </button>
-            <a href="/login" className="btn btn-ghost">
+            <button
+                className="btn btn-ghost"
+                onClick={async () => {
+                    await logout();
+                    navigate("/login");
+                }}
+            >
                 Sign out
-            </a>
+            </button>
         </div>
     );
 }
@@ -405,7 +413,7 @@ function RootRedirect() {
     if (!user) return <Navigate to="/browse" replace />;
 
     const lastPath = localStorage.getItem("lastPath");
-    if (lastPath && lastPath !== "/" && lastPath !== "/login") {
+    if (user.status !== "Pending" && lastPath && lastPath !== "/" && lastPath !== "/login") {
         return <Navigate to={lastPath} replace />;
     }
 
