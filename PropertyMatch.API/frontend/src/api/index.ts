@@ -22,9 +22,10 @@ import type {
     ScoringConfig,
 } from "../types";
 
+const BASE = import.meta.env.VITE_API_URL ?? "";
 const api = axios.create({
-    baseURL: "/api",
-    withCredentials: true, // send httpOnly cookies
+    baseURL: `${BASE}/api`,
+    withCredentials: true,
 });
 
 // ── Auth ────────────────────────────────────────────────────────────────────────

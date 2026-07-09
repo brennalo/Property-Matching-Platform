@@ -120,7 +120,6 @@ public class ResendEmailService(HttpClient http, IConfiguration config)
 
     /// <summary>
     /// Sends a 24-hour reminder to the tenant before their viewing.
-    /// Call this from a background job (e.g. Hangfire or a hosted service).
     /// </summary>
     public async Task SendViewingReminderToTenantAsync(
         string toEmail, string tenantName,

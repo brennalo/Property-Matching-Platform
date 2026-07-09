@@ -225,6 +225,26 @@ public class ListingsController(AppDbContext db, S3Service s3, GroqService groq)
         if (listing == null) return NotFound();
         if (files.Count == 0) return BadRequest(new { message = "No files provided" });
 
+        // ── Image content verification ──────────────────────────────
+        foreach (var file in files)
+        {
+            using var ms = new MemoryStream();
+            await file.CopyToAsync(ms);
+            var imageBytes = ms.ToArray();
+
+            try
+            {
+                var (isValid, reason) = await groq.CheckImageAsync(imageBytes, file.ContentType);
+                if (!isValid)
+                    return BadRequest(new { message = $"Image '{file.FileName}' was rejected: {reason}" });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return StatusCode(500, new { message = $"Image verification failed: {ex.Message}" });
+            }
+        }
+        // ────────────────────────────────────────────────────────────
+
         var urls = await s3.UploadListingImagesAsync(id, files);
         return Ok(new { urls });
     }
