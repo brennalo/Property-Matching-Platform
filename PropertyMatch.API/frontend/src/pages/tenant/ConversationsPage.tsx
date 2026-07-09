@@ -91,7 +91,7 @@ export default function ConversationsPage() {
         <div
             style={{
                 display: "flex",
-                height: "calc(100vh - 60px)",
+                height: "calc(100vh - 150px)",
                 overflow: "hidden",
             }}
         >
