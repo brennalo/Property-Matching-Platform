@@ -64,7 +64,6 @@ import {
     CalendarCheck,
     ClipboardCheck,
     LayoutDashboard,
-    Building,
     Settings,
     Flag,
     ChevronDown,
@@ -307,14 +306,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
                     PropertyMatch
                 </button>
 
-                {/* Public top-level nav for guests/tenants — Browse is the landing page for everyone */}
-                <nav className="topbar-nav">
-                    {(!user || user.role === "Tenant") && (
-                        <NavLink to="/browse" className={({ isActive }) => `topbar-link${isActive ? " active" : ""}`}>
-                            <Building size={15} /> Browse
-                        </NavLink>
-                    )}
-                </nav>
+                <div className="topbar-nav" />
 
                 <div className="topbar-actions">
                     {!user ? (
