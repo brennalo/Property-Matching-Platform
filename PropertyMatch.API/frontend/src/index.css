@@ -318,6 +318,16 @@ a {
     font-size: 1rem;
 }
 
+.btn-delete {
+    background: var(--teal-dim);
+    color: var(--teal);
+}
+
+    .btn-delete:hover:not(:disabled) {
+        background: var(--teal);
+        color: #fff;
+    }
+
 /* ── Forms ───────────────────────────────────────────────────────────── */
 .form-group {
     display: flex;
@@ -413,6 +423,11 @@ textarea {
 .badge-purple {
     background: #f1ebfc;
     color: #7c3aed;
+}
+
+.badge-red {
+    background: var(--red-dim);
+    color: var(--red);
 }
 
 /* ── Score bars / ring ───────────────────────────────────────────────── */

@@ -73,6 +73,16 @@ export default function ConversationsPage() {
             showToast(e.response?.data?.message ?? "Failed to submit report.", "error"),
     });
 
+    const deleteMut = useMutation({
+        mutationFn: () => conversationsApi.delete(selectedId!),
+        onSuccess: () => {
+            setSelectedId(null);
+            qc.invalidateQueries({ queryKey: ["conversations"] });
+            showToast("Conversation deleted", "success");
+        },
+        onError: () => showToast("Failed to delete conversation", "error"),
+    });
+
     const closeReportModal = () => {
         setShowReport(false);
         setReportTarget(null);
@@ -264,6 +274,18 @@ export default function ConversationsPage() {
                                         }}
                                     >
                                         Report
+                                    </button>
+
+                                    <button
+                                        className="btn btn-delete btn-sm"
+                                        disabled={deleteMut.isPending}
+                                        onClick={() => {
+                                            if (confirm("Delete this conversation? This cannot be undone.")) {
+                                                deleteMut.mutate();
+                                            }
+                                        }}
+                                    >
+                                        Delete
                                     </button>
                                 </div>
                             )}
