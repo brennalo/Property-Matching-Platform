@@ -331,6 +331,8 @@ export const conversationsApi = {
         api.get(`/conversations/${conversationId}/messages`),
     sendMessage: (conversationId: string, content: string) =>
         api.post(`/conversations/${conversationId}/messages`, { content }),
+    delete: (conversationId: string) =>
+        api.delete(`/conversations/${conversationId}`),
 };
 
 // ── Browse (public landing page) ───────────────────────────────────────────────

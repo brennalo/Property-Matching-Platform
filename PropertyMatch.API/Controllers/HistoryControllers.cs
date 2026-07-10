@@ -292,6 +292,37 @@ public class ConversationsController(AppDbContext db, IHubContext<ChatHub> hub) 
 
         return Ok(response);
     }
+
+    [HttpDelete("{id:guid}")]
+    [Authorize]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        var userId = User.GetUserId();
+
+        var conversation = await db.Conversations
+            .Include(c => c.Messages)
+            .FirstOrDefaultAsync(c => c.Id == id);
+
+        if (conversation == null)
+            return NotFound();
+
+        // Only participants may delete
+        if (conversation.TenantId != userId &&
+            conversation.AgentId != userId)
+        {
+            return Forbid();
+        }
+
+        db.Messages.RemoveRange(conversation.Messages);
+        db.Conversations.Remove(conversation);
+
+        await db.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = "Conversation deleted."
+        });
+    }
 }
 
 // ── Public: Listing map data ──────────────────────────────────────────────────

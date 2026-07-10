@@ -64,7 +64,6 @@ import {
     CalendarCheck,
     ClipboardCheck,
     LayoutDashboard,
-    Building,
     Settings,
     Flag,
     ChevronDown,
@@ -187,6 +186,8 @@ function ProtectedRoute({
 function ResendFromBlockedPage({ email }: { email: string }) {
     const [sent, setSent] = useState(false);
     const [loading, setLoading] = useState(false);
+    const { logout } = useAuth();
+    const navigate = useNavigate();
 
     return (
         <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
@@ -212,9 +213,15 @@ function ResendFromBlockedPage({ email }: { email: string }) {
                     "Resend verification link"
                 )}
             </button>
-            <a href="/login" className="btn btn-ghost">
+            <button
+                className="btn btn-ghost"
+                onClick={async () => {
+                    await logout();
+                    navigate("/login");
+                }}
+            >
                 Sign out
-            </a>
+            </button>
         </div>
     );
 }
@@ -299,14 +306,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
                     PropertyMatch
                 </button>
 
-                {/* Public top-level nav for guests/tenants — Browse is the landing page for everyone */}
-                <nav className="topbar-nav">
-                    {(!user || user.role === "Tenant") && (
-                        <NavLink to="/browse" className={({ isActive }) => `topbar-link${isActive ? " active" : ""}`}>
-                            <Building size={15} /> Browse
-                        </NavLink>
-                    )}
-                </nav>
+                <div className="topbar-nav" />
 
                 <div className="topbar-actions">
                     {!user ? (
@@ -405,7 +405,7 @@ function RootRedirect() {
     if (!user) return <Navigate to="/browse" replace />;
 
     const lastPath = localStorage.getItem("lastPath");
-    if (lastPath && lastPath !== "/" && lastPath !== "/login") {
+    if (user.status !== "Pending" && lastPath && lastPath !== "/" && lastPath !== "/login") {
         return <Navigate to={lastPath} replace />;
     }
 

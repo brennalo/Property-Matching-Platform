@@ -19,9 +19,9 @@
     --accent: var(--primary); /* legacy alias used throughout pages */
     --accent-hi: var(--primary-hi);
     --accent-dim: var(--primary-dim);
-    --green: #9be95b; /* kept as alias so "success/match" classes still resolve */
-    --green-hi: lab(91.29% -28.04 43.22);
-    --green-dim: #fff1e6;
+    --green: #84e139; /* kept as alias so "success/match" classes still resolve */
+    --green-hi: lab(58 -34.3 56.13);
+    --green-dim: #eaffd8;
     --teal: #6b7280;
     --teal-dim: #f1f2f4;
     --red: #dc2626;
@@ -213,7 +213,7 @@ a {
 .main-content {
     max-width: 1280px;
     margin: 0 auto;
-    padding: 28px 24px 60px;
+    padding: 20px 24px 20px;
 }
 
 .main-content-wide {
@@ -318,6 +318,16 @@ a {
     font-size: 1rem;
 }
 
+.btn-delete {
+    background: var(--teal-dim);
+    color: var(--teal);
+}
+
+    .btn-delete:hover:not(:disabled) {
+        background: var(--teal);
+        color: #fff;
+    }
+
 /* ── Forms ───────────────────────────────────────────────────────────── */
 .form-group {
     display: flex;
@@ -413,6 +423,11 @@ textarea {
 .badge-purple {
     background: #f1ebfc;
     color: #7c3aed;
+}
+
+.badge-red {
+    background: var(--red-dim);
+    color: var(--red);
 }
 
 /* ── Score bars / ring ───────────────────────────────────────────────── */
