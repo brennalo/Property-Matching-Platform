@@ -78,21 +78,27 @@ public class GroqService(IConfiguration config, HttpClient httpClient)
 
         var requestBody = new
         {
-            model = "meta-llama/llama-4-scout-17b-16e-instruct",
+            //model = "meta-llama/llama-4-scout-17b-16e-instruct",
+            model = "qwen/qwen3.6-27b",
             messages = new object[]
             {
             new
+        {
+            role = "system",
+            content = "You are an image classifier. You MUST respond with ONLY a raw JSON object. No thinking, no explanation, no markdown. Just JSON."
+        },
+        new
+        {
+            role = "user",
+            content = new object[]
             {
-                role = "user",
-                content = new object[]
-                {
-                    new { type = "text", text = "Is this image a photo of a house, apartment, room, or property listing (interior or exterior)? Also check if it contains any inappropriate, vulgar, or explicit content. Respond with ONLY a JSON object in this exact format: {\"isProperty\": true/false, \"isAppropriate\": true/false, \"reason\": \"brief explanation\"}" },
-                    new { type = "image_url", image_url = new { url = dataUrl } }
-                }
+                new { type = "text", text = "Classify this image. Return ONLY this JSON: {\"isProperty\": true/false, \"isAppropriate\": true/false, \"reason\": \"one sentence\"}. isProperty is true if the image shows any residential property interior or exterior. isAppropriate is true if no explicit content." },
+                new { type = "image_url", image_url = new { url = dataUrl } }
             }
-            },
-            temperature = 0.2,
-            max_tokens = 150
+        }
+    },
+            temperature = 0.1,
+            max_tokens = 1024
         };
 
         var json = JsonSerializer.Serialize(requestBody);
@@ -116,10 +122,29 @@ public class GroqService(IConfiguration config, HttpClient httpClient)
         using var doc = JsonDocument.Parse(responseBody);
 
         var text = doc.RootElement
-            .GetProperty("choices")[0]
-            .GetProperty("message")
-            .GetProperty("content")
-            .GetString() ?? "";
+        .GetProperty("choices")[0]
+        .GetProperty("message")
+        .GetProperty("content")
+        .GetString() ?? "";
+
+        // DEBUG: log raw response
+        System.Diagnostics.Debug.WriteLine($"[Groq Vision Raw Response]: {text}");
+        Console.Error.WriteLine($"[Groq Vision Raw Response]: {text}");
+
+        // Strip thinking tags if present — try closing tag first, then fallback to last } in raw text
+        var thinkEnd = text.IndexOf("</think>");
+        if (thinkEnd != -1)
+        {
+            text = text.Substring(thinkEnd + 8).Trim();
+        }
+        else
+        {
+            // Model cut off mid-think — extract JSON directly from raw text
+            var fallbackStart = text.LastIndexOf("{\"isProperty\"");
+            if (fallbackStart == -1) fallbackStart = text.LastIndexOf("{\"is");
+            if (fallbackStart != -1)
+                text = text.Substring(fallbackStart);
+        }
 
         // Extract JSON from response (in case model adds extra text)
         var jsonStart = text.IndexOf('{');
@@ -139,8 +164,9 @@ public class GroqService(IConfiguration config, HttpClient httpClient)
             var isValid = isProperty && isAppropriate;
             return (isValid, reason);
         }
-        catch
+        catch (Exception ex)
         {
+            Console.Error.WriteLine($"[Groq Vision Parse Error]: {ex.Message} | Raw JSON: {jsonStr}");
             return (false, "Could not parse image verification result");
         }
     }
