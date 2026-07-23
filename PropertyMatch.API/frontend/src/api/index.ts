@@ -22,9 +22,10 @@ import type {
     ScoringConfig,
 } from "../types";
 
+const BASE = import.meta.env.VITE_API_URL ?? "";
 const api = axios.create({
-    baseURL: "/api",
-    withCredentials: true, // send httpOnly cookies
+    baseURL: `${BASE}/api`,
+    withCredentials: true,
 });
 
 // ── Auth ────────────────────────────────────────────────────────────────────────
@@ -330,6 +331,8 @@ export const conversationsApi = {
         api.get(`/conversations/${conversationId}/messages`),
     sendMessage: (conversationId: string, content: string) =>
         api.post(`/conversations/${conversationId}/messages`, { content }),
+    delete: (conversationId: string) =>
+        api.delete(`/conversations/${conversationId}`),
 };
 
 // ── Browse (public landing page) ───────────────────────────────────────────────

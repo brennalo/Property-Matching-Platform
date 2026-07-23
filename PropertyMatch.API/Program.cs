@@ -12,6 +12,7 @@ using OfficeOpenXml;
 using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Http.Features;
 using PropertyMatch.API.Models;
+using PropertyMatch.API.Hubs;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -66,8 +67,10 @@ builder.Services.AddCors(opt =>
     opt.AddPolicy("Frontend", policy =>
         policy
             .WithOrigins(
-                builder.Configuration["Cors:AllowedOrigin"] ?? "http://localhost:5173",
-                "http://localhost:3000")
+                builder.Configuration["Cors:AllowedOrigin"] ?? 
+                "http://localhost:5173",
+                "http://localhost:3000",
+                "https://app.propertymatch.xyz")
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials()));
@@ -104,6 +107,7 @@ builder.Services.Configure<FormOptions>(options =>
     options.MemoryBufferThreshold = int.MaxValue;
 });
 
+builder.Services.AddSignalR();
 builder.Services.AddControllers()
     .AddJsonOptions(opts =>
     {
@@ -152,6 +156,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<ChatHub>("/hubs/chat");
 
 // Static files and SPA fallback come AFTER API routes
 app.UseDefaultFiles();

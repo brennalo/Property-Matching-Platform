@@ -16,6 +16,7 @@ public class S3Service
     private readonly bool _useS3;
     private readonly string _uploadPath;
     private readonly string? _bucket;
+    private readonly string? _cdnBaseUrl;
     private const int MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20MB
 
     public S3Service(AppDbContext db, IConfiguration config, IWebHostEnvironment env, IAmazonS3? s3Client = null)
@@ -32,6 +33,7 @@ public class S3Service
         {
             _bucket = _config["Storage:S3:BucketName"]
                 ?? throw new InvalidOperationException("Storage:S3:BucketName not configured");
+            _cdnBaseUrl = _config["Storage:CdnBaseUrl"]; 
         }
         else
         {
@@ -87,7 +89,9 @@ public class S3Service
                 };
 
                 await _s3Client.PutObjectAsync(uploadRequest);
-                url = $"https://{_bucket}.s3.ap-southeast-1.amazonaws.com/{key}";
+                url = !string.IsNullOrEmpty(_cdnBaseUrl)
+                    ? $"{_cdnBaseUrl}/{key}"
+                    : $"https://{_bucket}.s3.ap-southeast-1.amazonaws.com/{key}";
             }
             else
             {
@@ -212,8 +216,10 @@ public class S3Service
 
         };
         await _s3Client.PutObjectAsync(uploadRequest);
-        url = $"https://{_bucket}.s3.ap-southeast-1.amazonaws.com/{key}";
-    }
+        url = !string.IsNullOrEmpty(_cdnBaseUrl)
+                            ? $"{_cdnBaseUrl}/{key}"
+                            : $"https://{_bucket}.s3.ap-southeast-1.amazonaws.com/{key}";
+        }
     else
     {
         // Local fallback
@@ -267,7 +273,9 @@ public class S3Service
                 });
 
                 var region = _config["AWS:Region"] ?? "ap-southeast-1";
-                url = $"https://{_bucket}.s3.{region}.amazonaws.com/{key}";
+                url = !string.IsNullOrEmpty(_cdnBaseUrl)
+                                    ? $"{_cdnBaseUrl}/{key}"
+                                    : $"https://{_bucket}.s3.ap-southeast-1.amazonaws.com/{key}";
             }
             else
             {

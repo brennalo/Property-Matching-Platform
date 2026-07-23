@@ -46,11 +46,11 @@ public class MatchingService(
     {
         // ── Numeric score (40%) ───────────────────────────────────────────────
         // Weights redistributed to make room for area scoring (total still = 100):
-        //   Rooms       : 20  (was 25)
-        //   Toilets     : 12  (was 15)
-        //   Type        : 18  (was 20)
-        //   Price       : 35  (was 40)
-        //   Area        : 15  (new)
+        //   Rooms       : 20 
+        //   Toilets     : 12  
+        //   Type        : 18  
+        //   Price       : 35  
+        //   Area        : 15  
         //   ──────────────────
         //   Total max   : 100
         double numericScore = 0;
@@ -138,7 +138,7 @@ public class MatchingService(
             var categoryScores = placeTypes.Select(pt =>
             {
                 var count = lifestylePlaces.TryGetValue(pt, out var list) ? list.Count : 0;
-                return Math.Min(count / 3.0, 1.0) * 100;
+                return count >= 19 ? 100 : count >= 10 ? 70 : count >= 5 ? 30 : 0;
             });
             lifestyleScore = categoryScores.Average();
         }
